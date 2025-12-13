@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "133972345346",
+    "project_id": "whispertype-1de9f",
+    "storage_bucket": "whispertype-1de9f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:133972345346:android:9d55422c8dbb53ce041d1b",
+        "android_client_info": {
+          "package_name": "com.whispertype.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "133972345346-sgfb3qpjm2sbvl6h5u4nububfnan1ms9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACkw6sTc0UpI8TSVaY7Taxc3G7iBP5AAQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "133972345346-sgfb3qpjm2sbvl6h5u4nububfnan1ms9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

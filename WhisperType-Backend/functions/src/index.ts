@@ -10,10 +10,71 @@
 import {setGlobalOptions} from "firebase-functions";
 import {onRequest} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import * as admin from "firebase-admin";
 import OpenAI from "openai";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+
+// Initialize Firebase Admin
+admin.initializeApp();
+const db = admin.firestore();
+
+/**
+ * Verify Firebase ID token from Authorization header
+ * @param {string | undefined} authHeader - The Authorization header value
+ * @return {Promise<admin.auth.DecodedIdToken | null>} Decoded token or null
+ */
+async function verifyAuthToken(
+  authHeader: string | undefined
+): Promise<admin.auth.DecodedIdToken | null> {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    logger.warn("Missing or invalid Authorization header");
+    return null;
+  }
+
+  const idToken = authHeader.split("Bearer ")[1];
+  if (!idToken) {
+    logger.warn("Empty token after Bearer prefix");
+    return null;
+  }
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    return decodedToken;
+  } catch (error) {
+    logger.warn("Failed to verify token", error);
+    return null;
+  }
+}
+
+/**
+ * Log transcription request to Firestore
+ * @param {string} uid - User ID
+ * @param {boolean} success - Whether the transcription was successful
+ * @param {number} durationMs - Processing time in milliseconds
+ * @return {Promise<void>} Promise that resolves when logging is complete
+ */
+async function logTranscriptionRequest(
+  uid: string,
+  success: boolean,
+  durationMs: number
+): Promise<void> {
+  try {
+    await db.collection("transcriptions").add({
+      uid: uid,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      success: success,
+      durationMs: durationMs,
+    });
+    logger.info(
+      `Logged transcription request for user ${uid}, success=${success}`
+    );
+  } catch (error) {
+    // Don't fail the request if logging fails
+    logger.error("Failed to log transcription request", error);
+  }
+}
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -50,6 +111,9 @@ export const health = onRequest((request, response) => {
 export const transcribeAudio = onRequest(
   {secrets: ["OPENAI_API_KEY"]},
   async (request, response) => {
+    const startTime = Date.now();
+    let uid: string | null = null;
+
     try {
       // Only allow POST requests
       if (request.method !== "POST") {
@@ -57,9 +121,25 @@ export const transcribeAudio = onRequest(
         return;
       }
 
+      // Verify Firebase Auth token
+      const authHeader = request.headers.authorization;
+      const decodedToken = await verifyAuthToken(authHeader);
+
+      if (!decodedToken) {
+        response.status(401).json({
+          error: "Unauthorized: Invalid or missing authentication token",
+        });
+        return;
+      }
+
+      uid = decodedToken.uid;
+      logger.info(`Authenticated request from user: ${uid}`);
+
       // Validate request body
       const {audioBase64, audioFormat = "m4a"} = request.body;
       if (!audioBase64 || typeof audioBase64 !== "string") {
+        // Log failed request
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
         response.status(400).json({
           error: "Missing or invalid audioBase64 field in request body",
         });
@@ -120,6 +200,11 @@ export const transcribeAudio = onRequest(
         // Clean up temporary file
         fs.unlinkSync(tempFilePath);
 
+        // Log successful request
+        if (uid) {
+          await logTranscriptionRequest(uid, true, Date.now() - startTime);
+        }
+
         // Return transcription
         response.status(200).json({
           text: transcription.text,
@@ -131,12 +216,24 @@ export const transcribeAudio = onRequest(
         }
 
         logger.error("Error processing audio transcription", error);
+
+        // Log failed request
+        if (uid) {
+          await logTranscriptionRequest(uid, false, Date.now() - startTime);
+        }
+
         response.status(500).json({
           error: "Failed to transcribe audio",
         });
       }
     } catch (error) {
       logger.error("Unexpected error in transcribeAudio", error);
+
+      // Log failed request if we have a uid
+      if (uid) {
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
+      }
+
       response.status(500).json({
         error: "Internal server error",
       });

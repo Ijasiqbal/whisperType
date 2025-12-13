@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import com.whispertype.app.api.WhisperApiClient
 import com.whispertype.app.audio.AudioProcessor
 import com.whispertype.app.audio.AudioRecorder
+import com.whispertype.app.auth.FirebaseAuthManager
 import kotlinx.coroutines.*
 import java.io.File
 
@@ -48,11 +49,19 @@ class SpeechRecognitionHelper(
     private val audioRecorder = AudioRecorder(context)
     private val audioProcessor = AudioProcessor(context)
     private val whisperApiClient = WhisperApiClient()
+    private val authManager = FirebaseAuthManager()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val processingScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     
     private var isListening = false
     private var pendingAudioBytes: ByteArray? = null
+
+    init {
+        // Sign in anonymously on initialization
+        processingScope.launch {
+            authManager.ensureSignedIn()
+        }
+    }
 
     /**
      * Callback interface for speech recognition events
@@ -188,10 +197,10 @@ class SpeechRecognitionHelper(
                 processingScope.launch {
                     try {
                         val inputFile = File(outputFilePath)
-                        val processedFile = audioProcessor.trimSilence(inputFile)
+                        val processedResult = audioProcessor.trimSilence(inputFile)
                         
                         // Read processed audio bytes
-                        val processedBytes = processedFile.readBytes()
+                        val processedBytes = processedResult.file.readBytes()
                         val savedPercent = if (originalSize > 0) {
                             ((originalSize - processedBytes.size) * 100 / originalSize)
                         } else 0
@@ -210,8 +219,8 @@ class SpeechRecognitionHelper(
                             callback.onPartialResults("⏳ Transcribing...")
                         }
                         
-                        // Send processed audio to API (WAV format)
-                        transcribeAudio(processedBytes, "wav")
+                        // Send processed audio to API with correct format
+                        transcribeAudio(processedBytes, processedResult.format)
                         
                     } catch (e: Exception) {
                         Log.e(TAG, "Error processing audio, sending original", e)
@@ -237,21 +246,43 @@ class SpeechRecognitionHelper(
     private fun transcribeAudio(audioBytes: ByteArray, audioFormat: String = "m4a") {
         Log.d(TAG, "Sending audio to WhisperType API, format: $audioFormat")
 
-        whisperApiClient.transcribe(audioBytes, audioFormat, object : WhisperApiClient.TranscriptionCallback {
-            override fun onSuccess(text: String) {
-                Log.d(TAG, "Transcription successful: ${text.take(50)}...")
+        // Get auth token asynchronously, then make API call
+        processingScope.launch {
+            // Ensure signed in
+            val user = authManager.ensureSignedIn()
+            if (user == null) {
                 mainHandler.post {
-                    callback.onResults(text)
+                    callback.onError("Authentication failed. Please restart the app.")
                 }
+                return@launch
             }
 
-            override fun onError(error: String) {
-                Log.e(TAG, "Transcription error: $error")
+            // Get ID token
+            val token = authManager.getIdToken()
+            if (token == null) {
                 mainHandler.post {
-                    callback.onError(error)
+                    callback.onError("Failed to get authentication token.")
                 }
+                return@launch
             }
-        })
+
+            // Make API call with auth token
+            whisperApiClient.transcribe(audioBytes, token, audioFormat, object : WhisperApiClient.TranscriptionCallback {
+                override fun onSuccess(text: String) {
+                    Log.d(TAG, "Transcription successful: ${text.take(50)}...")
+                    mainHandler.post {
+                        callback.onResults(text)
+                    }
+                }
+
+                override fun onError(error: String) {
+                    Log.e(TAG, "Transcription error: $error")
+                    mainHandler.post {
+                        callback.onError(error)
+                    }
+                }
+            })
+        }
     }
 
     /**

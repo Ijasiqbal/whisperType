@@ -46,10 +46,16 @@ string btn_grant_microphone
 string btn_grant_overlay
 string btn_setup_shortcut
 string btn_test_overlay
+string default_web_client_id
 string error_network
 string error_no_match
 string error_no_permission
 string error_speech_not_available
+string gcm_defaultSenderId
+string google_api_key
+string google_app_id
+string google_crash_reporting_api_key
+string google_storage_bucket
 string notification_channel_description
 string notification_channel_name
 string notification_text
@@ -60,6 +66,7 @@ string overlay_listening
 string overlay_no_focus
 string overlay_processing
 string overlay_ready
+string project_id
 string setup_title
 string status_disabled
 string status_enabled

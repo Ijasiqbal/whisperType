@@ -76,10 +76,16 @@ class WhisperApiClient {
      * Transcribe audio bytes using the WhisperType API
      * 
      * @param audioBytes Raw audio bytes (M4A, WAV, etc.)
+     * @param authToken Firebase Auth ID token for authentication
      * @param audioFormat File format extension ("m4a", "wav", etc.)
      * @param callback Callback for success/error results
      */
-    fun transcribe(audioBytes: ByteArray, audioFormat: String = "m4a", callback: TranscriptionCallback) {
+    fun transcribe(
+        audioBytes: ByteArray,
+        authToken: String,
+        audioFormat: String = "m4a",
+        callback: TranscriptionCallback
+    ) {
         Log.d(TAG, "Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat")
 
         // Encode audio to base64 (NO_WRAP to avoid line breaks)
@@ -92,6 +98,7 @@ class WhisperApiClient {
 
         val request = Request.Builder()
             .url(API_URL)
+            .addHeader("Authorization", "Bearer $authToken")
             .post(jsonBody.toRequestBody(JSON_MEDIA_TYPE))
             .build()
 
@@ -142,6 +149,10 @@ class WhisperApiClient {
                         val errorMessage = errorResponse?.error ?: "Invalid audio data"
                         Log.e(TAG, "Bad request: $errorMessage")
                         callback.onError(errorMessage)
+                    }
+                    401 -> {
+                        Log.e(TAG, "Unauthorized: Authentication failed")
+                        callback.onError("Authentication failed. Please restart the app.")
                     }
                     405 -> {
                         Log.e(TAG, "Method not allowed")

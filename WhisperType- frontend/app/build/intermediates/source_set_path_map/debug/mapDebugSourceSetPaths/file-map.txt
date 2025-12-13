@@ -1,53 +1,61 @@
-com.whispertype.app-ui-util-release-0 /Users/ijas/.gradle/caches/8.13/transforms/063aaaaa457872dfcf6f5bdb410b0686/transformed/ui-util-release/res
-com.whispertype.app-lifecycle-runtime-2.7.0-1 /Users/ijas/.gradle/caches/8.13/transforms/084ffb4bb1dbf62c784fc8e7797b9b19/transformed/lifecycle-runtime-2.7.0/res
-com.whispertype.app-lifecycle-viewmodel-2.7.0-2 /Users/ijas/.gradle/caches/8.13/transforms/0a15e52576be6fc16c9fb0e1516ce735/transformed/lifecycle-viewmodel-2.7.0/res
-com.whispertype.app-annotation-experimental-1.3.0-3 /Users/ijas/.gradle/caches/8.13/transforms/1560c7cd5432da58e29d2b7f7c81a30a/transformed/annotation-experimental-1.3.0/res
-com.whispertype.app-savedstate-ktx-1.2.1-4 /Users/ijas/.gradle/caches/8.13/transforms/21daacd751d6d445ddf0366c2d0418fe/transformed/savedstate-ktx-1.2.1/res
-com.whispertype.app-core-1.12.0-5 /Users/ijas/.gradle/caches/8.13/transforms/396e032aae96a19f5d95643c90b995c4/transformed/core-1.12.0/res
-com.whispertype.app-ui-unit-release-6 /Users/ijas/.gradle/caches/8.13/transforms/39e7135d6558f6780b4bd77a726a95c3/transformed/ui-unit-release/res
-com.whispertype.app-ui-tooling-data-release-7 /Users/ijas/.gradle/caches/8.13/transforms/441fb026f70cd732237d8124e93ebb5c/transformed/ui-tooling-data-release/res
-com.whispertype.app-ui-geometry-release-8 /Users/ijas/.gradle/caches/8.13/transforms/48c6d02d7ff650b544c6d4bda8484ca4/transformed/ui-geometry-release/res
-com.whispertype.app-material3-1.1.2-9 /Users/ijas/.gradle/caches/8.13/transforms/4c4eb57dbdc8e52a0874a9258725e9e5/transformed/material3-1.1.2/res
-com.whispertype.app-ui-graphics-release-10 /Users/ijas/.gradle/caches/8.13/transforms/55f0354d09e8fa05462793955b0b8117/transformed/ui-graphics-release/res
-com.whispertype.app-core-runtime-2.2.0-11 /Users/ijas/.gradle/caches/8.13/transforms/609a110b756fe8a2302fbb3bb464421c/transformed/core-runtime-2.2.0/res
-com.whispertype.app-customview-poolingcontainer-1.0.0-12 /Users/ijas/.gradle/caches/8.13/transforms/6c4a112363619ab8e229f73edb48bd7e/transformed/customview-poolingcontainer-1.0.0/res
-com.whispertype.app-ui-text-release-13 /Users/ijas/.gradle/caches/8.13/transforms/771856b58718bec661159b88d19ddbba/transformed/ui-text-release/res
-com.whispertype.app-ui-test-manifest-1.5.4-14 /Users/ijas/.gradle/caches/8.13/transforms/776d2534a4d96ee9f4caf6224b0470e5/transformed/ui-test-manifest-1.5.4/res
-com.whispertype.app-material-release-15 /Users/ijas/.gradle/caches/8.13/transforms/7d78509f39208d7c455acc300f784923/transformed/material-release/res
-com.whispertype.app-animation-core-release-16 /Users/ijas/.gradle/caches/8.13/transforms/8074baa55b0950d4da00c9d7e81fad45/transformed/animation-core-release/res
-com.whispertype.app-material-ripple-release-17 /Users/ijas/.gradle/caches/8.13/transforms/84407b2f37c9ff07bbc03e167896e8a2/transformed/material-ripple-release/res
-com.whispertype.app-activity-compose-1.8.1-18 /Users/ijas/.gradle/caches/8.13/transforms/89bda5ed8e889b95a70c5056feb134de/transformed/activity-compose-1.8.1/res
-com.whispertype.app-foundation-release-19 /Users/ijas/.gradle/caches/8.13/transforms/8b84787ff65037e323cd451e85205d40/transformed/foundation-release/res
-com.whispertype.app-runtime-saveable-release-20 /Users/ijas/.gradle/caches/8.13/transforms/94b1f5f44f351c39cbae54c6685f43a1/transformed/runtime-saveable-release/res
-com.whispertype.app-ui-tooling-release-21 /Users/ijas/.gradle/caches/8.13/transforms/94fc605f9c0ceb8ba3f3eae925e0bdd5/transformed/ui-tooling-release/res
-com.whispertype.app-lifecycle-livedata-core-ktx-2.7.0-22 /Users/ijas/.gradle/caches/8.13/transforms/96802974a5356bc7ae4bb426727bcbe9/transformed/lifecycle-livedata-core-ktx-2.7.0/res
-com.whispertype.app-lifecycle-viewmodel-ktx-2.7.0-23 /Users/ijas/.gradle/caches/8.13/transforms/9a4d86c9b7d2a874dc748db2f6166590/transformed/lifecycle-viewmodel-ktx-2.7.0/res
-com.whispertype.app-foundation-layout-release-24 /Users/ijas/.gradle/caches/8.13/transforms/9c874663eb09e266da57743e8da4ef92/transformed/foundation-layout-release/res
-com.whispertype.app-constraintlayout-2.1.4-25 /Users/ijas/.gradle/caches/8.13/transforms/a123f92593f9c3b479d94da982cb56e6/transformed/constraintlayout-2.1.4/res
-com.whispertype.app-activity-ktx-1.8.1-26 /Users/ijas/.gradle/caches/8.13/transforms/af986965ae63e4aaaf1b0c158bbe9b82/transformed/activity-ktx-1.8.1/res
-com.whispertype.app-profileinstaller-1.3.0-27 /Users/ijas/.gradle/caches/8.13/transforms/b3c28dacbb259dbb43e89f1298977044/transformed/profileinstaller-1.3.0/res
-com.whispertype.app-runtime-release-28 /Users/ijas/.gradle/caches/8.13/transforms/bc06fb9c35d933d348a42dbbd27fe946/transformed/runtime-release/res
-com.whispertype.app-core-ktx-1.12.0-29 /Users/ijas/.gradle/caches/8.13/transforms/c1931fdd3624067ad078b3d369b01798/transformed/core-ktx-1.12.0/res
-com.whispertype.app-animation-release-30 /Users/ijas/.gradle/caches/8.13/transforms/c1dfd7515d9ab8b860ac90733dd2d759/transformed/animation-release/res
-com.whispertype.app-lifecycle-livedata-core-2.7.0-31 /Users/ijas/.gradle/caches/8.13/transforms/c3fa52bde4cef7d4466330f5fbfe7ec2/transformed/lifecycle-livedata-core-2.7.0/res
-com.whispertype.app-emoji2-1.4.0-32 /Users/ijas/.gradle/caches/8.13/transforms/cc562d9e4304af9cf8c79732c1a7958c/transformed/emoji2-1.4.0/res
-com.whispertype.app-lifecycle-runtime-ktx-2.7.0-33 /Users/ijas/.gradle/caches/8.13/transforms/ccedab57cf15d559f29c9213149066fc/transformed/lifecycle-runtime-ktx-2.7.0/res
-com.whispertype.app-material-icons-core-release-34 /Users/ijas/.gradle/caches/8.13/transforms/d8e4b4b763d3aef029ae1f81234f83de/transformed/material-icons-core-release/res
-com.whispertype.app-appcompat-1.2.0-35 /Users/ijas/.gradle/caches/8.13/transforms/d9d02cb7b87975cc6e0400da348df7d5/transformed/appcompat-1.2.0/res
-com.whispertype.app-lifecycle-runtime-compose-2.7.0-36 /Users/ijas/.gradle/caches/8.13/transforms/db7f6fcb9ff2e0145b7455e948b2ef92/transformed/lifecycle-runtime-compose-2.7.0/res
-com.whispertype.app-ui-tooling-preview-release-37 /Users/ijas/.gradle/caches/8.13/transforms/dc45293a10e10b6220af2c538f340074/transformed/ui-tooling-preview-release/res
-com.whispertype.app-lifecycle-livedata-2.7.0-38 /Users/ijas/.gradle/caches/8.13/transforms/e1d10ded0e51bfa14f0e2878ee929898/transformed/lifecycle-livedata-2.7.0/res
-com.whispertype.app-startup-runtime-1.1.1-39 /Users/ijas/.gradle/caches/8.13/transforms/e85cec6654f0ce9d9a0eef803879913d/transformed/startup-runtime-1.1.1/res
-com.whispertype.app-activity-1.8.1-40 /Users/ijas/.gradle/caches/8.13/transforms/f709c9078ed7201b1d021074918d9f29/transformed/activity-1.8.1/res
-com.whispertype.app-appcompat-resources-1.2.0-41 /Users/ijas/.gradle/caches/8.13/transforms/f713cda0d46bface59c855f9df824a84/transformed/appcompat-resources-1.2.0/res
-com.whispertype.app-savedstate-1.2.1-42 /Users/ijas/.gradle/caches/8.13/transforms/f788a6816d23dffe3ae0f2bc7bfe42d3/transformed/savedstate-1.2.1/res
-com.whispertype.app-lifecycle-viewmodel-savedstate-2.7.0-43 /Users/ijas/.gradle/caches/8.13/transforms/f8f1cf1e808012f25b76b0ee4787fc54/transformed/lifecycle-viewmodel-savedstate-2.7.0/res
-com.whispertype.app-lifecycle-process-2.7.0-44 /Users/ijas/.gradle/caches/8.13/transforms/fbd868ededee2ba530f647c5430f110c/transformed/lifecycle-process-2.7.0/res
-com.whispertype.app-ui-release-45 /Users/ijas/.gradle/caches/8.13/transforms/fc9b87e69a7ef21a3842670cfc1be262/transformed/ui-release/res
-com.whispertype.app-resValues-46 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/generated/res/resValues/debug
-com.whispertype.app-updated_navigation_xml-47 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/generated/updated_navigation_xml/debug
-com.whispertype.app-packageDebugResources-48 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
-com.whispertype.app-packageDebugResources-49 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
-com.whispertype.app-debug-50 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/merged_res/debug/mergeDebugResources
-com.whispertype.app-debug-51 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/src/debug/res
-com.whispertype.app-main-52 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/src/main/res
+com.whispertype.app-ui-tooling-release-0 /Users/ijas/.gradle/caches/8.13/transforms/0bf49d850268c05f9aae88638d245787/transformed/ui-tooling-release/res
+com.whispertype.app-browser-1.4.0-1 /Users/ijas/.gradle/caches/8.13/transforms/106b1569afcaf69c515d1ee7ad73ac4d/transformed/browser-1.4.0/res
+com.whispertype.app-core-runtime-2.2.0-2 /Users/ijas/.gradle/caches/8.13/transforms/110800c92a2ae76f7ca6bebe27ea1057/transformed/core-runtime-2.2.0/res
+com.whispertype.app-savedstate-1.2.1-3 /Users/ijas/.gradle/caches/8.13/transforms/116e98904cb78d442689bdf1a9d2b95d/transformed/savedstate-1.2.1/res
+com.whispertype.app-customview-poolingcontainer-1.0.0-4 /Users/ijas/.gradle/caches/8.13/transforms/2379de8d58ec5bbb549d579b725418dd/transformed/customview-poolingcontainer-1.0.0/res
+com.whispertype.app-lifecycle-viewmodel-ktx-2.7.0-5 /Users/ijas/.gradle/caches/8.13/transforms/24050d8449c1bae135191b24c933263a/transformed/lifecycle-viewmodel-ktx-2.7.0/res
+com.whispertype.app-foundation-layout-release-6 /Users/ijas/.gradle/caches/8.13/transforms/29f4d6fcfcdab9cd7845dcc892cd2763/transformed/foundation-layout-release/res
+com.whispertype.app-ui-graphics-release-7 /Users/ijas/.gradle/caches/8.13/transforms/34746276d1f460b466bca229c677e63f/transformed/ui-graphics-release/res
+com.whispertype.app-material-ripple-release-8 /Users/ijas/.gradle/caches/8.13/transforms/369593ab35467aa56e2c4e2edaba83b2/transformed/material-ripple-release/res
+com.whispertype.app-ui-text-release-9 /Users/ijas/.gradle/caches/8.13/transforms/39aa2a8570836270834710d116f80a80/transformed/ui-text-release/res
+com.whispertype.app-savedstate-ktx-1.2.1-10 /Users/ijas/.gradle/caches/8.13/transforms/3d61c5cc743d2adda28d4c1c93c75db5/transformed/savedstate-ktx-1.2.1/res
+com.whispertype.app-play-services-basement-18.1.0-11 /Users/ijas/.gradle/caches/8.13/transforms/474af6f79757f9bc060571307a0c84b6/transformed/play-services-basement-18.1.0/res
+com.whispertype.app-material-release-12 /Users/ijas/.gradle/caches/8.13/transforms/495a65371446fe2993e6de2e6a885e45/transformed/material-release/res
+com.whispertype.app-animation-core-release-13 /Users/ijas/.gradle/caches/8.13/transforms/4a373188a04f92af6168a2259e2a3dea/transformed/animation-core-release/res
+com.whispertype.app-lifecycle-runtime-compose-2.7.0-14 /Users/ijas/.gradle/caches/8.13/transforms/515d7f582cb0e7b0e3a43cab9f9dcd81/transformed/lifecycle-runtime-compose-2.7.0/res
+com.whispertype.app-startup-runtime-1.1.1-15 /Users/ijas/.gradle/caches/8.13/transforms/533df71d41849e809a6d7e39b1a579ed/transformed/startup-runtime-1.1.1/res
+com.whispertype.app-material3-1.1.2-16 /Users/ijas/.gradle/caches/8.13/transforms/54609d00cd1b0ce22a35318c0b64279d/transformed/material3-1.1.2/res
+com.whispertype.app-ads-adservices-1.0.0-beta05-17 /Users/ijas/.gradle/caches/8.13/transforms/5597b215241920459f51ec5de56d3f4d/transformed/ads-adservices-1.0.0-beta05/res
+com.whispertype.app-lifecycle-livedata-core-ktx-2.7.0-18 /Users/ijas/.gradle/caches/8.13/transforms/57bfaf77c102a0e03a6d923d9a8b23dc/transformed/lifecycle-livedata-core-ktx-2.7.0/res
+com.whispertype.app-runtime-saveable-release-19 /Users/ijas/.gradle/caches/8.13/transforms/5867938938a1c4cf136fb14878fdac5b/transformed/runtime-saveable-release/res
+com.whispertype.app-ui-geometry-release-20 /Users/ijas/.gradle/caches/8.13/transforms/5acacd1f6fdd8332b157f1fdc8422ea8/transformed/ui-geometry-release/res
+com.whispertype.app-lifecycle-runtime-2.7.0-21 /Users/ijas/.gradle/caches/8.13/transforms/6742becda444938b8c9d4b7f00fbc5a0/transformed/lifecycle-runtime-2.7.0/res
+com.whispertype.app-foundation-release-22 /Users/ijas/.gradle/caches/8.13/transforms/683b21412e49f7a3e3a8846ddd3511bc/transformed/foundation-release/res
+com.whispertype.app-activity-1.8.1-23 /Users/ijas/.gradle/caches/8.13/transforms/6cf1179c79e366685989c507fed38f4c/transformed/activity-1.8.1/res
+com.whispertype.app-lifecycle-livedata-core-2.7.0-24 /Users/ijas/.gradle/caches/8.13/transforms/6d0d6fed24e9014b93f9801dd16afdd3/transformed/lifecycle-livedata-core-2.7.0/res
+com.whispertype.app-emoji2-1.4.0-25 /Users/ijas/.gradle/caches/8.13/transforms/753150dd6726472d0015fa2ef6449729/transformed/emoji2-1.4.0/res
+com.whispertype.app-ui-tooling-preview-release-26 /Users/ijas/.gradle/caches/8.13/transforms/7b99bb3cab73e49b1e24471c121cb2ac/transformed/ui-tooling-preview-release/res
+com.whispertype.app-appcompat-resources-1.2.0-27 /Users/ijas/.gradle/caches/8.13/transforms/7fe09dc965d6d89af99e71496729af52/transformed/appcompat-resources-1.2.0/res
+com.whispertype.app-core-1.12.0-28 /Users/ijas/.gradle/caches/8.13/transforms/8db468e672bcd176e875b60a4a986323/transformed/core-1.12.0/res
+com.whispertype.app-lifecycle-viewmodel-2.7.0-29 /Users/ijas/.gradle/caches/8.13/transforms/928efec5c80f7c6841cb652bac67b699/transformed/lifecycle-viewmodel-2.7.0/res
+com.whispertype.app-annotation-experimental-1.3.0-30 /Users/ijas/.gradle/caches/8.13/transforms/93bfb74e04807c47581f3a859f2f7ca9/transformed/annotation-experimental-1.3.0/res
+com.whispertype.app-lifecycle-process-2.7.0-31 /Users/ijas/.gradle/caches/8.13/transforms/a08a2c9cc414f73dd47f1bfa3f76c894/transformed/lifecycle-process-2.7.0/res
+com.whispertype.app-ui-tooling-data-release-32 /Users/ijas/.gradle/caches/8.13/transforms/a3e37ba3874c162b5e0c3052b881e5e2/transformed/ui-tooling-data-release/res
+com.whispertype.app-ui-unit-release-33 /Users/ijas/.gradle/caches/8.13/transforms/a78690b07b103c08a56bc9a9b71edec2/transformed/ui-unit-release/res
+com.whispertype.app-appcompat-1.2.0-34 /Users/ijas/.gradle/caches/8.13/transforms/a9bd0ddfafce5255275f68361b4ad254/transformed/appcompat-1.2.0/res
+com.whispertype.app-constraintlayout-2.1.4-35 /Users/ijas/.gradle/caches/8.13/transforms/ad287054eb0830de1641c762f367b2e6/transformed/constraintlayout-2.1.4/res
+com.whispertype.app-ui-util-release-36 /Users/ijas/.gradle/caches/8.13/transforms/ade0cd0dafa912466b6b7e42bc6cbd64/transformed/ui-util-release/res
+com.whispertype.app-play-services-base-18.0.1-37 /Users/ijas/.gradle/caches/8.13/transforms/ae680da8e69e9c7c3ba8af1cfb15991f/transformed/play-services-base-18.0.1/res
+com.whispertype.app-material-icons-core-release-38 /Users/ijas/.gradle/caches/8.13/transforms/bb559142c39b40bd578bb0b58f34e91e/transformed/material-icons-core-release/res
+com.whispertype.app-play-services-measurement-api-21.5.0-39 /Users/ijas/.gradle/caches/8.13/transforms/c2ffc60f6bb3ab9765f9b2a77c989377/transformed/play-services-measurement-api-21.5.0/res
+com.whispertype.app-firebase-common-20.4.2-40 /Users/ijas/.gradle/caches/8.13/transforms/c4a799f1c4cafe6da9cd67e35e0ad83a/transformed/firebase-common-20.4.2/res
+com.whispertype.app-ads-adservices-java-1.0.0-beta05-41 /Users/ijas/.gradle/caches/8.13/transforms/cdba4315c6d4fe169fd1eeaf40503072/transformed/ads-adservices-java-1.0.0-beta05/res
+com.whispertype.app-lifecycle-viewmodel-savedstate-2.7.0-42 /Users/ijas/.gradle/caches/8.13/transforms/def90aebc92ba8e3ca63a2638f162356/transformed/lifecycle-viewmodel-savedstate-2.7.0/res
+com.whispertype.app-activity-compose-1.8.1-43 /Users/ijas/.gradle/caches/8.13/transforms/e80f20149fb579c736b7139f40207d58/transformed/activity-compose-1.8.1/res
+com.whispertype.app-animation-release-44 /Users/ijas/.gradle/caches/8.13/transforms/ea335f460b9279fcccbd20dc85a11cd8/transformed/animation-release/res
+com.whispertype.app-lifecycle-runtime-ktx-2.7.0-45 /Users/ijas/.gradle/caches/8.13/transforms/ecacfcfe8a4d39e6ac3ccf072a670c43/transformed/lifecycle-runtime-ktx-2.7.0/res
+com.whispertype.app-core-ktx-1.12.0-46 /Users/ijas/.gradle/caches/8.13/transforms/ed17596805ddf8ff18da7a9d5f9c0c54/transformed/core-ktx-1.12.0/res
+com.whispertype.app-ui-test-manifest-1.5.4-47 /Users/ijas/.gradle/caches/8.13/transforms/f2f69357102f1cfb030c8399c0fb024e/transformed/ui-test-manifest-1.5.4/res
+com.whispertype.app-profileinstaller-1.3.0-48 /Users/ijas/.gradle/caches/8.13/transforms/f42f534f393d36b074e76059841c2e7a/transformed/profileinstaller-1.3.0/res
+com.whispertype.app-lifecycle-livedata-2.7.0-49 /Users/ijas/.gradle/caches/8.13/transforms/f6735a64f6e7d714a39b930f01bede04/transformed/lifecycle-livedata-2.7.0/res
+com.whispertype.app-activity-ktx-1.8.1-50 /Users/ijas/.gradle/caches/8.13/transforms/f863bff9d9213586e409d26685e3a287/transformed/activity-ktx-1.8.1/res
+com.whispertype.app-runtime-release-51 /Users/ijas/.gradle/caches/8.13/transforms/fac3df92e4c9b7ea7de5b53655091a2e/transformed/runtime-release/res
+com.whispertype.app-ui-release-52 /Users/ijas/.gradle/caches/8.13/transforms/fb134570616f6d9268949fa1ebf12bec/transformed/ui-release/res
+com.whispertype.app-res-53 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/generated/res/processDebugGoogleServices
+com.whispertype.app-resValues-54 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/generated/res/resValues/debug
+com.whispertype.app-updated_navigation_xml-55 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/generated/updated_navigation_xml/debug
+com.whispertype.app-packageDebugResources-56 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.whispertype.app-packageDebugResources-57 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.whispertype.app-debug-58 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/merged_res/debug/mergeDebugResources
+com.whispertype.app-debug-59 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/src/debug/res
+com.whispertype.app-main-60 /Users/ijas/Documents/whisperType/WhisperType- frontend/app/src/main/res

@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.whispertype.app-mergeDebugResources-48:/values-sw600dp-v13/values-sw600dp-v13.xml",
+            "outputFile": "com.whispertype.app-mergeDebugResources-56:/values-sw600dp-v13/values-sw600dp-v13.xml",
             "map": [
                 {
-                    "source": "/Users/ijas/.gradle/caches/8.13/transforms/d9d02cb7b87975cc6e0400da348df7d5/transformed/appcompat-1.2.0/res/values-sw600dp-v13/values-sw600dp-v13.xml",
+                    "source": "/Users/ijas/.gradle/caches/8.13/transforms/a9bd0ddfafce5255275f68361b4ad254/transformed/appcompat-1.2.0/res/values-sw600dp-v13/values-sw600dp-v13.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
                         "startColumns": "4,4,4,4,4,4,4,4",
