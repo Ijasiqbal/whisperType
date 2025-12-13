@@ -389,32 +389,54 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
      * On API 21+, we can use Bundle with EXTRA_TEXT to append, but behavior
      * varies by app and Android version.
      * 
-     * IMPORTANT: node.text may return the hint/placeholder text (like "Message" in WhatsApp
-     * or "Search YouTube" in YouTube) when the field is empty. We must ignore this.
+     * IMPORTANT: Some apps (like WhatsApp and YouTube) return the placeholder/hint text
+     * in node.text when the field is empty, but node.hintText may not match or be null.
+     * 
+     * SOLUTION (User's approach):
+     * 1. First PASTE a space (append, not replace) - this clears placeholder if empty,
+     *    or just adds space after real content if user had typed something
+     * 2. Read the field again to get the REAL content (without placeholder)
+     * 3. Append the transcript text
+     * 4. Set the final text trimmed to remove leading/trailing spaces
      */
     private fun insertTextWithAction(node: AccessibilityNodeInfo, text: String): Boolean {
-        // Get existing text, but filter out placeholder/hint text
-        // When a field is empty, node.text sometimes returns the hint text
         val nodeText = node.text?.toString() ?: ""
         val hintText = node.hintText?.toString() ?: ""
         
-        // If the current "text" is actually the hint/placeholder, treat field as empty
-        val existingText = if (nodeText.isNotEmpty() && nodeText != hintText) {
-            nodeText
-        } else {
-            ""
-        }
+        Log.d(TAG, "insertTextWithAction: nodeText='$nodeText', hintText='$hintText'")
         
-        Log.d(TAG, "insertTextWithAction: nodeText='$nodeText', hintText='$hintText', existingText='$existingText'")
+        // Step 1: Paste a space to clear placeholder (while preserving any real content)
+        // Pasting appends to existing content, so:
+        // - If field was empty (showing placeholder): placeholder clears, field now has " "
+        // - If field had real content "Hello": field now has "Hello "
+        val clipboardManager = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val spaceClip = android.content.ClipData.newPlainText("WhisperType", " ")
+        clipboardManager.setPrimaryClip(spaceClip)
+        node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
         
-        val newText = existingText + text
+        Log.d(TAG, "Pasted space to clear placeholder")
         
+        // Step 2: We need to re-find the focused node to get updated text
+        // The node object is a snapshot and doesn't update automatically
+        val updatedNode = findFocusedEditableNode()
+        val actualExistingText = updatedNode?.text?.toString() ?: ""
+        
+        Log.d(TAG, "After paste space: actualExistingText='$actualExistingText'")
+        
+        // Step 3: Compose final text = existing content + transcript
+        // The existing content now includes the space we pasted
+        val finalText = (actualExistingText + text).trim()
+        
+        Log.d(TAG, "Final text (trimmed): '$finalText'")
+        
+        // Step 4: Set the final trimmed text
+        val targetNode = updatedNode ?: node
         val arguments = android.os.Bundle().apply {
-            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText)
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, finalText)
         }
         
-        val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-        Log.d(TAG, "ACTION_SET_TEXT result: $success")
+        val success = targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+        Log.d(TAG, "ACTION_SET_TEXT result: $success, finalText='$finalText'")
         
         return success
     }
