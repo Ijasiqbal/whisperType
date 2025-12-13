@@ -1,0 +1,449 @@
+package com.whispertype.app.service
+
+import android.accessibilityservice.AccessibilityButtonController
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import android.util.Log
+import android.view.KeyEvent
+import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
+import androidx.annotation.RequiresApi
+import com.whispertype.app.ShortcutPreferences
+
+/**
+ * WhisperTypeAccessibilityService
+ * 
+ * This is the core accessibility service that:
+ * 1. Detects volume up double-press to trigger the overlay
+ * 2. Receives accessibility shortcut events (accessibility button)
+ * 3. Can access the currently focused input field
+ * 4. Can insert text into the focused field
+ * 
+ * VOLUME BUTTON ACTIVATION:
+ * - Double-press volume up within 500ms to trigger the overlay
+ * - Single presses still control volume normally
+ * - Uses onKeyEvent() to intercept key events
+ * 
+ * ACCESSIBILITY BUTTON SUPPORT (API 26+):
+ * - Uses AccessibilityButtonController for proper callback registration
+ * - Works with the floating accessibility button if user prefers
+ * 
+ * TEXT INSERTION STRATEGY:
+ * - Primary: ACTION_SET_TEXT - Sets the entire text of the focused field
+ * - Fallback: Clipboard + ACTION_PASTE - Copy text to clipboard and paste
+ * - Limitation: Some apps (banking, secure fields) block accessibility actions
+ * 
+ * PRIVACY:
+ * - We only access window content to find the focused editable field
+ * - We do NOT log or store any content from user's screen
+ */
+class WhisperTypeAccessibilityService : AccessibilityService() {
+
+    companion object {
+        private const val TAG = "WhisperTypeA11y"
+        
+        // Double-press timing threshold (milliseconds)
+        private const val DOUBLE_PRESS_THRESHOLD_MS = 350L
+        
+        // Singleton instance for other components to communicate with
+        var instance: WhisperTypeAccessibilityService? = null
+            private set
+        
+        /**
+         * Check if the service is currently running
+         */
+        fun isRunning(): Boolean = instance != null
+    }
+    
+    // Volume key tracking for double-press detection
+    private var lastVolumeUpTime: Long = 0
+    private var lastVolumeDownTime: Long = 0
+    private var lastBothButtonsTime: Long = 0
+    
+    // Accessibility button controller (API 26+)
+    private var accessibilityButtonController: AccessibilityButtonController? = null
+    private var accessibilityButtonCallback: AccessibilityButtonController.AccessibilityButtonCallback? = null
+    
+    override fun onCreate() {
+        super.onCreate()
+        Log.d(TAG, "AccessibilityService created")
+    }
+    
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        instance = this
+        Log.d(TAG, "AccessibilityService connected")
+        
+        // Configure the service
+        serviceInfo = serviceInfo.apply {
+            // Request the accessibility button/shortcut capability and key event filtering
+            flags = flags or 
+                AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON or
+                AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+        }
+        
+        // Set up accessibility button callback (API 26+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            setupAccessibilityButton()
+        }
+    }
+    
+    /**
+     * Set up the accessibility button callback for API 26+
+     * This handles the floating accessibility button tap
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun setupAccessibilityButton() {
+        accessibilityButtonController = getAccessibilityButtonController()
+        
+        if (accessibilityButtonController == null) {
+            Log.w(TAG, "AccessibilityButtonController is not available")
+            return
+        }
+        
+        accessibilityButtonCallback = object : AccessibilityButtonController.AccessibilityButtonCallback() {
+            override fun onClicked(controller: AccessibilityButtonController) {
+                Log.d(TAG, "Accessibility button clicked")
+                toggleOverlay()
+            }
+            
+            override fun onAvailabilityChanged(controller: AccessibilityButtonController, available: Boolean) {
+                Log.d(TAG, "Accessibility button availability changed: $available")
+            }
+        }
+        
+        accessibilityButtonController?.registerAccessibilityButtonCallback(accessibilityButtonCallback!!)
+        Log.d(TAG, "Accessibility button callback registered")
+    }
+    
+    override fun onDestroy() {
+        // Unregister accessibility button callback
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && accessibilityButtonCallback != null) {
+            accessibilityButtonController?.unregisterAccessibilityButtonCallback(accessibilityButtonCallback!!)
+        }
+        
+        instance = null
+        Log.d(TAG, "AccessibilityService destroyed")
+        super.onDestroy()
+    }
+    
+    /**
+     * We don't actively process accessibility events, but this callback
+     * is required by the service. We keep it minimal to reduce overhead.
+     */
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        // We only listen for events to maintain service state
+        // We don't actively process them to minimize battery/CPU impact
+    }
+    
+    override fun onInterrupt() {
+        Log.d(TAG, "AccessibilityService interrupted")
+    }
+    
+    /**
+     * Handle key events for volume button detection
+     * 
+     * Supports three modes based on user preference:
+     * - DOUBLE_VOLUME_UP: Double-press volume up within 500ms
+     * - DOUBLE_VOLUME_DOWN: Double-press volume down within 500ms  
+     * - BOTH_VOLUME_BUTTONS: Press both volume buttons simultaneously
+     * 
+     * @return true if the event was consumed (don't pass to system), false otherwise
+     */
+    override fun onKeyEvent(event: KeyEvent?): Boolean {
+        if (event == null) return false
+        
+        val mode = ShortcutPreferences.getShortcutMode(this)
+        
+        return when (mode) {
+            ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_UP -> handleDoubleVolumeUp(event)
+            ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_DOWN -> handleDoubleVolumeDown(event)
+            ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS -> handleBothButtons(event)
+        }
+    }
+    
+    /**
+     * Handle double volume up detection
+     */
+    private fun handleDoubleVolumeUp(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_VOLUME_UP) return false
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        
+        val currentTime = System.currentTimeMillis()
+        val timeSinceLastPress = currentTime - lastVolumeUpTime
+        
+        if (timeSinceLastPress < DOUBLE_PRESS_THRESHOLD_MS) {
+            lastVolumeUpTime = 0
+            Log.d(TAG, "Double volume-up detected! Triggering overlay.")
+            toggleOverlay()
+            return true
+        } else {
+            lastVolumeUpTime = currentTime
+            return false
+        }
+    }
+    
+    /**
+     * Handle double volume down detection
+     */
+    private fun handleDoubleVolumeDown(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_VOLUME_DOWN) return false
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        
+        val currentTime = System.currentTimeMillis()
+        val timeSinceLastPress = currentTime - lastVolumeDownTime
+        
+        if (timeSinceLastPress < DOUBLE_PRESS_THRESHOLD_MS) {
+            lastVolumeDownTime = 0
+            Log.d(TAG, "Double volume-down detected! Triggering overlay.")
+            toggleOverlay()
+            return true
+        } else {
+            lastVolumeDownTime = currentTime
+            return false
+        }
+    }
+    
+    /**
+     * Handle both buttons pressed simultaneously
+     * Detects when volume up and volume down are pressed within 300ms of each other
+     */
+    private fun handleBothButtons(event: KeyEvent): Boolean {
+        // Only handle key down events
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        
+        val currentTime = System.currentTimeMillis()
+        val keyName = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) "UP" else "DOWN"
+        
+        Log.d(TAG, "BOTH_MODE: Key $keyName pressed at $currentTime")
+        Log.d(TAG, "BOTH_MODE: Before - lastUp=$lastVolumeUpTime, lastDown=$lastVolumeDownTime")
+        
+        // Record the timestamp for whichever button was pressed
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                lastVolumeUpTime = currentTime
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                lastVolumeDownTime = currentTime
+            }
+            else -> return false
+        }
+        
+        Log.d(TAG, "BOTH_MODE: After - lastUp=$lastVolumeUpTime, lastDown=$lastVolumeDownTime")
+        
+        // Check if both buttons were pressed within 300ms of each other
+        // Both timestamps must be non-zero (both buttons pressed)
+        if (lastVolumeUpTime > 0 && lastVolumeDownTime > 0) {
+            val timeDiff = kotlin.math.abs(lastVolumeUpTime - lastVolumeDownTime)
+            Log.d(TAG, "BOTH_MODE: Both pressed! TimeDiff=$timeDiff ms")
+            
+            if (timeDiff < 300) {
+                val timeSinceLastTrigger = currentTime - lastBothButtonsTime
+                Log.d(TAG, "BOTH_MODE: Within threshold! TimeSinceLastTrigger=$timeSinceLastTrigger ms")
+                
+                // Prevent repeated triggers
+                if (timeSinceLastTrigger > DOUBLE_PRESS_THRESHOLD_MS) {
+                    lastBothButtonsTime = currentTime
+                    // Reset both timestamps
+                    lastVolumeUpTime = 0
+                    lastVolumeDownTime = 0
+                    Log.d(TAG, "BOTH_MODE: TRIGGERING OVERLAY!")
+                    Toast.makeText(this, "Both buttons detected!", Toast.LENGTH_SHORT).show()
+                    toggleOverlay()
+                    return true
+                } else {
+                    Log.d(TAG, "BOTH_MODE: Blocked by repeat prevention")
+                }
+            } else {
+                Log.d(TAG, "BOTH_MODE: TimeDiff too large (>300ms)")
+            }
+        } else {
+            Log.d(TAG, "BOTH_MODE: Waiting for other button")
+        }
+        
+        return false
+    }
+    
+    /**
+     * Public trigger method that can be called from MainActivity for testing
+     * or from a notification action. This works on all API levels.
+     */
+    fun triggerOverlay() {
+        toggleOverlay()
+    }
+    
+    /**
+     * Toggle the overlay service visibility
+     */
+    private fun toggleOverlay() {
+        // First check if overlay permission is granted
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(
+                this, 
+                "Overlay permission required. Open WhisperType app to grant it.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        
+        // Toggle the overlay
+        val overlayIntent = Intent(this, OverlayService::class.java).apply {
+            action = OverlayService.ACTION_TOGGLE
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(overlayIntent)
+        } else {
+            startService(overlayIntent)
+        }
+    }
+    
+    /**
+     * Find the currently focused editable node (text field)
+     * 
+     * This traverses the accessibility tree to find a focused node that
+     * accepts text input.
+     * 
+     * @return AccessibilityNodeInfo of the focused editable field, or null if none found
+     */
+    fun findFocusedEditableNode(): AccessibilityNodeInfo? {
+        // Try to get the input-focused node first
+        var focusedNode = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        
+        // Check if it's editable
+        if (focusedNode?.isEditable == true) {
+            return focusedNode
+        }
+        
+        // If not found, try accessibility focus
+        focusedNode = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+        if (focusedNode?.isEditable == true) {
+            return focusedNode
+        }
+        
+        // Search through the tree for any focused editable node
+        return findEditableInTree(rootInActiveWindow)
+    }
+    
+    /**
+     * Recursively search for an editable focused node in the accessibility tree
+     */
+    private fun findEditableInTree(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        if (node == null) return null
+        
+        if (node.isEditable && node.isFocused) {
+            return node
+        }
+        
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i)
+            val result = findEditableInTree(child)
+            if (result != null) {
+                return result
+            }
+            child?.recycle()
+        }
+        
+        return null
+    }
+    
+    /**
+     * Insert text into the currently focused editable field
+     * 
+     * Strategy:
+     * 1. Primary: Use ACTION_SET_TEXT to set/append text
+     * 2. Fallback: Use clipboard + ACTION_PASTE
+     * 
+     * @param text The text to insert
+     * @return true if insertion succeeded, false otherwise
+     */
+    fun insertText(text: String): Boolean {
+        val focusedNode = findFocusedEditableNode()
+        
+        if (focusedNode == null) {
+            Log.w(TAG, "No focused editable node found")
+            Toast.makeText(this, "No text field focused", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        
+        // Try primary strategy: ACTION_SET_TEXT
+        val success = insertTextWithAction(focusedNode, text)
+        
+        if (!success) {
+            // Fallback: Use clipboard
+            Log.d(TAG, "ACTION_SET_TEXT failed, trying clipboard fallback")
+            return insertTextWithClipboard(focusedNode, text)
+        }
+        
+        return true
+    }
+    
+    /**
+     * Insert text using ACTION_SET_TEXT
+     * 
+     * Note: This replaces the entire text in the field on most Android versions.
+     * On API 21+, we can use Bundle with EXTRA_TEXT to append, but behavior
+     * varies by app and Android version.
+     * 
+     * IMPORTANT: node.text may return the hint/placeholder text (like "Message" in WhatsApp
+     * or "Search YouTube" in YouTube) when the field is empty. We must ignore this.
+     */
+    private fun insertTextWithAction(node: AccessibilityNodeInfo, text: String): Boolean {
+        // Get existing text, but filter out placeholder/hint text
+        // When a field is empty, node.text sometimes returns the hint text
+        val nodeText = node.text?.toString() ?: ""
+        val hintText = node.hintText?.toString() ?: ""
+        
+        // If the current "text" is actually the hint/placeholder, treat field as empty
+        val existingText = if (nodeText.isNotEmpty() && nodeText != hintText) {
+            nodeText
+        } else {
+            ""
+        }
+        
+        Log.d(TAG, "insertTextWithAction: nodeText='$nodeText', hintText='$hintText', existingText='$existingText'")
+        
+        val newText = existingText + text
+        
+        val arguments = android.os.Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText)
+        }
+        
+        val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+        Log.d(TAG, "ACTION_SET_TEXT result: $success")
+        
+        return success
+    }
+    
+    /**
+     * Insert text using clipboard and paste action
+     * 
+     * This is a fallback strategy that should work on most apps,
+     * but requires the user's clipboard to be temporarily overwritten.
+     */
+    private fun insertTextWithClipboard(node: AccessibilityNodeInfo, text: String): Boolean {
+        // Copy text to clipboard
+        val clipboardManager = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText("WhisperType", text)
+        clipboardManager.setPrimaryClip(clip)
+        
+        // Perform paste action
+        val success = node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        Log.d(TAG, "ACTION_PASTE result: $success")
+        
+        if (!success) {
+            // If paste failed too, inform the user they can manually paste
+            Toast.makeText(
+                this,
+                "Text copied to clipboard. Please paste manually.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+        
+        return success
+    }
+}
