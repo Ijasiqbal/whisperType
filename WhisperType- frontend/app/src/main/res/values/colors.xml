@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary brand colors -->
+    <color name="primary">#6366F1</color>
+    <color name="primary_variant">#4F46E5</color>
+    <color name="on_primary">#FFFFFF</color>
+    
+    <!-- Secondary colors -->
+    <color name="secondary">#10B981</color>
+    <color name="secondary_variant">#059669</color>
+    <color name="on_secondary">#FFFFFF</color>
+    
+    <!-- Background colors -->
+    <color name="background">#F8FAFC</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="on_background">#1E293B</color>
+    <color name="on_surface">#1E293B</color>
+    
+    <!-- Status colors -->
+    <color name="success">#22C55E</color>
+    <color name="warning">#F59E0B</color>
+    <color name="error">#EF4444</color>
+    
+    <!-- Overlay specific colors -->
+    <color name="overlay_background">#1E293B</color>
+    <color name="overlay_background_listening">#4F46E5</color>
+    <color name="overlay_mic_icon">#FFFFFF</color>
+    <color name="overlay_text">#F1F5F9</color>
+    
+    <!-- Card colors -->
+    <color name="card_background">#FFFFFF</color>
+    <color name="card_border">#E2E8F0</color>
+    
+    <!-- Transparency -->
+    <color name="overlay_scrim">#80000000</color>
+</resources>

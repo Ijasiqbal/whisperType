@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WhisperType</string>
+    
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_label">WhisperType Voice Input</string>
+    <string name="accessibility_service_description">Provides system-wide voice input via a floating overlay. Enable this service and assign it to the accessibility shortcut to use voice typing in any app.</string>
+    <string name="accessibility_service_summary">Voice input overlay for any text field</string>
+    
+    <!-- Main Activity -->
+    <string name="welcome_title">Welcome to WhisperType</string>
+    <string name="welcome_description">WhisperType lets you type using your voice in any app. Just focus on a text field, trigger the accessibility shortcut, and speak!</string>
+    
+    <string name="setup_title">Setup Required</string>
+    <string name="step_accessibility">1. Enable Accessibility Service</string>
+    <string name="step_accessibility_desc">Allow WhisperType to insert text into other apps</string>
+    <string name="step_overlay">2. Grant Overlay Permission</string>
+    <string name="step_overlay_desc">Allow the floating mic button to appear</string>
+    <string name="step_microphone">3. Grant Microphone Permission</string>
+    <string name="step_microphone_desc">Allow voice recording for speech-to-text</string>
+    <string name="step_shortcut">4. Set Up Accessibility Shortcut</string>
+    <string name="step_shortcut_desc">Long press volume buttons or use the accessibility button</string>
+    
+    <string name="btn_enable_accessibility">Enable Accessibility Service</string>
+    <string name="btn_grant_overlay">Grant Overlay Permission</string>
+    <string name="btn_grant_microphone">Grant Microphone</string>
+    <string name="btn_setup_shortcut">Set Up Shortcut</string>
+    <string name="btn_test_overlay">Test Overlay</string>
+    
+    <string name="status_enabled">✓ Enabled</string>
+    <string name="status_disabled">Not enabled</string>
+    <string name="status_granted">✓ Granted</string>
+    <string name="status_not_granted">Not granted</string>
+    
+    <!-- Overlay -->
+    <string name="overlay_listening">Listening…</string>
+    <string name="overlay_processing">Processing…</string>
+    <string name="overlay_ready">Tap to speak</string>
+    <string name="overlay_error">Error occurred</string>
+    <string name="overlay_no_focus">No text field focused</string>
+    <string name="overlay_inserted">Text inserted!</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_name">WhisperType Overlay</string>
+    <string name="notification_channel_description">Shows when voice input overlay is active</string>
+    <string name="notification_title">WhisperType Active</string>
+    <string name="notification_text">Tap to open app</string>
+    
+    <!-- Errors -->
+    <string name="error_speech_not_available">Speech recognition not available</string>
+    <string name="error_no_permission">Microphone permission required</string>
+    <string name="error_network">Network error - check connection</string>
+    <string name="error_no_match">Could not understand speech</string>
+    
+    <!-- Usage Instructions -->
+    <string name="usage_title">How to Use</string>
+    <string name="usage_step1">1. Open any app and tap on a text field</string>
+    <string name="usage_step2">2. Use the accessibility shortcut (double press volume buttons)</string>
+    <string name="usage_step3">3. Tap the mic button and speak</string>
+    <string name="usage_step4">4. Your speech will be inserted as text!</string>
+</resources>

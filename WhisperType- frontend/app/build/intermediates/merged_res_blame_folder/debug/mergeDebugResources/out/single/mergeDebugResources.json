@@ -1,0 +1,50 @@
+[
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/drawable_ic_mic.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/drawable/ic_mic.xml"
+    },
+    {
+        "merged": "com.whispertype.app-debug-50:/xml_accessibility_service_config.xml.flat",
+        "source": "com.whispertype.app-main-52:/xml/accessibility_service_config.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/drawable_ic_close.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/drawable/ic_close.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/layout_overlay_mic_view.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/layout/overlay_mic_view.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/drawable_overlay_background.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/drawable/overlay_background.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/xml_accessibility_service_config.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/xml/accessibility_service_config.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/drawable_mic_button_listening.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/drawable/mic_button_listening.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/drawable_ic_launcher_background.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-debug-50:/drawable_mic_button_background.xml.flat",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-52:/drawable/mic_button_background.xml"
+    }
+]
