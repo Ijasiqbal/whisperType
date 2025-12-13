@@ -57,12 +57,21 @@ class AudioProcessor(private val context: Context) {
     )
 
     /**
+     * Data class for processed audio result
+     * Contains both the file and its format for correct API submission
+     */
+    data class ProcessedAudio(
+        val file: File,
+        val format: String  // "wav" for processed, "m4a" for original
+    )
+
+    /**
      * Process audio file to remove silence
      * 
      * @param inputFile The original M4A audio file
-     * @return Processed WAV file with silence removed, or original if processing fails
+     * @return ProcessedAudio containing the file and its format
      */
-    suspend fun trimSilence(inputFile: File): File = withContext(Dispatchers.Default) {
+    suspend fun trimSilence(inputFile: File): ProcessedAudio = withContext(Dispatchers.Default) {
         try {
             Log.d(TAG, "Starting silence trimming for: ${inputFile.absolutePath}")
             Log.d(TAG, "Original file size: ${inputFile.length()} bytes")
@@ -71,7 +80,7 @@ class AudioProcessor(private val context: Context) {
             val decodedAudio = decodeAudioToSamples(inputFile)
             if (decodedAudio == null || decodedAudio.samples.isEmpty()) {
                 Log.w(TAG, "Failed to decode audio, returning original")
-                return@withContext inputFile
+                return@withContext ProcessedAudio(inputFile, "m4a")
             }
             Log.d(TAG, "Decoded ${decodedAudio.samples.size} samples, " +
                     "rate: ${decodedAudio.sampleRate}Hz, " +
@@ -85,7 +94,7 @@ class AudioProcessor(private val context: Context) {
             )
             if (speechSegments.isEmpty()) {
                 Log.w(TAG, "No speech detected, returning original")
-                return@withContext inputFile
+                return@withContext ProcessedAudio(inputFile, "m4a")
             }
             Log.d(TAG, "Found ${speechSegments.size} speech segments")
             
@@ -99,7 +108,7 @@ class AudioProcessor(private val context: Context) {
             // If savings are minimal (< 10%), skip processing to save CPU
             if (savingsPercent < 10) {
                 Log.d(TAG, "Minimal savings, skipping processing")
-                return@withContext inputFile
+                return@withContext ProcessedAudio(inputFile, "m4a")
             }
             
             // Step 4: Extract speech samples and write to WAV
@@ -111,7 +120,7 @@ class AudioProcessor(private val context: Context) {
             
             if (speechSamples.isEmpty()) {
                 Log.w(TAG, "No speech samples extracted, returning original")
-                return@withContext inputFile
+                return@withContext ProcessedAudio(inputFile, "m4a")
             }
             
             Log.d(TAG, "Extracted ${speechSamples.size} speech samples")
@@ -122,15 +131,15 @@ class AudioProcessor(private val context: Context) {
             
             if (success && outputFile.exists() && outputFile.length() > 0) {
                 Log.d(TAG, "Processed WAV file size: ${outputFile.length()} bytes")
-                return@withContext outputFile
+                return@withContext ProcessedAudio(outputFile, "wav")
             } else {
                 Log.w(TAG, "WAV write failed, returning original")
-                return@withContext inputFile
+                return@withContext ProcessedAudio(inputFile, "m4a")
             }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing audio", e)
-            return@withContext inputFile
+            return@withContext ProcessedAudio(inputFile, "m4a")
         }
     }
 

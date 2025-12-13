@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -78,6 +79,14 @@ dependencies {
     // Networking for WhisperType API
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
+    
+    // Firebase (using 32.7.0 for Kotlin 1.9 compatibility - BOM 34.x requires Kotlin 2.0+)
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    
+    // Kotlin Coroutines for Firebase (provides .await() extension)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
     
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

@@ -69,6 +69,12 @@ Content-Type: application/json
 | audioBase64 | string | Yes | Base64-encoded audio file. Supported formats: mp3, mp4, mpeg, mpga, m4a, wav, webm |
 | audioFormat | string | No | Audio file format: `wav`, `m4a`, `mp3`, `webm`, `mp4`, `mpeg`, `mpga`. Defaults to `m4a` for backwards compatibility. Must match the actual audio content. |
 
+**Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <firebase_id_token>
+```
+
 #### Response
 
 **Success Response (200 OK):**
@@ -126,6 +132,7 @@ Method Not Allowed
 |------|-------------|
 | 200 | Success - Transcription completed |
 | 400 | Bad Request - Invalid or missing parameters |
+| 401 | Unauthorized - Invalid or missing authentication token |
 | 405 | Method Not Allowed - Request method is not POST |
 | 500 | Internal Server Error - Server or API error |
 
@@ -296,15 +303,33 @@ except Exception as e:
 
 ## Authentication
 
-⚠️ **Phase 1 - No Authentication**
+✅ **Phase 2 - Firebase Authentication**
 
-This endpoint currently has **no authentication** and is for personal development/testing only. Anyone with the URL can use it.
+This endpoint requires **Firebase Authentication**. All requests must include a valid Firebase ID token in the Authorization header.
 
-**Future phases will include:**
-- Firebase Authentication
-- API key validation
-- Rate limiting
-- Usage quotas per user
+**Supported Auth Methods:**
+- Anonymous Authentication
+- Google Sign-In
+- Email/Password
+
+**Header Format:**
+```
+Authorization: Bearer <firebase_id_token>
+```
+
+**Error Response (401):**
+```json
+{
+  "error": "Unauthorized: Invalid or missing authentication token"
+}
+```
+
+**Firestore Logging:**
+All requests are logged to the `transcriptions` collection with:
+- `uid` - User ID
+- `createdAt` - Timestamp
+- `success` - Boolean
+- `durationMs` - Processing time
 
 ---
 
@@ -436,7 +461,14 @@ firebase functions:list
 
 ## Changelog
 
-### v1.0.0 - Phase 1 (Current)
+### v2.0.0 - Phase 2 (Current)
+- Added Firebase Authentication requirement
+- All requests now require `Authorization: Bearer <token>` header
+- Added Firestore logging for usage tracking
+- Anonymous authentication supported
+- Returns 401 for unauthorized requests
+
+### v1.0.0 - Phase 1
 - Initial release
 - `/transcribeAudio` endpoint
 - OpenAI Whisper integration
