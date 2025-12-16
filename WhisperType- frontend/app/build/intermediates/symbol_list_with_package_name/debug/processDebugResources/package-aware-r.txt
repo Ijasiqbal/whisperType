@@ -23,6 +23,13 @@ anim btn_radio_to_off_mtrl_ring_outer_path_animation
 anim btn_radio_to_on_mtrl_dot_group_animation
 anim btn_radio_to_on_mtrl_ring_outer_animation
 anim btn_radio_to_on_mtrl_ring_outer_path_animation
+anim fragment_fast_out_extra_slow_in
+animator fragment_close_enter
+animator fragment_close_exit
+animator fragment_fade_enter
+animator fragment_fade_exit
+animator fragment_open_enter
+animator fragment_open_exit
 attr SharedValue
 attr SharedValueId
 attr actionBarDivider
@@ -957,6 +964,10 @@ drawable ic_close
 drawable ic_launcher_background
 drawable ic_launcher_foreground
 drawable ic_mic
+drawable ic_microphone
+drawable ic_other_sign_in
+drawable ic_passkey
+drawable ic_password
 drawable mic_button_background
 drawable mic_button_listening
 drawable notification_action_background
@@ -1134,6 +1145,7 @@ id expand_activities_button
 id expanded_menu
 id flip
 id forever
+id fragment_container_view_tag
 id frost
 id gone
 id graph
@@ -1242,6 +1254,7 @@ id sin
 id skipped
 id south
 id spacer
+id special_effects_controller_view_tag
 id spline
 id split_action_bar
 id spread
@@ -1302,6 +1315,7 @@ id view_tree_on_back_pressed_dispatcher_owner
 id view_tree_saved_state_registry_owner
 id view_tree_view_model_store_owner
 id visible
+id visible_removing_fragment_view_tag
 id west
 id wide
 id withText
@@ -1401,6 +1415,8 @@ string abc_toolbar_collapse_description
 string accessibility_service_description
 string accessibility_service_label
 string accessibility_service_summary
+string android_credentials_TYPE_PASSWORD_CREDENTIAL
+string androidx_credentials_TYPE_PUBLIC_KEY_CREDENTIAL
 string androidx_startup
 string app_name
 string bottom_sheet_collapse_description
@@ -1822,6 +1838,7 @@ style Theme_AppCompat_Light_Dialog_MinWidth
 style Theme_AppCompat_Light_DialogWhenLarge
 style Theme_AppCompat_Light_NoActionBar
 style Theme_AppCompat_NoActionBar
+style Theme_Hidden
 style Theme_WhisperType
 style ThemeOverlay_AppCompat
 style ThemeOverlay_AppCompat_ActionBar
@@ -1937,6 +1954,8 @@ styleable CustomAttribute attributeName customBoolean customColorDrawableValue c
 styleable DrawerArrowToggle arrowHeadLength arrowShaftLength barLength color drawableSize gapBetweenBars spinBars thickness
 styleable FontFamily fontProviderAuthority fontProviderCerts fontProviderFetchStrategy fontProviderFetchTimeout fontProviderPackage fontProviderQuery fontProviderSystemFontFamily
 styleable FontFamilyFont android_font android_fontWeight android_fontStyle android_ttcIndex android_fontVariationSettings font fontStyle fontVariationSettings fontWeight ttcIndex
+styleable Fragment android_name android_id android_tag
+styleable FragmentContainerView android_name android_tag
 styleable GradientColor android_startColor android_endColor android_type android_centerX android_centerY android_gradientRadius android_tileMode android_centerColor android_startX android_startY android_endX android_endY
 styleable GradientColorItem android_color android_offset
 styleable ImageFilterView altSrc blendSrc brightness contrast crossfade imagePanX imagePanY imageRotate imageZoom overlay round roundPercent saturation warmth

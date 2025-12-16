@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.whispertype.app-mergeDebugResources-56:/values-v28/values-v28.xml",
+            "outputFile": "com.whispertype.app-mergeDebugResources-60:/values-v28/values-v28.xml",
             "map": [
                 {
-                    "source": "/Users/ijas/.gradle/caches/8.13/transforms/a9bd0ddfafce5255275f68361b4ad254/transformed/appcompat-1.2.0/res/values-v28/values-v28.xml",
+                    "source": "/Users/ijas/.gradle/caches/8.13/transforms/a84d0d790a6f9424563c20ca183ff049/transformed/appcompat-1.2.0/res/values-v28/values-v28.xml",
                     "from": {
                         "startLines": "2,3,4,8",
                         "startColumns": "4,4,4,4",

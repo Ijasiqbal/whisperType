@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,7 +38,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.whispertype.app.auth.AuthState
+import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.service.OverlayService
+import com.whispertype.app.ui.LoginScreen
 
 /**
  * MainActivity - Onboarding and permission setup screen
@@ -54,6 +59,9 @@ import com.whispertype.app.service.OverlayService
  * - Microphone Permission: For speech recognition
  */
 class MainActivity : ComponentActivity() {
+    
+    // Firebase Auth Manager
+    private val authManager = FirebaseAuthManager()
     
     // Permission request launcher for microphone
     private val microphonePermissionLauncher = registerForActivityResult(
@@ -75,12 +83,47 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen(
-                        onEnableAccessibility = { openAccessibilitySettings() },
-                        onGrantOverlay = { openOverlaySettings() },
-                        onGrantMicrophone = { requestMicrophonePermission() },
-                        onTestOverlay = { testOverlay() }
-                    )
+                    // Observe auth state
+                    val authState by authManager.authState.collectAsStateWithLifecycle()
+                    
+                    when (authState) {
+                        is AuthState.Loading -> {
+                            // Show loading while checking auth state
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFF6366F1)
+                                )
+                            }
+                        }
+                        is AuthState.Unauthenticated -> {
+                            // Show login screen
+                            LoginScreen(
+                                authManager = authManager,
+                                onAuthSuccess = { /* State will update automatically via authState flow */ }
+                            )
+                        }
+                        is AuthState.Authenticated -> {
+                            // Show main screen with permissions setup and sign-out option
+                            MainScreen(
+                                onEnableAccessibility = { openAccessibilitySettings() },
+                                onGrantOverlay = { openOverlaySettings() },
+                                onGrantMicrophone = { requestMicrophonePermission() },
+                                onTestOverlay = { testOverlay() },
+                                onSignOut = { authManager.signOut() },
+                                userEmail = (authState as AuthState.Authenticated).user.email
+                            )
+                        }
+                        is AuthState.Error -> {
+                            // Show login screen with error state
+                            LoginScreen(
+                                authManager = authManager,
+                                onAuthSuccess = { /* State will update automatically via authState flow */ }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -171,7 +214,9 @@ fun MainScreen(
     onEnableAccessibility: () -> Unit,
     onGrantOverlay: () -> Unit,
     onGrantMicrophone: () -> Unit,
-    onTestOverlay: () -> Unit
+    onTestOverlay: () -> Unit,
+    onSignOut: () -> Unit = {},
+    userEmail: String? = null
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -210,7 +255,7 @@ fun MainScreen(
     ) {
         Spacer(modifier = Modifier.height(24.dp))
         
-        // App icon placeholder
+        // App icon
         Box(
             modifier = Modifier
                 .size(80.dp)
@@ -225,9 +270,11 @@ fun MainScreen(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "🎤",
-                fontSize = 36.sp
+            Icon(
+                painter = painterResource(id = R.drawable.ic_microphone),
+                contentDescription = "WhisperType Icon",
+                tint = Color.White,
+                modifier = Modifier.size(40.dp)
             )
         }
         
@@ -248,7 +295,48 @@ fun MainScreen(
             color = Color(0xFF64748B)
         )
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // User info section
+        if (userEmail != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF2FF))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Signed in as",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        Text(
+                            text = userEmail,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+                    TextButton(
+                        onClick = onSignOut,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color(0xFFDC2626)
+                        )
+                    ) {
+                        Text("Sign Out")
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
         
         // Setup section
         Card(
@@ -386,6 +474,90 @@ fun MainScreen(
                             "Press volume down twice quickly"
                         ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS -> 
                             "Press both volume buttons together"
+                    },
+                    fontSize = 12.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Model selection
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                Text(
+                    text = "Transcription Model",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B)
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "Choose the model for voice transcription:",
+                    fontSize = 14.sp,
+                    color = Color(0xFF64748B)
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Model selector
+                var selectedModel by remember { 
+                    mutableStateOf(ShortcutPreferences.getWhisperModel(context)) 
+                }
+                var expanded by remember { mutableStateOf(false) }
+                
+                Box {
+                    OutlinedButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF1E293B)
+                        )
+                    ) {
+                        Text(
+                            text = selectedModel.displayName,
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Start
+                        )
+                        Text("▼")
+                    }
+                    
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
+                        ShortcutPreferences.WhisperModel.values().forEach { model ->
+                            DropdownMenuItem(
+                                text = { Text(model.displayName) },
+                                onClick = {
+                                    selectedModel = model
+                                    ShortcutPreferences.setWhisperModel(context, model)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = when (selectedModel) {
+                        ShortcutPreferences.WhisperModel.GPT4O_TRANSCRIBE ->
+                            "Standard quality, balanced speed and accuracy"
+                        ShortcutPreferences.WhisperModel.GPT4O_TRANSCRIBE_MINI ->
+                            "Faster processing, optimized for quick transcriptions"
                     },
                     fontSize = 12.sp,
                     color = Color(0xFF94A3B8)

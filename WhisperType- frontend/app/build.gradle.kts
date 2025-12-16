@@ -88,6 +88,11 @@ dependencies {
     // Kotlin Coroutines for Firebase (provides .await() extension)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
     
+    // Google Sign-In with Credential Manager (modern API for Android 14+)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

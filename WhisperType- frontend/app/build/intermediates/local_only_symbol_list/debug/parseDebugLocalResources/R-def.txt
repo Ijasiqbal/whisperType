@@ -24,6 +24,7 @@ drawable ic_close
 drawable ic_launcher_background
 drawable ic_launcher_foreground
 drawable ic_mic
+drawable ic_microphone
 drawable mic_button_background
 drawable mic_button_listening
 drawable overlay_background

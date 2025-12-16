@@ -1,0 +1,337 @@
+package com.whispertype.app.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.whispertype.app.R
+import com.whispertype.app.auth.AuthResult
+import com.whispertype.app.auth.FirebaseAuthManager
+import kotlinx.coroutines.launch
+
+/**
+ * LoginScreen - Authentication screen with Email/Password and Google Sign-In
+ */
+@Composable
+fun LoginScreen(
+    authManager: FirebaseAuthManager,
+    onAuthSuccess: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+    
+    // UI State
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var isSignUp by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    // Focus requesters
+    val passwordFocusRequester = remember { FocusRequester() }
+    
+    // Handle email/password auth
+    fun handleEmailAuth() {
+        if (email.isBlank() || password.isBlank()) {
+            errorMessage = "Please enter email and password"
+            return
+        }
+        
+        if (password.length < 6) {
+            errorMessage = "Password must be at least 6 characters"
+            return
+        }
+        
+        isLoading = true
+        errorMessage = null
+        focusManager.clearFocus()
+        
+        scope.launch {
+            val result = if (isSignUp) {
+                authManager.signUpWithEmail(email, password)
+            } else {
+                authManager.signInWithEmail(email, password)
+            }
+            
+            isLoading = false
+            when (result) {
+                is AuthResult.Success -> onAuthSuccess()
+                is AuthResult.Error -> errorMessage = result.message
+            }
+        }
+    }
+    
+    // Handle Google Sign-In
+    fun handleGoogleSignIn() {
+        isLoading = true
+        errorMessage = null
+        focusManager.clearFocus()
+        
+        scope.launch {
+            val result = authManager.signInWithGoogle(context)
+            isLoading = false
+            when (result) {
+                is AuthResult.Success -> onAuthSuccess()
+                is AuthResult.Error -> errorMessage = result.message
+            }
+        }
+    }
+    
+    // Handle Anonymous Sign-In
+    fun handleAnonymousSignIn() {
+        isLoading = true
+        errorMessage = null
+        focusManager.clearFocus()
+        
+        scope.launch {
+            val user = authManager.ensureSignedIn()
+            isLoading = false
+            if (user != null) {
+                onAuthSuccess()
+            } else {
+                errorMessage = "Anonymous sign-in failed"
+            }
+        }
+    }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // App icon
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF6366F1),
+                            Color(0xFF8B5CF6)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_microphone),
+                contentDescription = "WhisperType Icon",
+                tint = Color.White,
+                modifier = Modifier.size(40.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = "WhisperType",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1E293B)
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = if (isSignUp) "Create your account" else "Sign in to continue",
+            fontSize = 16.sp,
+            color = Color(0xFF64748B)
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Login Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                // Email field
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { passwordFocusRequester.requestFocus() }
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = !isLoading
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Password field
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(passwordFocusRequester),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { handleEmailAuth() }
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = !isLoading
+                )
+                
+                // Error message
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = errorMessage!!,
+                        color = Color(0xFFDC2626),
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Sign In / Sign Up button
+                Button(
+                    onClick = { handleEmailAuth() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF6366F1)
+                    ),
+                    enabled = !isLoading
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = if (isSignUp) "Create Account" else "Sign In",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Divider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Divider(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "  or  ",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 14.sp
+                    )
+                    Divider(modifier = Modifier.weight(1f))
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Google Sign-In button
+                OutlinedButton(
+                    onClick = { handleGoogleSignIn() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF1E293B)
+                    ),
+                    enabled = !isLoading
+                ) {
+                    Text(
+                        text = "🔵 Continue with Google",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Anonymous Sign-In button
+                TextButton(
+                    onClick = { handleAnonymousSignIn() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    enabled = !isLoading
+                ) {
+                    Text(
+                        text = "👤 Continue as Guest",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF64748B)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Toggle Sign In / Sign Up
+                TextButton(
+                    onClick = { 
+                        isSignUp = !isSignUp
+                        errorMessage = null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
+                ) {
+                    Text(
+                        text = if (isSignUp) 
+                            "Already have an account? Sign In" 
+                        else 
+                            "Don't have an account? Sign Up",
+                        color = Color(0xFF6366F1),
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+    }
+}
