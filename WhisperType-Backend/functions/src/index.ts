@@ -103,9 +103,15 @@ export const health = onRequest((request, response) => {
 /**
  * Transcribe audio using OpenAI Whisper API
  * POST /transcribeAudio
- * Body: { audioBase64: string, audioFormat?: string }
+ * Body: {
+ *   audioBase64: string,
+ *   audioFormat?: string,
+ *   model?: string
+ * }
  * audioFormat: "wav" | "m4a" | "mp3" | "webm" | "mp4" |
  *             "mpeg" | "mpga" (default: "m4a")
+ * model: "gpt-4o-transcribe" | "gpt-4o-mini-transcribe"
+ *        (default: "gpt-4o-transcribe")
  * Response: { text: string }
  */
 export const transcribeAudio = onRequest(
@@ -136,7 +142,7 @@ export const transcribeAudio = onRequest(
       logger.info(`Authenticated request from user: ${uid}`);
 
       // Validate request body
-      const {audioBase64, audioFormat = "m4a"} = request.body;
+      const {audioBase64, audioFormat = "m4a", model} = request.body;
       if (!audioBase64 || typeof audioBase64 !== "string") {
         // Log failed request
         await logTranscriptionRequest(uid, false, Date.now() - startTime);
@@ -149,6 +155,18 @@ export const transcribeAudio = onRequest(
       // Validate audio format - use validated format or default to m4a
       const validFormats = ["wav", "m4a", "mp3", "webm", "mp4", "mpeg", "mpga"];
       const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
+
+      // Validate and set model - default to gpt-4o-transcribe
+      const validModels = [
+        "gpt-4o-transcribe",
+        "gpt-4o-mini-transcribe",
+      ];
+      const selectedModel = model && validModels.includes(model) ?
+        model : "gpt-4o-transcribe";
+
+      logger.info(
+        `Processing request - format: ${format}, model: ${selectedModel}`
+      );
 
       // Check for OpenAI API key
       const apiKey = process.env.OPENAI_API_KEY;
@@ -190,11 +208,12 @@ export const transcribeAudio = onRequest(
 
         // Call Whisper API
         logger.info(
-          `Calling Whisper API for transcription (format: ${format})`
+          `Calling Whisper API (format: ${format}, ` +
+          `model: ${selectedModel})`
         );
         const transcription = await openai.audio.transcriptions.create({
           file: fs.createReadStream(tempFilePath),
-          model: "gpt-4o-transcribe",
+          model: selectedModel,
         });
 
         // Clean up temporary file

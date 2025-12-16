@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.whispertype.app.ShortcutPreferences
 import com.whispertype.app.api.WhisperApiClient
 import com.whispertype.app.audio.AudioProcessor
 import com.whispertype.app.audio.AudioRecorder
@@ -266,8 +267,13 @@ class SpeechRecognitionHelper(
                 return@launch
             }
 
-            // Make API call with auth token
-            whisperApiClient.transcribe(audioBytes, token, audioFormat, object : WhisperApiClient.TranscriptionCallback {
+            // Get user's selected model
+            val selectedModel = ShortcutPreferences.getWhisperModel(context)
+            val modelId = selectedModel.modelId
+            Log.d(TAG, "Using model: $modelId (${selectedModel.displayName})")
+
+            // Make API call with auth token and selected model
+            whisperApiClient.transcribe(audioBytes, token, audioFormat, modelId, object : WhisperApiClient.TranscriptionCallback {
                 override fun onSuccess(text: String) {
                     Log.d(TAG, "Transcription successful: ${text.take(50)}...")
                     mainHandler.post {

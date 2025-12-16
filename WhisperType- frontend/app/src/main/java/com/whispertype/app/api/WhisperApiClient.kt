@@ -45,7 +45,9 @@ class WhisperApiClient {
         @SerializedName("audioBase64")
         val audioBase64: String,
         @SerializedName("audioFormat")
-        val audioFormat: String = "m4a"  // Default to m4a for backwards compatibility
+        val audioFormat: String = "m4a",  // Default to m4a for backwards compatibility
+        @SerializedName("model")
+        val model: String? = null  // Optional model parameter
     )
 
     /**
@@ -78,22 +80,24 @@ class WhisperApiClient {
      * @param audioBytes Raw audio bytes (M4A, WAV, etc.)
      * @param authToken Firebase Auth ID token for authentication
      * @param audioFormat File format extension ("m4a", "wav", etc.)
+     * @param model Optional Whisper model to use (e.g., "gpt-4o-transcribe", "gpt-4o-transcribe-mini")
      * @param callback Callback for success/error results
      */
     fun transcribe(
         audioBytes: ByteArray,
         authToken: String,
         audioFormat: String = "m4a",
+        model: String? = null,
         callback: TranscriptionCallback
     ) {
-        Log.d(TAG, "Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat")
+        Log.d(TAG, "Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, model: ${model ?: "default"}")
 
         // Encode audio to base64 (NO_WRAP to avoid line breaks)
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
         Log.d(TAG, "Base64 encoded, length: ${audioBase64.length}")
 
-        // Create request body with format hint
-        val requestBody = TranscribeRequest(audioBase64, audioFormat)
+        // Create request body with format and model hints
+        val requestBody = TranscribeRequest(audioBase64, audioFormat, model)
         val jsonBody = gson.toJson(requestBody)
 
         val request = Request.Builder()
