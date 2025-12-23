@@ -1,6 +1,10 @@
 [
     {
-        "merged": "com.whispertype.app-mergeDebugResources-61:/layout/overlay_mic_view.xml",
-        "source": "com.whispertype.app-main-64:/layout/overlay_mic_view.xml"
+        "merged": "com.whispertype.app-mergeDebugResources-58:/layout/overlay_mic_view.xml",
+        "source": "com.whispertype.app-main-61:/layout/overlay_mic_view.xml"
+    },
+    {
+        "merged": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-mergeDebugResources-58:/layout/overlay_mic_view.xml",
+        "source": "/Users/ijas/.gradle/daemon/8.13/com.whispertype.app-main-61:/layout/overlay_mic_view.xml"
     }
 ]

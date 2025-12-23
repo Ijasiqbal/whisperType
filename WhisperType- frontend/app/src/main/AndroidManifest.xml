@@ -25,6 +25,9 @@
     
     <!-- Internet may be needed for online speech recognition -->
     <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- Keep device awake during recording to prevent interruption -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:allowBackup="true"

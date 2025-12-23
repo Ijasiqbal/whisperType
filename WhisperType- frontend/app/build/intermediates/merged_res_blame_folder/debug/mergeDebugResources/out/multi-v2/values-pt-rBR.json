@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.whispertype.app-mergeDebugResources-60:/values-pt-rBR/values-pt-rBR.xml",
+            "outputFile": "com.whispertype.app-mergeDebugResources-57:/values-pt-rBR/values-pt-rBR.xml",
             "map": [
                 {
                     "source": "/Users/ijas/.gradle/caches/8.13/transforms/a84d0d790a6f9424563c20ca183ff049/transformed/appcompat-1.2.0/res/values-pt-rBR/values-pt-rBR.xml",

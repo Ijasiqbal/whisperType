@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.whispertype.app-mergeDebugResources-60:/values-watch-v20/values-watch-v20.xml",
+            "outputFile": "com.whispertype.app-mergeDebugResources-57:/values-watch-v20/values-watch-v20.xml",
             "map": [
                 {
                     "source": "/Users/ijas/.gradle/caches/8.13/transforms/48c81ef3b4bab6e517076abf35845a41/transformed/play-services-auth-21.1.1/res/values-watch-v20/values.xml",

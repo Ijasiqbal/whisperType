@@ -3,6 +3,7 @@ package com.whispertype.app.audio
 import android.content.Context
 import android.media.*
 import android.util.Log
+import com.whispertype.app.Constants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -25,20 +26,15 @@ import kotlin.math.min
  * (OpenAI charges per minute of audio)
  * 
  * Output format: WAV (16-bit PCM, mono, 16kHz) - supported by OpenAI Whisper
+ * 
+ * MEMORY SAFETY:
+ * - Properly releases MediaCodec and MediaExtractor resources
+ * - Uses try-finally blocks for cleanup
  */
 class AudioProcessor(private val context: Context) {
 
     companion object {
         private const val TAG = "AudioProcessor"
-        
-        // Silence detection parameters
-        private const val SILENCE_THRESHOLD_DB = -40f      // Audio below this is silence
-        private const val MIN_SILENCE_DURATION_MS = 500L   // Minimum silence gap to trim
-        private const val BUFFER_BEFORE_MS = 150L          // Padding before speech starts
-        private const val BUFFER_AFTER_MS = 200L           // Padding after speech ends
-        
-        // Analysis window size (in samples) for RMS calculation
-        private const val ANALYSIS_WINDOW_MS = 20L  // 20ms windows
     }
 
     /**
@@ -105,9 +101,9 @@ class AudioProcessor(private val context: Context) {
             } else 0
             Log.d(TAG, "Trimmed duration: ${trimmedDurationUs / 1000}ms ($savingsPercent% savings)")
             
-            // If savings are minimal (< 10%), skip processing to save CPU
-            if (savingsPercent < 10) {
-                Log.d(TAG, "Minimal savings, skipping processing")
+            // If savings are minimal (< MIN_SAVINGS_PERCENT%), skip processing to save CPU
+            if (savingsPercent < Constants.MIN_SAVINGS_PERCENT) {
+                Log.d(TAG, "Minimal savings ($savingsPercent%), skipping processing")
                 return@withContext ProcessedAudio(inputFile, "m4a")
             }
             
@@ -126,7 +122,7 @@ class AudioProcessor(private val context: Context) {
             Log.d(TAG, "Extracted ${speechSamples.size} speech samples")
             
             // Step 5: Write to WAV file
-            val outputFile = File(context.cacheDir, "whisper_processed.wav")
+            val outputFile = File(context.cacheDir, Constants.PROCESSED_AUDIO_FILE_NAME)
             val success = writeWavFile(outputFile, speechSamples, decodedAudio.sampleRate)
             
             if (success && outputFile.exists() && outputFile.length() > 0) {
@@ -145,12 +141,15 @@ class AudioProcessor(private val context: Context) {
 
     /**
      * Decode M4A/AAC audio file to raw PCM samples
+     * Properly manages MediaCodec and MediaExtractor lifecycle
      */
     private fun decodeAudioToSamples(file: File): DecodedAudio? {
-        val extractor = MediaExtractor()
-        var decoder: MediaCodec? = null
+        var extractorRef: MediaExtractor? = null
+        var decoderRef: MediaCodec? = null
         
-        try {
+        return try {
+            val extractor = MediaExtractor()
+            extractorRef = extractor
             extractor.setDataSource(file.absolutePath)
             
             // Find audio track
@@ -169,8 +168,8 @@ class AudioProcessor(private val context: Context) {
             
             if (audioTrackIndex < 0 || audioFormat == null) {
                 Log.e(TAG, "No audio track found")
-                return null
-            }
+                null
+            } else {
             
             extractor.selectTrack(audioTrackIndex)
             
@@ -192,7 +191,8 @@ class AudioProcessor(private val context: Context) {
             
             // Create decoder
             val mime = audioFormat.getString(MediaFormat.KEY_MIME)!!
-            decoder = MediaCodec.createDecoderByType(mime)
+            val decoder = MediaCodec.createDecoderByType(mime)
+            decoderRef = decoder
             decoder.configure(audioFormat, null, null, 0)
             decoder.start()
             
@@ -259,25 +259,44 @@ class AudioProcessor(private val context: Context) {
                 (samples.size.toLong() * 1_000_000L / sampleRate / channelCount)
             }
             
-            return DecodedAudio(
+            DecodedAudio(
                 samples = samples.toShortArray(),
                 sampleRate = sampleRate,
                 channelCount = channelCount,
                 durationUs = actualDurationUs
             )
-            
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error decoding audio", e)
-            return null
+            null
         } finally {
-            try { decoder?.stop() } catch (e: Exception) {}
-            try { decoder?.release() } catch (e: Exception) {}
-            try { extractor.release() } catch (e: Exception) {}
+            // Clean up resources in reverse order of creation
+            decoderRef?.let {
+                try { 
+                    if (it.name != null) { // Check if started
+                        it.stop()
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Decoder stop: ${e.message}")
+                }
+                try { 
+                    it.release() 
+                } catch (e: Exception) {
+                    Log.d(TAG, "Decoder release: ${e.message}")
+                }
+            }
+            extractorRef?.let {
+                try { 
+                    it.release() 
+                } catch (e: Exception) {
+                    Log.d(TAG, "Extractor release: ${e.message}")
+                }
+            }
         }
     }
 
     /**
-     * Detect speech segments in the audio samples
+     * Detect speech segments in the audio samples using RMS analysis
      */
     private fun detectSpeechSegments(
         samples: ShortArray, 
@@ -286,7 +305,7 @@ class AudioProcessor(private val context: Context) {
     ): List<TimeRange> {
         if (samples.isEmpty()) return emptyList()
         
-        val windowSamples = (sampleRate * ANALYSIS_WINDOW_MS / 1000).toInt()
+        val windowSamples = (sampleRate * Constants.ANALYSIS_WINDOW_MS / 1000).toInt()
         val segments = mutableListOf<TimeRange>()
         
         var speechStart: Long? = null
@@ -300,15 +319,15 @@ class AudioProcessor(private val context: Context) {
             val window = samples.sliceArray(start until end)
             
             val rmsDb = calculateRmsDb(window)
-            val isSpeech = rmsDb > SILENCE_THRESHOLD_DB
+            val isSpeech = rmsDb > Constants.SILENCE_THRESHOLD_DB
             
-            val currentTimeUs = (windowIndex * ANALYSIS_WINDOW_MS * 1000)
+            val currentTimeUs = (windowIndex * Constants.ANALYSIS_WINDOW_MS * 1000)
             
             if (isSpeech) {
                 if (speechStart == null) {
                     // Check if we should merge with previous segment
                     if (segments.isNotEmpty() && 
-                        currentTimeUs - lastSpeechEnd < MIN_SILENCE_DURATION_MS * 1000) {
+                        currentTimeUs - lastSpeechEnd < Constants.MIN_SILENCE_DURATION_MS * 1000) {
                         // Merge: extend previous segment instead of starting new
                         speechStart = segments.removeLast().startUs
                     } else {
@@ -337,8 +356,8 @@ class AudioProcessor(private val context: Context) {
         // Add buffers to each segment
         return segments.map { segment ->
             TimeRange(
-                startUs = max(0, segment.startUs - BUFFER_BEFORE_MS * 1000),
-                endUs = min(durationUs, segment.endUs + BUFFER_AFTER_MS * 1000)
+                startUs = max(0, segment.startUs - Constants.AUDIO_BUFFER_BEFORE_MS * 1000),
+                endUs = min(durationUs, segment.endUs + Constants.AUDIO_BUFFER_AFTER_MS * 1000)
             )
         }.mergeOverlapping()
     }

@@ -9,7 +9,6 @@ import android.content.SharedPreferences
  * Stores and retrieves the user's preferred volume button shortcut mode.
  */
 object ShortcutPreferences {
-    private const val PREFS_NAME = "whispertype_prefs"
     private const val KEY_SHORTCUT_MODE = "shortcut_mode"
     private const val KEY_WHISPER_MODEL = "whisper_model"
     
@@ -31,7 +30,7 @@ object ShortcutPreferences {
     }
     
     private fun getPrefs(context: Context): SharedPreferences {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
     }
     
     /**

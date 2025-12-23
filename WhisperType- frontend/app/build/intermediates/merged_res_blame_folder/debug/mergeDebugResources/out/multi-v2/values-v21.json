@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.whispertype.app-mergeDebugResources-60:/values-v21/values-v21.xml",
+            "outputFile": "com.whispertype.app-mergeDebugResources-57:/values-v21/values-v21.xml",
             "map": [
                 {
                     "source": "/Users/ijas/.gradle/caches/8.13/transforms/c1ef537e4766c62a4a5188f8c5044df4/transformed/credentials-play-services-auth-1.3.0/res/values-v21/values-v21.xml",

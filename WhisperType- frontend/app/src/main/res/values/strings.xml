@@ -33,12 +33,15 @@
     <string name="status_not_granted">Not granted</string>
     
     <!-- Overlay -->
-    <string name="overlay_listening">Listening…</string>
+    <string name="overlay_recording">Recording…</string>
     <string name="overlay_processing">Processing…</string>
+    <string name="overlay_transcribing">Transcribing…</string>
     <string name="overlay_ready">Tap to speak</string>
     <string name="overlay_error">Error occurred</string>
     <string name="overlay_no_focus">No text field focused</string>
     <string name="overlay_inserted">Text inserted!</string>
+    <string name="overlay_copied">Copied to clipboard!</string>
+    <string name="btn_copy_clipboard">Copy to Clipboard</string>
     
     <!-- Notifications -->
     <string name="notification_channel_name">WhisperType Overlay</string>

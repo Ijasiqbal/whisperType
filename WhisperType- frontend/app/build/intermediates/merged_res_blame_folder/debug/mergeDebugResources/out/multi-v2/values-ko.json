@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.whispertype.app-mergeDebugResources-60:/values-ko/values-ko.xml",
+            "outputFile": "com.whispertype.app-mergeDebugResources-57:/values-ko/values-ko.xml",
             "map": [
                 {
                     "source": "/Users/ijas/.gradle/caches/8.13/transforms/631db9cd743d0fd6417342040ab5da06/transformed/ui-release/res/values-ko/values-ko.xml",

@@ -952,6 +952,7 @@ drawable common_google_signin_btn_text_light
 drawable common_google_signin_btn_text_light_focused
 drawable common_google_signin_btn_text_light_normal
 drawable common_google_signin_btn_text_light_normal_background
+drawable copy_button_background
 drawable googleg_disabled_color_18
 drawable googleg_standard_color_18
 drawable ic_call_answer
@@ -1087,6 +1088,7 @@ id browser_actions_menu_item_text
 id browser_actions_menu_items
 id browser_actions_menu_view
 id btn_close
+id btn_copy
 id buttonPanel
 id cache_measures
 id callMeasure
@@ -1220,6 +1222,7 @@ id position
 id postLayout
 id progress_circular
 id progress_horizontal
+id progress_indicator
 id radio
 id ratio
 id rectangles
@@ -1423,6 +1426,7 @@ string bottom_sheet_collapse_description
 string bottom_sheet_dismiss_description
 string bottom_sheet_drag_handle_description
 string bottom_sheet_expand_description
+string btn_copy_clipboard
 string btn_enable_accessibility
 string btn_grant_microphone
 string btn_grant_overlay
@@ -1517,12 +1521,14 @@ string notification_text
 string notification_title
 string off
 string on
+string overlay_copied
 string overlay_error
 string overlay_inserted
-string overlay_listening
 string overlay_no_focus
 string overlay_processing
 string overlay_ready
+string overlay_recording
+string overlay_transcribing
 string project_id
 string range_end
 string range_start
@@ -2009,5 +2015,4 @@ styleable ViewStubCompat android_id android_layout android_inflatedId
 styleable ViewTransition android_id SharedValue SharedValueId clearsTag duration ifTagNotSet ifTagSet motionInterpolator motionTarget onStateTransition pathMotionArc setsTag transitionDisable upDuration viewTransitionMode
 styleable include constraintSet
 xml accessibility_service_config
-xml ga_ad_services_config
 xml image_share_filepaths

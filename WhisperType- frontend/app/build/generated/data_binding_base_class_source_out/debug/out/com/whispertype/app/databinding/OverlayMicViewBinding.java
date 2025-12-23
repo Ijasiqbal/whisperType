@@ -4,10 +4,12 @@ package com.whispertype.app.databinding;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -26,6 +28,9 @@ public final class OverlayMicViewBinding implements ViewBinding {
   public final ImageButton btnClose;
 
   @NonNull
+  public final Button btnCopy;
+
+  @NonNull
   public final ImageView icMic;
 
   @NonNull
@@ -38,21 +43,27 @@ public final class OverlayMicViewBinding implements ViewBinding {
   public final FrameLayout overlayRoot;
 
   @NonNull
+  public final ProgressBar progressIndicator;
+
+  @NonNull
   public final TextView tvPreview;
 
   @NonNull
   public final TextView tvStatus;
 
   private OverlayMicViewBinding(@NonNull FrameLayout rootView, @NonNull ImageButton btnClose,
-      @NonNull ImageView icMic, @NonNull FrameLayout micButtonContainer,
+      @NonNull Button btnCopy, @NonNull ImageView icMic, @NonNull FrameLayout micButtonContainer,
       @NonNull LinearLayout overlayContainer, @NonNull FrameLayout overlayRoot,
-      @NonNull TextView tvPreview, @NonNull TextView tvStatus) {
+      @NonNull ProgressBar progressIndicator, @NonNull TextView tvPreview,
+      @NonNull TextView tvStatus) {
     this.rootView = rootView;
     this.btnClose = btnClose;
+    this.btnCopy = btnCopy;
     this.icMic = icMic;
     this.micButtonContainer = micButtonContainer;
     this.overlayContainer = overlayContainer;
     this.overlayRoot = overlayRoot;
+    this.progressIndicator = progressIndicator;
     this.tvPreview = tvPreview;
     this.tvStatus = tvStatus;
   }
@@ -90,6 +101,12 @@ public final class OverlayMicViewBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.btn_copy;
+      Button btnCopy = ViewBindings.findChildViewById(rootView, id);
+      if (btnCopy == null) {
+        break missingId;
+      }
+
       id = R.id.ic_mic;
       ImageView icMic = ViewBindings.findChildViewById(rootView, id);
       if (icMic == null) {
@@ -110,6 +127,12 @@ public final class OverlayMicViewBinding implements ViewBinding {
 
       FrameLayout overlayRoot = (FrameLayout) rootView;
 
+      id = R.id.progress_indicator;
+      ProgressBar progressIndicator = ViewBindings.findChildViewById(rootView, id);
+      if (progressIndicator == null) {
+        break missingId;
+      }
+
       id = R.id.tv_preview;
       TextView tvPreview = ViewBindings.findChildViewById(rootView, id);
       if (tvPreview == null) {
@@ -122,8 +145,9 @@ public final class OverlayMicViewBinding implements ViewBinding {
         break missingId;
       }
 
-      return new OverlayMicViewBinding((FrameLayout) rootView, btnClose, icMic, micButtonContainer,
-          overlayContainer, overlayRoot, tvPreview, tvStatus);
+      return new OverlayMicViewBinding((FrameLayout) rootView, btnClose, btnCopy, icMic,
+          micButtonContainer, overlayContainer, overlayRoot, progressIndicator, tvPreview,
+          tvStatus);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

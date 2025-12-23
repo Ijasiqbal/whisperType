@@ -20,6 +20,7 @@ color secondary_variant
 color success
 color surface
 color warning
+drawable copy_button_background
 drawable ic_close
 drawable ic_launcher_background
 drawable ic_launcher_foreground
@@ -29,10 +30,12 @@ drawable mic_button_background
 drawable mic_button_listening
 drawable overlay_background
 id btn_close
+id btn_copy
 id ic_mic
 id mic_button_container
 id overlay_container
 id overlay_root
+id progress_indicator
 id tv_preview
 id tv_status
 layout overlay_mic_view
@@ -42,6 +45,7 @@ string accessibility_service_description
 string accessibility_service_label
 string accessibility_service_summary
 string app_name
+string btn_copy_clipboard
 string btn_enable_accessibility
 string btn_grant_microphone
 string btn_grant_overlay
@@ -61,12 +65,14 @@ string notification_channel_description
 string notification_channel_name
 string notification_text
 string notification_title
+string overlay_copied
 string overlay_error
 string overlay_inserted
-string overlay_listening
 string overlay_no_focus
 string overlay_processing
 string overlay_ready
+string overlay_recording
+string overlay_transcribing
 string project_id
 string setup_title
 string status_disabled
