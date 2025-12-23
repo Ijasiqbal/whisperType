@@ -244,8 +244,7 @@ class SpeechRecognitionHelper(
                             return@launch
                         }
                         
-                        // Send processed audio to API with correct format and duration
-                        transcribeAudio(processedBytes, processedResult.format, processedResult.durationMs)
+                        // Send processed audio to API with correct format and original duration for billing\n                        transcribeAudio(processedBytes, processedResult.format, processedResult.originalDurationMs)
                         
                     } catch (e: Exception) {
                         Log.e(TAG, "Error processing audio, sending original", e)
