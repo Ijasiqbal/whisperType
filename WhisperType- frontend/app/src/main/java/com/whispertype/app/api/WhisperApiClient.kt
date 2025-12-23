@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import com.whispertype.app.Constants
+import com.whispertype.app.data.UsageDataManager
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -58,7 +59,9 @@ class WhisperApiClient {
         @SerializedName("audioFormat")
         val audioFormat: String = "m4a",  // Default to m4a for backwards compatibility
         @SerializedName("model")
-        val model: String? = null  // Optional model parameter
+        val model: String? = null,  // Optional model parameter
+        @SerializedName("audioDurationMs")
+        val audioDurationMs: Long? = null  // Duration in milliseconds for usage tracking
     )
 
     /**
@@ -66,7 +69,11 @@ class WhisperApiClient {
      */
     private data class TranscribeResponse(
         @SerializedName("text")
-        val text: String?
+        val text: String?,
+        @SerializedName("secondsUsed")
+        val secondsUsed: Int?,
+        @SerializedName("totalSecondsThisMonth")
+        val totalSecondsThisMonth: Int?
     )
 
     /**
@@ -92,6 +99,7 @@ class WhisperApiClient {
      * @param authToken Firebase Auth ID token for authentication
      * @param audioFormat File format extension ("m4a", "wav", etc.)
      * @param model Optional Whisper model to use (e.g., "gpt-4o-transcribe", "gpt-4o-transcribe-mini")
+     * @param audioDurationMs Duration of audio in milliseconds (for usage tracking)
      * @param callback Callback for success/error results
      */
     fun transcribe(
@@ -99,16 +107,17 @@ class WhisperApiClient {
         authToken: String,
         audioFormat: String = "m4a",
         model: String? = null,
+        audioDurationMs: Long? = null,
         callback: TranscriptionCallback
     ) {
-        Log.d(TAG, "Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, model: ${model ?: "default"}")
+        Log.d(TAG, "Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, model: ${model ?: "default"}, duration: ${audioDurationMs}ms")
 
         // Encode audio to base64 (NO_WRAP to avoid line breaks)
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
         Log.d(TAG, "Base64 encoded, length: ${audioBase64.length}")
 
-        // Create request body with format and model hints
-        val requestBody = TranscribeRequest(audioBase64, audioFormat, model)
+        // Create request body with format, model, and duration hints
+        val requestBody = TranscribeRequest(audioBase64, audioFormat, model, audioDurationMs)
         val jsonBody = gson.toJson(requestBody)
 
         val request = Request.Builder()
@@ -133,6 +142,14 @@ class WhisperApiClient {
                                 Log.w(TAG, "Empty transcription result")
                                 callback.onError("No speech detected")
                             } else {
+                                // Log usage info (in seconds)
+                                val secondsUsed = transcribeResponse.secondsUsed ?: 0
+                                val totalSecondsThisMonth = transcribeResponse.totalSecondsThisMonth ?: 0
+                                Log.d(TAG, "Usage: ${secondsUsed}s used, ${totalSecondsThisMonth}s total this month")
+                                
+                                // Store usage data for Profile screen
+                                UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                
                                 // Log raw text for debugging
                                 Log.d(TAG, "Raw transcription: '$text'")
                                 
