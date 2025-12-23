@@ -11,7 +11,9 @@ import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -27,8 +29,10 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.whispertype.app.MainActivity
 import com.whispertype.app.R
+import com.whispertype.app.Constants
 import com.whispertype.app.audio.AudioRecorder
 import com.whispertype.app.speech.SpeechRecognitionHelper
+import java.lang.ref.WeakReference
 
 /**
  * OverlayService - Manages the floating mic overlay
@@ -55,6 +59,11 @@ import com.whispertype.app.speech.SpeechRecognitionHelper
  * 
  * FLAG_NOT_TOUCH_MODAL:
  * - Allow touches outside the overlay to pass through
+ * 
+ * MEMORY SAFETY:
+ * - Uses WeakReferences for UI elements to prevent leaks
+ * - Properly cleans up animators and callbacks
+ * - Thread-safe state management
  */
 class OverlayService : Service() {
 
@@ -67,30 +76,59 @@ class OverlayService : Service() {
         const val ACTION_SHOW = "com.whispertype.app.SHOW_OVERLAY"
         const val ACTION_HIDE = "com.whispertype.app.HIDE_OVERLAY"
         const val ACTION_TOGGLE = "com.whispertype.app.TOGGLE_OVERLAY"
-        
-        // Amplitude threshold for voice detection (MediaRecorder amplitude ranges 0-32767)
-        private const val VOICE_ACTIVITY_THRESHOLD = 1000  // Amplitude above this = speaking
     }
     
     private var windowManager: WindowManager? = null
-    private var overlayView: View? = null
+    
+    // Use WeakReference to prevent memory leaks if service is destroyed
+    private var overlayViewRef: WeakReference<View>? = null
+    private val overlayView: View? get() = overlayViewRef?.get()
+    
+    @Volatile
     private var isOverlayVisible = false
     
     private var speechHelper: SpeechRecognitionHelper? = null
     
-    // UI elements
-    private var micButton: FrameLayout? = null
-    private var micIcon: ImageView? = null
-    private var statusText: TextView? = null
-    private var previewText: TextView? = null
-    private var closeButton: ImageButton? = null
+    // UI elements - using WeakReferences to prevent leaks
+    private var micButtonRef: WeakReference<FrameLayout>? = null
+    private val micButton: FrameLayout? get() = micButtonRef?.get()
+    
+    private var micIconRef: WeakReference<ImageView>? = null
+    private val micIcon: ImageView? get() = micIconRef?.get()
+    
+    private var statusTextRef: WeakReference<TextView>? = null
+    private val statusText: TextView? get() = statusTextRef?.get()
+    
+    private var previewTextRef: WeakReference<TextView>? = null
+    private val previewText: TextView? get() = previewTextRef?.get()
+    
+    private var closeButtonRef: WeakReference<ImageButton>? = null
+    private val closeButton: ImageButton? get() = closeButtonRef?.get()
+    
+    private var progressIndicatorRef: WeakReference<View>? = null
+    private val progressIndicator: View? get() = progressIndicatorRef?.get()
+    
+    private var copyButtonRef: WeakReference<android.widget.Button>? = null
+    private val copyButton: android.widget.Button? get() = copyButtonRef?.get()
+    
+    // Pending text for clipboard copy (when no text field is focused)
+    private var pendingText: String? = null
     
     // Listening state
+    @Volatile
     private var isListening = false
     
     // Voice activity animation
     private var pulseAnimator: ObjectAnimator? = null
+    
+    // Recording animation (subtle pulse to indicate recording is active)
+    private var recordingPulseAnimator: ObjectAnimator? = null
+    
+    @Volatile
     private var isSpeaking = false
+    
+    // Battery optimization: Handler for batching UI updates
+    private val uiHandler = Handler(Looper.getMainLooper())
     
     override fun onCreate() {
         super.onCreate()
@@ -101,7 +139,7 @@ class OverlayService : Service() {
         // Initialize speech recognition
         speechHelper = SpeechRecognitionHelper(this, object : SpeechRecognitionHelper.Callback {
             override fun onReadyForSpeech() {
-                updateUI(State.LISTENING)
+                updateUI(State.RECORDING)
             }
             
             override fun onBeginningOfSpeech() {
@@ -109,8 +147,12 @@ class OverlayService : Service() {
             }
             
             override fun onPartialResults(partialText: String) {
-                previewText?.visibility = View.VISIBLE
-                previewText?.text = partialText
+                // Battery optimization: Batch UI updates to reduce main thread wakeups
+                uiHandler.removeCallbacksAndMessages("partial")
+                uiHandler.postAtTime({
+                    previewText?.visibility = View.VISIBLE
+                    previewText?.text = partialText
+                }, "partial", System.currentTimeMillis() + 50)  // 50ms debounce
             }
             
             override fun onResults(finalText: String) {
@@ -123,16 +165,20 @@ class OverlayService : Service() {
                 updateUI(State.ERROR)
                 statusText?.text = errorMessage
                 
-                // Reset to ready state after a delay
-                statusText?.postDelayed({
+                // Reset to ready state after a delay (using shared handler for better battery)
+                uiHandler.postDelayed({
                     if (!isListening) {
                         updateUI(State.IDLE)
                     }
-                }, 2000)
+                }, Constants.ERROR_MESSAGE_DELAY_MS)
             }
             
             override fun onEndOfSpeech() {
                 updateUI(State.PROCESSING)
+            }
+            
+            override fun onTranscribing() {
+                updateUI(State.TRANSCRIBING)
             }
         })
         
@@ -161,8 +207,19 @@ class OverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
     
     override fun onDestroy() {
+        // Clean up in proper order to prevent leaks
         hideOverlay()
+        
+        // Destroy speech helper and release resources
         speechHelper?.destroy()
+        speechHelper = null
+        
+        // Clean up UI handler to prevent leaks
+        uiHandler.removeCallbacksAndMessages(null)
+        
+        // Clean up window manager reference
+        windowManager = null
+        
         super.onDestroy()
         Log.d(TAG, "OverlayService destroyed")
     }
@@ -181,45 +238,49 @@ class OverlayService : Service() {
         
         // Inflate the overlay layout
         val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
-        overlayView = inflater.inflate(R.layout.overlay_mic_view, null)
+        val view = inflater.inflate(R.layout.overlay_mic_view, null)
+        overlayViewRef = WeakReference(view)
         
-        // Get UI references
-        micButton = overlayView?.findViewById(R.id.mic_button_container)
-        micIcon = overlayView?.findViewById(R.id.ic_mic)
-        statusText = overlayView?.findViewById(R.id.tv_status)
-        previewText = overlayView?.findViewById(R.id.tv_preview)
-        closeButton = overlayView?.findViewById(R.id.btn_close)
+        // Get UI references using WeakReferences
+        micButtonRef = WeakReference(view.findViewById(R.id.mic_button_container))
+        micIconRef = WeakReference(view.findViewById(R.id.ic_mic))
+        statusTextRef = WeakReference(view.findViewById(R.id.tv_status))
+        previewTextRef = WeakReference(view.findViewById(R.id.tv_preview))
+        closeButtonRef = WeakReference(view.findViewById(R.id.btn_close))
+        progressIndicatorRef = WeakReference(view.findViewById(R.id.progress_indicator))
+        copyButtonRef = WeakReference(view.findViewById(R.id.btn_copy))
         
         // Configure window parameters
         val layoutParams = createLayoutParams()
         
         // Set up touch handling for dragging
-        setupTouchHandling(overlayView!!, layoutParams)
+        setupTouchHandling(view, layoutParams)
         
         // Set up button clicks
         setupButtonHandlers()
         
         // Add view to window
         try {
-            windowManager?.addView(overlayView, layoutParams)
+            windowManager?.addView(view, layoutParams)
             isOverlayVisible = true
             updateUI(State.IDLE)
             
             // Auto-start recording when overlay is shown
-            overlayView?.post {
+            view.post {
                 startListening()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add overlay view", e)
             Toast.makeText(this, "Failed to show overlay", Toast.LENGTH_SHORT).show()
+            cleanupViewReferences()
         }
     }
     
     /**
-     * Hide the overlay from screen
+     * Hide the overlay from screen and clean up resources
      */
     fun hideOverlay() {
-        if (!isOverlayVisible || overlayView == null) {
+        if (!isOverlayVisible) {
             return
         }
         
@@ -227,22 +288,54 @@ class OverlayService : Service() {
         
         // Stop any ongoing speech recognition
         if (isListening) {
-            speechHelper?.stopListening()
+            try {
+                speechHelper?.stopListening()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping speech recognition", e)
+            }
             isListening = false
         }
         
-        try {
-            windowManager?.removeView(overlayView)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error removing overlay view", e)
+        // Stop pulse animation to prevent leaks
+        stopPulseAnimation()
+        stopRecordingPulseAnimation()
+        
+        // Remove view from window manager
+        overlayView?.let { view ->
+            try {
+                windowManager?.removeView(view)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error removing overlay view", e)
+            }
         }
         
-        overlayView = null
+        // Clean up all view references
+        cleanupViewReferences()
+        
         isOverlayVisible = false
         
         // Stop the service when overlay is hidden
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping service", e)
+        }
+    }
+    
+    /**
+     * Clean up all view references to prevent memory leaks
+     */
+    private fun cleanupViewReferences() {
+        overlayViewRef = null
+        micButtonRef = null
+        micIconRef = null
+        statusTextRef = null
+        previewTextRef = null
+        closeButtonRef = null
+        progressIndicatorRef = null
+        copyButtonRef = null
+        pendingText = null
     }
     
     /**
@@ -344,6 +437,11 @@ class OverlayService : Service() {
         closeButton?.setOnClickListener {
             hideOverlay()
         }
+        
+        // Copy button copies pending text to clipboard
+        copyButton?.setOnClickListener {
+            copyToClipboard()
+        }
     }
     
     /**
@@ -405,10 +503,13 @@ class OverlayService : Service() {
     
     /**
      * Handle voice amplitude updates for animation
+     * Thread-safe handling of amplitude callbacks
      */
     private fun handleVoiceAmplitude(amplitude: Int) {
+        if (!isOverlayVisible) return
+        
         val wasSpeaking = isSpeaking
-        isSpeaking = amplitude > VOICE_ACTIVITY_THRESHOLD
+        isSpeaking = amplitude > Constants.VOICE_ACTIVITY_THRESHOLD
         
         if (isSpeaking && !wasSpeaking) {
             // Started speaking - begin pulse animation
@@ -421,16 +522,22 @@ class OverlayService : Service() {
     
     /**
      * Start pulse animation on mic button to indicate voice detection
+     * Properly manages animator lifecycle to prevent leaks
+     * Battery optimized: Uses hardware layer for smooth animation
      */
     private fun startPulseAnimation() {
+        // Stop any existing animation first
         if (pulseAnimator?.isRunning == true) return
         
         micButton?.let { button ->
+            // Battery optimization: Use hardware layer during animation
+            button.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            
             val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.15f, 1.0f)
             val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.15f, 1.0f)
             
             pulseAnimator = ObjectAnimator.ofPropertyValuesHolder(button, scaleX, scaleY).apply {
-                duration = 400
+                duration = Constants.PULSE_ANIMATION_DURATION_MS
                 repeatCount = ObjectAnimator.INFINITE
                 interpolator = AccelerateDecelerateInterpolator()
                 start()
@@ -439,18 +546,67 @@ class OverlayService : Service() {
     }
     
     /**
-     * Stop pulse animation
+     * Stop pulse animation and clean up animator to prevent leaks
+     * Battery optimized: Resets hardware layer
      */
     private fun stopPulseAnimation() {
-        pulseAnimator?.cancel()
+        pulseAnimator?.let { animator ->
+            if (animator.isRunning) {
+                animator.cancel()
+            }
+            animator.removeAllListeners()
+        }
         pulseAnimator = null
         
-        // Reset scale to normal
+        // Reset scale to normal and restore layer type
         micButton?.apply {
             scaleX = 1.0f
             scaleY = 1.0f
+            setLayerType(View.LAYER_TYPE_NONE, null)  // Battery: Remove hardware layer
         }
         isSpeaking = false
+    }
+    
+    /**
+     * Start subtle recording pulse animation to indicate recording is active
+     * This is a gentler animation than voice detection pulse
+     */
+    private fun startRecordingPulseAnimation() {
+        if (recordingPulseAnimator?.isRunning == true) return
+        
+        micIcon?.let { icon ->
+            icon.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            
+            // Subtle scale animation (1.0 -> 1.08 -> 1.0)
+            val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.08f, 1.0f)
+            val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.08f, 1.0f)
+            
+            recordingPulseAnimator = ObjectAnimator.ofPropertyValuesHolder(icon, scaleX, scaleY).apply {
+                duration = 800L  // Slower, more subtle than voice detection
+                repeatCount = ObjectAnimator.INFINITE
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        }
+    }
+    
+    /**
+     * Stop recording pulse animation
+     */
+    private fun stopRecordingPulseAnimation() {
+        recordingPulseAnimator?.let { animator ->
+            if (animator.isRunning) {
+                animator.cancel()
+            }
+            animator.removeAllListeners()
+        }
+        recordingPulseAnimator = null
+        
+        micIcon?.apply {
+            scaleX = 1.0f
+            scaleY = 1.0f
+            setLayerType(View.LAYER_TYPE_NONE, null)
+        }
     }
     
     /**
@@ -474,14 +630,16 @@ class OverlayService : Service() {
                 updateUI(State.SUCCESS)
                 statusText?.text = getString(R.string.overlay_inserted)
                 
-                // Auto-hide after successful insertion
-                statusText?.postDelayed({
+                // Auto-hide after successful insertion (using shared handler)
+                uiHandler.postDelayed({
                     hideOverlay()
-                }, 1000)
+                }, Constants.SUCCESS_MESSAGE_DELAY_MS)
             } else {
-                updateUI(State.ERROR)
+                // No text field focused - show copy button option
+                pendingText = text
+                updateUI(State.NO_FOCUS)
                 statusText?.text = getString(R.string.overlay_no_focus)
-                statusText?.postDelayed({ updateUI(State.IDLE) }, 2000)
+                copyButton?.visibility = View.VISIBLE
             }
         } else {
             // Accessibility service not available - copy to clipboard
@@ -503,24 +661,82 @@ class OverlayService : Service() {
                 statusText?.text = getString(R.string.overlay_ready)
                 micButton?.setBackgroundResource(R.drawable.mic_button_background)
                 previewText?.visibility = View.GONE
+                progressIndicator?.visibility = View.GONE
+                micIcon?.visibility = View.VISIBLE
+                copyButton?.visibility = View.GONE
             }
-            State.LISTENING -> {
-                statusText?.text = getString(R.string.overlay_listening)
+            State.RECORDING -> {
+                statusText?.text = getString(R.string.overlay_recording)
                 micButton?.setBackgroundResource(R.drawable.mic_button_listening)
+                progressIndicator?.visibility = View.GONE
+                micIcon?.visibility = View.VISIBLE
+                copyButton?.visibility = View.GONE
+                // Start recording pulse animation
+                startRecordingPulseAnimation()
             }
             State.PROCESSING -> {
                 statusText?.text = getString(R.string.overlay_processing)
-                micButton?.setBackgroundResource(R.drawable.mic_button_listening)
+                micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                progressIndicator?.visibility = View.VISIBLE
+                micIcon?.visibility = View.GONE
+                copyButton?.visibility = View.GONE
+                stopRecordingPulseAnimation()
+            }
+            State.TRANSCRIBING -> {
+                statusText?.text = getString(R.string.overlay_transcribing)
+                micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                progressIndicator?.visibility = View.VISIBLE
+                micIcon?.visibility = View.GONE
+                copyButton?.visibility = View.GONE
             }
             State.SUCCESS -> {
                 statusText?.text = getString(R.string.overlay_inserted)
                 micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                progressIndicator?.visibility = View.GONE
+                micIcon?.visibility = View.VISIBLE
+                copyButton?.visibility = View.GONE
             }
             State.ERROR -> {
                 // Error message set by caller
                 micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                progressIndicator?.visibility = View.GONE
+                micIcon?.visibility = View.VISIBLE
+                copyButton?.visibility = View.GONE
+            }
+            State.NO_FOCUS -> {
+                // No text field focused - show copy option
+                micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                previewText?.visibility = View.GONE
+                progressIndicator?.visibility = View.GONE
+                micIcon?.visibility = View.VISIBLE
+                // copyButton visibility is set by caller
             }
         }
+    }
+    
+    /**
+     * Copy pending text to clipboard
+     */
+    private fun copyToClipboard() {
+        val text = pendingText
+        if (text.isNullOrBlank()) {
+            return
+        }
+        
+        val clipboardManager = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText("WhisperType", text)
+        clipboardManager.setPrimaryClip(clip)
+        
+        // Show success feedback
+        updateUI(State.SUCCESS)
+        statusText?.text = getString(R.string.overlay_copied)
+        copyButton?.visibility = View.GONE
+        pendingText = null
+        
+        // Auto-hide after copying
+        uiHandler.postDelayed({
+            hideOverlay()
+        }, Constants.SUCCESS_MESSAGE_DELAY_MS)
     }
     
     /**
@@ -568,9 +784,11 @@ class OverlayService : Service() {
      */
     enum class State {
         IDLE,
-        LISTENING,
+        RECORDING,
         PROCESSING,
+        TRANSCRIBING,
         SUCCESS,
-        ERROR
+        ERROR,
+        NO_FOCUS
     }
 }

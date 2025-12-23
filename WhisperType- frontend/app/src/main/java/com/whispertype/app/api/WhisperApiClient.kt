@@ -4,6 +4,7 @@ import android.util.Base64
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import com.whispertype.app.Constants
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -21,22 +22,32 @@ import java.util.concurrent.TimeUnit
  * API Endpoint: POST https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio
  * Request: {"audioBase64": "<base64_audio>"}
  * Response: {"text": "transcribed text"}
+ * 
+ * NOTE: Uses a singleton OkHttpClient for better connection pooling and resource management
  */
 class WhisperApiClient {
 
     companion object {
         private const val TAG = "WhisperApiClient"
         private const val API_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio"
+        private const val HEALTH_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/health"
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
+        
+        /**
+         * Singleton OkHttpClient for efficient connection pooling and resource reuse
+         * Using lazy initialization for thread-safe singleton
+         */
+        private val client: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(Constants.API_CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .readTimeout(Constants.API_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .writeTimeout(Constants.API_WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
+                .build()
+        }
+        
+        private val gson: Gson by lazy { Gson() }
     }
-
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)  // Transcription can take time
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
-
-    private val gson = Gson()
 
     /**
      * Request body for the transcription API
@@ -196,9 +207,42 @@ class WhisperApiClient {
     }
 
     /**
-     * Cancel all pending requests
+     * Warm up the Firebase Function by pinging the health endpoint
+     * This helps avoid cold start latency on the actual transcription request
+     * Fire-and-forget: doesn't block or return result
+     */
+    fun warmHealth() {
+        val request = Request.Builder()
+            .url(HEALTH_URL)
+            .get()
+            .build()
+        
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                Log.d(TAG, "Health warmup: ${response.code}")
+                response.close()
+            }
+            
+            override fun onFailure(call: Call, e: IOException) {
+                Log.d(TAG, "Health warmup failed (non-critical): ${e.message}")
+            }
+        })
+    }
+    
+    /**
+     * Cancel all pending requests for this client
+     * Note: Since we use a shared client, consider using tags if you need per-instance cancellation
      */
     fun cancelAll() {
         client.dispatcher.cancelAll()
+    }
+    
+    /**
+     * Cleanup resources if needed
+     * The singleton client will be reused, but this method is here for API compatibility
+     */
+    fun release() {
+        // No-op: Client is a singleton and should not be closed per instance
+        // If you need to clean up, call cancelAll() instead
     }
 }

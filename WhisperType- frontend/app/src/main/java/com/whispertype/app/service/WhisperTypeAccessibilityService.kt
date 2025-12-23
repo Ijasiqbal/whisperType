@@ -12,6 +12,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import com.whispertype.app.Constants
 import com.whispertype.app.ShortcutPreferences
 
 /**
@@ -45,9 +46,6 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "WhisperTypeA11y"
-        
-        // Double-press timing threshold (milliseconds)
-        private const val DOUBLE_PRESS_THRESHOLD_MS = 350L
         
         // Singleton instance for other components to communicate with
         var instance: WhisperTypeAccessibilityService? = null
@@ -176,7 +174,7 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         val currentTime = System.currentTimeMillis()
         val timeSinceLastPress = currentTime - lastVolumeUpTime
         
-        if (timeSinceLastPress < DOUBLE_PRESS_THRESHOLD_MS) {
+        if (timeSinceLastPress < Constants.DOUBLE_PRESS_THRESHOLD_MS) {
             lastVolumeUpTime = 0
             Log.d(TAG, "Double volume-up detected! Triggering overlay.")
             toggleOverlay()
@@ -197,7 +195,7 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         val currentTime = System.currentTimeMillis()
         val timeSinceLastPress = currentTime - lastVolumeDownTime
         
-        if (timeSinceLastPress < DOUBLE_PRESS_THRESHOLD_MS) {
+        if (timeSinceLastPress < Constants.DOUBLE_PRESS_THRESHOLD_MS) {
             lastVolumeDownTime = 0
             Log.d(TAG, "Double volume-down detected! Triggering overlay.")
             toggleOverlay()
@@ -241,12 +239,12 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
             val timeDiff = kotlin.math.abs(lastVolumeUpTime - lastVolumeDownTime)
             Log.d(TAG, "BOTH_MODE: Both pressed! TimeDiff=$timeDiff ms")
             
-            if (timeDiff < 300) {
+            if (timeDiff < Constants.BOTH_BUTTONS_THRESHOLD_MS) {
                 val timeSinceLastTrigger = currentTime - lastBothButtonsTime
                 Log.d(TAG, "BOTH_MODE: Within threshold! TimeSinceLastTrigger=$timeSinceLastTrigger ms")
                 
                 // Prevent repeated triggers
-                if (timeSinceLastTrigger > DOUBLE_PRESS_THRESHOLD_MS) {
+                if (timeSinceLastTrigger > Constants.DOUBLE_PRESS_THRESHOLD_MS) {
                     lastBothButtonsTime = currentTime
                     // Reset both timestamps
                     lastVolumeUpTime = 0
