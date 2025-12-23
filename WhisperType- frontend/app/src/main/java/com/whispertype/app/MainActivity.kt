@@ -43,6 +43,7 @@ import com.whispertype.app.auth.AuthState
 import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.service.OverlayService
 import com.whispertype.app.ui.LoginScreen
+import com.whispertype.app.ui.ProfileScreen
 
 /**
  * MainActivity - Onboarding and permission setup screen
@@ -106,8 +107,8 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         is AuthState.Authenticated -> {
-                            // Show main screen with permissions setup and sign-out option
-                            MainScreen(
+                            // Show main app with bottom navigation
+                            AppWithBottomNav(
                                 onEnableAccessibility = { openAccessibilitySettings() },
                                 onGrantOverlay = { openOverlaySettings() },
                                 onGrantMicrophone = { requestMicrophonePermission() },
@@ -612,6 +613,92 @@ fun MainScreen(
         }
         
         Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+/**
+ * Enum for bottom navigation tabs
+ */
+enum class BottomNavTab(val label: String, val iconRes: Int) {
+    HOME("Home", R.drawable.ic_home),
+    PROFILE("Profile", R.drawable.ic_person)
+}
+
+/**
+ * Main app container with bottom navigation
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppWithBottomNav(
+    onEnableAccessibility: () -> Unit,
+    onGrantOverlay: () -> Unit,
+    onGrantMicrophone: () -> Unit,
+    onTestOverlay: () -> Unit,
+    onSignOut: () -> Unit,
+    userEmail: String?
+) {
+    var selectedTab by remember { mutableStateOf(BottomNavTab.HOME) }
+    
+    Scaffold(
+        bottomBar = {
+            NavigationBar(
+                containerColor = Color.White,
+                tonalElevation = 8.dp
+            ) {
+                BottomNavTab.values().forEach { tab ->
+                    NavigationBarItem(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = tab.iconRes),
+                                contentDescription = tab.label,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = tab.label,
+                                fontSize = 12.sp,
+                                fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color(0xFF6366F1),
+                            selectedTextColor = Color(0xFF6366F1),
+                            unselectedIconColor = Color(0xFF94A3B8),
+                            unselectedTextColor = Color(0xFF94A3B8),
+                            indicatorColor = Color(0xFFEEF2FF)
+                        )
+                    )
+                }
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            when (selectedTab) {
+                BottomNavTab.HOME -> {
+                    MainScreen(
+                        onEnableAccessibility = onEnableAccessibility,
+                        onGrantOverlay = onGrantOverlay,
+                        onGrantMicrophone = onGrantMicrophone,
+                        onTestOverlay = onTestOverlay,
+                        onSignOut = onSignOut,
+                        userEmail = userEmail
+                    )
+                }
+                BottomNavTab.PROFILE -> {
+                    ProfileScreen(
+                        userEmail = userEmail,
+                        onSignOut = onSignOut
+                    )
+                }
+            }
+        }
     }
 }
 

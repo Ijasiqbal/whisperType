@@ -214,7 +214,9 @@ class SpeechRecognitionHelper(
                 val outputFilePath = audioRecorder.getOutputFilePath()
                 if (outputFilePath == null) {
                     Log.w(TAG, "No output file available, sending original audio")
-                    transcribeAudio(audioBytes, "m4a")
+                    // Estimate duration: 1 second minimum
+                    val estimatedDurationMs = (audioBytes.size.toLong() * 8 / 64).coerceAtLeast(1000)
+                    transcribeAudio(audioBytes, "m4a", estimatedDurationMs)
                     return
                 }
                 
@@ -242,13 +244,14 @@ class SpeechRecognitionHelper(
                             return@launch
                         }
                         
-                        // Send processed audio to API with correct format
-                        transcribeAudio(processedBytes, processedResult.format)
+                        // Send processed audio to API with correct format and duration
+                        transcribeAudio(processedBytes, processedResult.format, processedResult.durationMs)
                         
                     } catch (e: Exception) {
                         Log.e(TAG, "Error processing audio, sending original", e)
-                        // Fallback: send original audio (M4A format)
-                        transcribeAudio(audioBytes, "m4a")
+                        // Fallback: send original audio (M4A format) with estimated duration
+                        val estimatedDurationMs = (audioBytes.size.toLong() * 8 / 64).coerceAtLeast(1000)
+                        transcribeAudio(audioBytes, "m4a", estimatedDurationMs)
                     }
                 }
             }
@@ -265,8 +268,9 @@ class SpeechRecognitionHelper(
      * Send audio to WhisperType API for transcription
      * @param audioBytes Raw audio bytes
      * @param audioFormat File format ("wav" or "m4a")
+     * @param durationMs Duration of audio in milliseconds (for usage tracking)
      */
-    private fun transcribeAudio(audioBytes: ByteArray, audioFormat: String = "m4a") {
+    private fun transcribeAudio(audioBytes: ByteArray, audioFormat: String = "m4a", durationMs: Long) {
         if (isDestroyed) return
         
         Log.d(TAG, "Sending audio to WhisperType API, format: $audioFormat")
@@ -305,8 +309,8 @@ class SpeechRecognitionHelper(
                 }
             }
 
-            // Make API call with auth token and selected model
-            whisperApiClient.transcribe(audioBytes, token, audioFormat, modelId, object : WhisperApiClient.TranscriptionCallback {
+            // Make API call with auth token, selected model, and duration
+            whisperApiClient.transcribe(audioBytes, token, audioFormat, modelId, durationMs, object : WhisperApiClient.TranscriptionCallback {
                 override fun onSuccess(text: String) {
                     Log.d(TAG, "Transcription successful: ${text.take(50)}...")
                     mainHandler.post {

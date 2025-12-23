@@ -962,6 +962,7 @@ drawable ic_call_answer_video_low
 drawable ic_call_decline
 drawable ic_call_decline_low
 drawable ic_close
+drawable ic_home
 drawable ic_launcher_background
 drawable ic_launcher_foreground
 drawable ic_mic
@@ -969,6 +970,7 @@ drawable ic_microphone
 drawable ic_other_sign_in
 drawable ic_passkey
 drawable ic_password
+drawable ic_person
 drawable mic_button_background
 drawable mic_button_listening
 drawable notification_action_background

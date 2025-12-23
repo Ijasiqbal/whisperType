@@ -1,6 +1,7 @@
-#Tue Dec 23 12:19:27 IST 2025
+#Tue Dec 23 15:55:43 IST 2025
 base.0=/Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/dex/debug/mergeExtDexDebug/classes.dex
 base.1=/Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/dex/debug/mergeProjectDexDebug/0/classes.dex
+base.10=/Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/dex/debug/mergeProjectDexDebug/15/classes.dex
 base.2=/Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/dex/debug/mergeProjectDexDebug/2/classes.dex
 base.3=/Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/dex/debug/mergeProjectDexDebug/3/classes.dex
 base.4=/Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/dex/debug/mergeProjectDexDebug/4/classes.dex
@@ -11,6 +12,7 @@ base.8=/Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/interme
 base.9=/Users/ijas/Documents/whisperType/WhisperType- frontend/app/build/intermediates/dex/debug/mergeExtDexDebug/classes2.dex
 path.0=classes.dex
 path.1=0/classes.dex
+path.10=15/classes.dex
 path.2=2/classes.dex
 path.3=3/classes.dex
 path.4=4/classes.dex
@@ -21,6 +23,7 @@ path.8=8/classes.dex
 path.9=classes2.dex
 renamed.0=classes.dex
 renamed.1=classes2.dex
+renamed.10=classes11.dex
 renamed.2=classes3.dex
 renamed.3=classes4.dex
 renamed.4=classes5.dex

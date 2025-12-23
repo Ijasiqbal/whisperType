@@ -76,6 +76,118 @@ async function logTranscriptionRequest(
   }
 }
 
+// ============================================================================
+// USAGE TRACKING FUNCTIONS
+// ============================================================================
+
+/**
+ * User document interface for Firestore users collection
+ */
+interface UserDocument {
+  createdAt: admin.firestore.Timestamp;
+  country?: string;
+  plan: "free" | "pro";
+  freeTrialStart: admin.firestore.Timestamp | null;
+  freeMinutesRemaining: number;
+}
+
+/**
+ * Usage log entry interface
+ */
+interface UsageLogEntry {
+  secondsUsed: number;
+  timestamp: admin.firestore.Timestamp;
+  source: "free" | "pro" | "overage" | "recharge";
+}
+
+/**
+ * Get or create user document in Firestore
+ * @param {string} uid - User ID
+ * @return {Promise<UserDocument>} The user document
+ */
+async function getOrCreateUser(uid: string): Promise<UserDocument> {
+  const userRef = db.collection("users").doc(uid);
+  const userDoc = await userRef.get();
+
+  if (userDoc.exists) {
+    return userDoc.data() as UserDocument;
+  }
+
+  // Create new user document with default values
+  const newUser: UserDocument = {
+    createdAt: admin.firestore.Timestamp.now(),
+    plan: "free",
+    freeTrialStart: admin.firestore.Timestamp.now(),
+    freeMinutesRemaining: 60, // Default 60 free minutes
+  };
+
+  await userRef.set(newUser);
+  logger.info(`Created new user document for ${uid}`);
+
+  return newUser;
+}
+
+/**
+ * Log usage after transcription
+ * @param {string} uid - User ID
+ * @param {number} secondsUsed - Seconds of audio transcribed
+ * @return {Promise<void>}
+ */
+async function logUsage(uid: string, secondsUsed: number): Promise<void> {
+  try {
+    const entry: Omit<UsageLogEntry, "timestamp"> & {
+      timestamp: admin.firestore.FieldValue;
+    } = {
+      secondsUsed: secondsUsed,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      source: "free", // For now, all usage is from free tier
+    };
+
+    await db
+      .collection("usage_logs")
+      .doc(uid)
+      .collection("entries")
+      .add(entry);
+
+    logger.info(`Logged ${secondsUsed} seconds usage for user ${uid}`);
+  } catch (error) {
+    // Don't fail the request if logging fails
+    logger.error("Failed to log usage", error);
+  }
+}
+
+/**
+ * Get total usage for the current month
+ * @param {string} uid - User ID
+ * @return {Promise<number>} Total minutes used this month
+ */
+async function getTotalUsageThisMonth(uid: string): Promise<number> {
+  try {
+    // Calculate start of current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startTimestamp = admin.firestore.Timestamp.fromDate(startOfMonth);
+
+    const snapshot = await db
+      .collection("usage_logs")
+      .doc(uid)
+      .collection("entries")
+      .where("timestamp", ">=", startTimestamp)
+      .get();
+
+    let totalSeconds = 0;
+    snapshot.forEach((doc) => {
+      const data = doc.data() as UsageLogEntry;
+      totalSeconds += data.secondsUsed || 0;
+    });
+
+    return totalSeconds;
+  } catch (error) {
+    logger.error("Failed to get monthly usage", error);
+    return 0;
+  }
+}
+
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
 
@@ -106,13 +218,15 @@ export const health = onRequest((request, response) => {
  * Body: {
  *   audioBase64: string,
  *   audioFormat?: string,
- *   model?: string
+ *   model?: string,
+ *   audioDurationMs?: number
  * }
  * audioFormat: "wav" | "m4a" | "mp3" | "webm" | "mp4" |
  *             "mpeg" | "mpga" (default: "m4a")
  * model: "gpt-4o-transcribe" | "gpt-4o-mini-transcribe"
  *        (default: "gpt-4o-transcribe")
- * Response: { text: string }
+ * audioDurationMs: Duration of audio in milliseconds (for usage tracking)
+ * Response: { text: string, minutesUsed: number, totalUsedThisMonth: number }
  */
 export const transcribeAudio = onRequest(
   {secrets: ["OPENAI_API_KEY"]},
@@ -142,7 +256,12 @@ export const transcribeAudio = onRequest(
       logger.info(`Authenticated request from user: ${uid}`);
 
       // Validate request body
-      const {audioBase64, audioFormat = "m4a", model} = request.body;
+      const {
+        audioBase64,
+        audioFormat = "m4a",
+        model,
+        audioDurationMs,
+      } = request.body;
       if (!audioBase64 || typeof audioBase64 !== "string") {
         // Log failed request
         await logTranscriptionRequest(uid, false, Date.now() - startTime);
@@ -219,14 +338,40 @@ export const transcribeAudio = onRequest(
         // Clean up temporary file
         fs.unlinkSync(tempFilePath);
 
-        // Log successful request
+        // Calculate seconds used from audio duration
+        // If audioDurationMs not provided, default to 60 seconds
+        const isValidDuration =
+          typeof audioDurationMs === "number" && audioDurationMs > 0;
+        const durationMs = isValidDuration ? audioDurationMs : 60000;
+        // Store as seconds for precision (frontend divides by 60 for minutes)
+        const secondsUsed = Math.round(durationMs / 1000);
+
+        // Log usage and get monthly totals
         if (uid) {
+          // Ensure user document exists
+          await getOrCreateUser(uid);
+
+          // Log this usage (don't deduct yet - Iteration 1)
+          await logUsage(uid, secondsUsed);
+
+          // Log successful request (existing logging)
           await logTranscriptionRequest(uid, true, Date.now() - startTime);
         }
 
-        // Return transcription
+        // Get total usage this month (includes the just-logged usage)
+        const totalSecondsThisMonth = uid ?
+          await getTotalUsageThisMonth(uid) :
+          secondsUsed;
+
+        logger.info(
+          `Usage: ${secondsUsed}s, ${totalSecondsThisMonth}s total this month`
+        );
+
+        // Return transcription with usage info (in seconds)
         response.status(200).json({
           text: transcription.text,
+          secondsUsed: secondsUsed,
+          totalSecondsThisMonth: totalSecondsThisMonth,
         });
       } catch (error) {
         // Clean up temporary file if it exists
