@@ -31,6 +31,7 @@ import com.whispertype.app.MainActivity
 import com.whispertype.app.R
 import com.whispertype.app.Constants
 import com.whispertype.app.audio.AudioRecorder
+import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.speech.SpeechRecognitionHelper
 import java.lang.ref.WeakReference
 
@@ -450,6 +451,49 @@ class OverlayService : Service() {
     private fun startListening() {
         Log.d(TAG, "Starting speech recognition")
         
+        // === ITERATION 2: Check trial status before starting ===
+        val usageState = UsageDataManager.usageState.value
+        if (!usageState.isTrialValid) {
+            Log.w(TAG, "Trial expired, blocking transcription")
+            Toast.makeText(
+                this,
+                "Your free trial has ended. Open WhisperType to learn more.",
+                Toast.LENGTH_LONG
+            ).show()
+            hideOverlay()
+            return
+        }
+        
+        // Show warning toast if at warning threshold (but still allow transcription)
+        when (usageState.warningLevel) {
+            UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> {
+                Toast.makeText(
+                    this,
+                    "⚠️ You're almost out of free trial minutes!",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            UsageDataManager.WarningLevel.EIGHTY_PERCENT -> {
+                Toast.makeText(
+                    this,
+                    "You've used 80% of your free trial",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            UsageDataManager.WarningLevel.FIFTY_PERCENT -> {
+                // Only show 50% warning occasionally (not every time)
+                val lastWarning = usageState.lastUpdated
+                if (System.currentTimeMillis() - lastWarning > 60000) { // Once per minute max
+                    Toast.makeText(
+                        this,
+                        "You've used half of your free trial",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            else -> { /* No warning needed */ }
+        }
+        
         // Check if microphone permission is granted
         if (!speechHelper!!.hasPermission()) {
             Toast.makeText(
@@ -569,19 +613,19 @@ class OverlayService : Service() {
     
     /**
      * Start subtle recording pulse animation to indicate recording is active
-     * This is a gentler animation than voice detection pulse
+     * Animates the purple button container for better visibility
      */
     private fun startRecordingPulseAnimation() {
         if (recordingPulseAnimator?.isRunning == true) return
         
-        micIcon?.let { icon ->
-            icon.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        micButton?.let { button ->
+            button.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             
-            // Subtle scale animation (1.0 -> 1.08 -> 1.0)
-            val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.08f, 1.0f)
-            val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.08f, 1.0f)
+            // Subtle scale animation (1.0 -> 1.05 -> 1.0) on the purple button
+            val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.05f, 1.0f)
+            val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.05f, 1.0f)
             
-            recordingPulseAnimator = ObjectAnimator.ofPropertyValuesHolder(icon, scaleX, scaleY).apply {
+            recordingPulseAnimator = ObjectAnimator.ofPropertyValuesHolder(button, scaleX, scaleY).apply {
                 duration = 800L  // Slower, more subtle than voice detection
                 repeatCount = ObjectAnimator.INFINITE
                 interpolator = AccelerateDecelerateInterpolator()
@@ -602,7 +646,8 @@ class OverlayService : Service() {
         }
         recordingPulseAnimator = null
         
-        micIcon?.apply {
+        // Reset the purple button scale
+        micButton?.apply {
             scaleX = 1.0f
             scaleY = 1.0f
             setLayerType(View.LAYER_TYPE_NONE, null)
@@ -671,8 +716,8 @@ class OverlayService : Service() {
                 progressIndicator?.visibility = View.GONE
                 micIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
-                // Start recording pulse animation
-                startRecordingPulseAnimation()
+                // Animation is now triggered by voice detection via handleVoiceAmplitude()
+                // Only animates when speech is actually detected, not continuously
             }
             State.PROCESSING -> {
                 statusText?.text = getString(R.string.overlay_processing)
@@ -680,7 +725,8 @@ class OverlayService : Service() {
                 progressIndicator?.visibility = View.VISIBLE
                 micIcon?.visibility = View.GONE
                 copyButton?.visibility = View.GONE
-                stopRecordingPulseAnimation()
+                // Stop voice-detection animation since recording has stopped
+                stopPulseAnimation()
             }
             State.TRANSCRIBING -> {
                 statusText?.text = getString(R.string.overlay_transcribing)

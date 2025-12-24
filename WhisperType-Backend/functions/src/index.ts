@@ -80,6 +80,10 @@ async function logTranscriptionRequest(
 // USAGE TRACKING FUNCTIONS
 // ============================================================================
 
+// Trial limit constants
+const FREE_TRIAL_SECONDS = 20 * 60; // 20 minutes in seconds
+const FREE_TRIAL_MONTHS = 3; // 3 months trial period
+
 /**
  * User document interface for Firestore users collection
  */
@@ -87,8 +91,88 @@ interface UserDocument {
   createdAt: admin.firestore.Timestamp;
   country?: string;
   plan: "free" | "pro";
-  freeTrialStart: admin.firestore.Timestamp | null;
-  freeMinutesRemaining: number;
+  // Trial fields
+  freeTrialStart: admin.firestore.Timestamp;
+  freeSecondsUsed: number; // Lifetime usage in seconds
+  trialExpiryDate: admin.firestore.Timestamp; // 3 months from freeTrialStart
+  // Legacy field (for migration)
+  freeMinutesRemaining?: number;
+}
+
+/**
+ * Trial status result interface
+ */
+interface TrialStatusResult {
+  isValid: boolean;
+  status: "active" | "expired_time" | "expired_usage";
+  freeSecondsUsed: number;
+  freeSecondsRemaining: number;
+  trialExpiryDate: admin.firestore.Timestamp;
+  trialExpiryDateMs: number;
+  warningLevel: "none" | "fifty_percent" |
+  "eighty_percent" | "ninety_five_percent";
+}
+
+/**
+ * Calculate trial status for a user
+ * @param {UserDocument} user - The user document
+ * @return {TrialStatusResult} The trial status
+ */
+function checkTrialStatus(user: UserDocument): TrialStatusResult {
+  const now = admin.firestore.Timestamp.now();
+  const freeSecondsUsed = user.freeSecondsUsed || 0;
+  const freeSecondsRemaining = Math.max(
+    0, FREE_TRIAL_SECONDS - freeSecondsUsed
+  );
+  const trialExpiryDate = user.trialExpiryDate;
+  const trialExpiryDateMs = trialExpiryDate.toMillis();
+
+  // Check if trial expired by time
+  if (now.toMillis() > trialExpiryDateMs) {
+    return {
+      isValid: false,
+      status: "expired_time",
+      freeSecondsUsed,
+      freeSecondsRemaining: 0,
+      trialExpiryDate,
+      trialExpiryDateMs,
+      warningLevel: "none",
+    };
+  }
+
+  // Check if trial expired by usage
+  if (freeSecondsUsed >= FREE_TRIAL_SECONDS) {
+    return {
+      isValid: false,
+      status: "expired_usage",
+      freeSecondsUsed,
+      freeSecondsRemaining: 0,
+      trialExpiryDate,
+      trialExpiryDateMs,
+      warningLevel: "none",
+    };
+  }
+
+  // Calculate warning level based on usage percentage
+  const usagePercent = (freeSecondsUsed / FREE_TRIAL_SECONDS) * 100;
+  let warningLevel: TrialStatusResult["warningLevel"] = "none";
+  if (usagePercent >= 95) {
+    warningLevel = "ninety_five_percent";
+  } else if (usagePercent >= 80) {
+    warningLevel = "eighty_percent";
+  } else if (usagePercent >= 50) {
+    warningLevel = "fifty_percent";
+  }
+
+  return {
+    isValid: true,
+    status: "active",
+    freeSecondsUsed,
+    freeSecondsRemaining,
+    trialExpiryDate,
+    trialExpiryDateMs,
+    warningLevel,
+  };
 }
 
 /**
@@ -101,7 +185,21 @@ interface UsageLogEntry {
 }
 
 /**
+ * Calculate trial expiry date (3 months from start)
+ * @param {admin.firestore.Timestamp} startDate - The trial start date
+ * @return {admin.firestore.Timestamp} The expiry date
+ */
+function calculateTrialExpiryDate(
+  startDate: admin.firestore.Timestamp
+): admin.firestore.Timestamp {
+  const expiryDate = new Date(startDate.toMillis());
+  expiryDate.setMonth(expiryDate.getMonth() + FREE_TRIAL_MONTHS);
+  return admin.firestore.Timestamp.fromDate(expiryDate);
+}
+
+/**
  * Get or create user document in Firestore
+ * Handles migration from legacy users (freeMinutesRemaining -> freeSecondsUsed)
  * @param {string} uid - User ID
  * @return {Promise<UserDocument>} The user document
  */
@@ -110,19 +208,66 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
   const userDoc = await userRef.get();
 
   if (userDoc.exists) {
-    return userDoc.data() as UserDocument;
+    const userData = userDoc.data() as UserDocument;
+
+    // Check if migration needed (legacy user without new trial fields)
+    if (userData.freeSecondsUsed === undefined) {
+      logger.info(`Migrating legacy user ${uid} to new trial system`);
+
+      // Convert legacy freeMinutesRemaining to freeSecondsUsed
+      // Old system: 60 minutes remaining = 0 used
+      // New system: Track seconds USED, not remaining
+      const legacyRemaining = userData.freeMinutesRemaining ?? 60;
+      const legacyUsedMinutes = 60 - legacyRemaining;
+      const freeSecondsUsed = Math.max(0, legacyUsedMinutes * 60);
+
+      // Calculate trial expiry date from freeTrialStart
+      const freeTrialStart = userData.freeTrialStart ||
+        admin.firestore.Timestamp.now();
+      const trialExpiryDate = calculateTrialExpiryDate(freeTrialStart);
+
+      // Update the user document with new fields
+      const updatedUser: UserDocument = {
+        ...userData,
+        freeTrialStart,
+        freeSecondsUsed,
+        trialExpiryDate,
+      };
+
+      await userRef.update({
+        freeSecondsUsed,
+        trialExpiryDate,
+        freeTrialStart,
+      });
+
+      logger.info(
+        `Migrated user ${uid}: ${freeSecondsUsed}s used, ` +
+        `expires ${trialExpiryDate.toDate().toISOString()}`
+      );
+
+      return updatedUser;
+    }
+
+    return userData;
   }
 
-  // Create new user document with default values
+  // Create new user document with trial initialized
+  const now = admin.firestore.Timestamp.now();
+  const trialExpiryDate = calculateTrialExpiryDate(now);
+
   const newUser: UserDocument = {
-    createdAt: admin.firestore.Timestamp.now(),
+    createdAt: now,
     plan: "free",
-    freeTrialStart: admin.firestore.Timestamp.now(),
-    freeMinutesRemaining: 60, // Default 60 free minutes
+    freeTrialStart: now,
+    freeSecondsUsed: 0,
+    trialExpiryDate,
   };
 
   await userRef.set(newUser);
-  logger.info(`Created new user document for ${uid}`);
+  logger.info(
+    `Created new user ${uid} with trial expiry ` +
+    `${trialExpiryDate.toDate().toISOString()}`
+  );
 
   return newUser;
 }
@@ -157,16 +302,94 @@ async function logUsage(uid: string, secondsUsed: number): Promise<void> {
 }
 
 /**
- * Get total usage for the current month
+ * Deduct usage from user's trial quota
+ * Rounds up audio duration to nearest minute before deducting
  * @param {string} uid - User ID
- * @return {Promise<number>} Total minutes used this month
+ * @param {number} audioDurationMs - Audio duration in milliseconds
+ * @return {Promise<TrialStatusResult>} Updated trial status
  */
-async function getTotalUsageThisMonth(uid: string): Promise<number> {
+async function deductTrialUsage(
+  uid: string,
+  audioDurationMs: number
+): Promise<TrialStatusResult> {
+  const userRef = db.collection("users").doc(uid);
+
+  // Round up to nearest minute in seconds (e.g., 5 seconds -> 60 seconds)
+  const secondsUsed = Math.ceil(audioDurationMs / 1000 / 60) * 60;
+
+  // Use a transaction to safely increment usage
+  const updatedUser = await db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) {
+      throw new Error("User document not found");
+    }
+
+    const userData = userDoc.data() as UserDocument;
+    const newSecondsUsed = (userData.freeSecondsUsed || 0) + secondsUsed;
+
+    transaction.update(userRef, {
+      freeSecondsUsed: newSecondsUsed,
+    });
+
+    // Return updated user data
+    return {
+      ...userData,
+      freeSecondsUsed: newSecondsUsed,
+    };
+  });
+
+  // Log the usage entry for audit trail
+  await logUsage(uid, secondsUsed);
+
+  logger.info(
+    `Deducted ${secondsUsed}s (${Math.ceil(secondsUsed / 60)} min) ` +
+    `from user ${uid}, total: ${updatedUser.freeSecondsUsed}s`
+  );
+
+  return checkTrialStatus(updatedUser);
+}
+
+/**
+ * Get total usage for the current billing period (anniversary-based)
+ * Billing period resets on the same day of the month as the user's signup date
+ * @param {string} uid - User ID
+ * @return {Promise<number>} Total seconds used this billing period
+ */
+async function getTotalUsageThisPeriod(uid: string): Promise<number> {
   try {
-    // Calculate start of current month
+    // Get user's signup date to determine billing cycle
+    const userRef = db.collection("users").doc(uid);
+    const userDoc = await userRef.get();
+
+    let billingDayOfMonth = 1; // Default to 1st if no user doc
+
+    if (userDoc.exists) {
+      const userData = userDoc.data() as UserDocument;
+      if (userData.freeTrialStart) {
+        // Get the day of month when user signed up
+        billingDayOfMonth = userData.freeTrialStart.toDate().getDate();
+      }
+    }
+
+    // Calculate start of current billing period
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startTimestamp = admin.firestore.Timestamp.fromDate(startOfMonth);
+    let billingPeriodStart: Date;
+
+    if (now.getDate() >= billingDayOfMonth) {
+      // Billing day passed this month, period started this month
+      billingPeriodStart = new Date(
+        now.getFullYear(), now.getMonth(), billingDayOfMonth
+      );
+    } else {
+      // Haven't reached billing day, period started last month
+      billingPeriodStart = new Date(
+        now.getFullYear(), now.getMonth() - 1, billingDayOfMonth
+      );
+    }
+
+    const startTimestamp = admin.firestore.Timestamp.fromDate(
+      billingPeriodStart
+    );
 
     const snapshot = await db
       .collection("usage_logs")
@@ -183,7 +406,34 @@ async function getTotalUsageThisMonth(uid: string): Promise<number> {
 
     return totalSeconds;
   } catch (error) {
-    logger.error("Failed to get monthly usage", error);
+    logger.error("Failed to get billing period usage", error);
+    return 0;
+  }
+}
+
+/**
+ * Get total lifetime usage from usage_logs (all time)
+ * Used to sync freeSecondsUsed when there's a mismatch
+ * @param {string} uid - User ID
+ * @return {Promise<number>} Total seconds used lifetime
+ */
+async function getTotalLifetimeUsage(uid: string): Promise<number> {
+  try {
+    const snapshot = await db
+      .collection("usage_logs")
+      .doc(uid)
+      .collection("entries")
+      .get();
+
+    let totalSeconds = 0;
+    snapshot.forEach((doc) => {
+      const data = doc.data() as UsageLogEntry;
+      totalSeconds += data.secondsUsed || 0;
+    });
+
+    return totalSeconds;
+  } catch (error) {
+    logger.error("Failed to get lifetime usage", error);
     return 0;
   }
 }
@@ -275,16 +525,45 @@ export const transcribeAudio = onRequest(
       const validFormats = ["wav", "m4a", "mp3", "webm", "mp4", "mpeg", "mpga"];
       const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
 
-      // Validate and set model - default to gpt-4o-transcribe
+      // Validate and set model - default to gpt-4o-mini-transcribe
       const validModels = [
         "gpt-4o-transcribe",
         "gpt-4o-mini-transcribe",
       ];
       const selectedModel = model && validModels.includes(model) ?
-        model : "gpt-4o-transcribe";
+        model : "gpt-4o-mini-transcribe";
 
       logger.info(
         `Processing request - format: ${format}, model: ${selectedModel}`
+      );
+
+      // === ITERATION 2: Check trial validity BEFORE transcription ===
+      const user = await getOrCreateUser(uid);
+      const trialStatus = checkTrialStatus(user);
+
+      if (!trialStatus.isValid) {
+        logger.warn(
+          `Trial expired for user ${uid}: ${trialStatus.status}`
+        );
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
+        response.status(403).json({
+          error: "TRIAL_EXPIRED",
+          message: trialStatus.status === "expired_time" ?
+            "Your free trial period has ended" :
+            "You have used all your free trial minutes",
+          trialStatus: {
+            status: trialStatus.status,
+            freeSecondsUsed: trialStatus.freeSecondsUsed,
+            freeSecondsRemaining: 0,
+            trialExpiryDateMs: trialStatus.trialExpiryDateMs,
+            warningLevel: "none",
+          },
+        });
+        return;
+      }
+
+      logger.info(
+        `Trial valid for ${uid}: ${trialStatus.freeSecondsRemaining}s remaining`
       );
 
       // Check for OpenAI API key
@@ -338,40 +617,45 @@ export const transcribeAudio = onRequest(
         // Clean up temporary file
         fs.unlinkSync(tempFilePath);
 
-        // Calculate seconds used from audio duration
+        // Calculate duration for usage deduction
         // If audioDurationMs not provided, default to 60 seconds
         const isValidDuration =
           typeof audioDurationMs === "number" && audioDurationMs > 0;
         const durationMs = isValidDuration ? audioDurationMs : 60000;
-        // Store as seconds for precision (frontend divides by 60 for minutes)
-        const secondsUsed = Math.round(durationMs / 1000);
 
-        // Log usage and get monthly totals
+        // === ITERATION 2: Deduct usage AFTER successful transcription ===
+        // (Whisper succeeded, so we charge the user)
+        let updatedTrialStatus = trialStatus;
         if (uid) {
-          // Ensure user document exists
-          await getOrCreateUser(uid);
-
-          // Log this usage (don't deduct yet - Iteration 1)
-          await logUsage(uid, secondsUsed);
-
+          updatedTrialStatus = await deductTrialUsage(uid, durationMs);
           // Log successful request (existing logging)
           await logTranscriptionRequest(uid, true, Date.now() - startTime);
         }
 
-        // Get total usage this month (includes the just-logged usage)
+        // Get total usage this billing period for backward compatibility
         const totalSecondsThisMonth = uid ?
-          await getTotalUsageThisMonth(uid) :
-          secondsUsed;
+          await getTotalUsageThisPeriod(uid) :
+          Math.ceil(durationMs / 1000 / 60) * 60;
 
+        const secondsDeducted = Math.ceil(durationMs / 1000 / 60) * 60;
         logger.info(
-          `Usage: ${secondsUsed}s, ${totalSecondsThisMonth}s total this month`
+          `Transcription success: deducted ${secondsDeducted}s, ` +
+          `remaining: ${updatedTrialStatus.freeSecondsRemaining}s`
         );
 
-        // Return transcription with usage info (in seconds)
+        // Return transcription with trial status (Iteration 2 response format)
         response.status(200).json({
           text: transcription.text,
-          secondsUsed: secondsUsed,
+          secondsUsed: secondsDeducted,
           totalSecondsThisMonth: totalSecondsThisMonth,
+          // New Iteration 2 trial status fields
+          trialStatus: {
+            status: updatedTrialStatus.status,
+            freeSecondsUsed: updatedTrialStatus.freeSecondsUsed,
+            freeSecondsRemaining: updatedTrialStatus.freeSecondsRemaining,
+            trialExpiryDateMs: updatedTrialStatus.trialExpiryDateMs,
+            warningLevel: updatedTrialStatus.warningLevel,
+          },
         });
       } catch (error) {
         // Clean up temporary file if it exists
@@ -403,3 +687,74 @@ export const transcribeAudio = onRequest(
       });
     }
   });
+
+/**
+ * Get trial status for the current user
+ * GET or POST /getTrialStatus
+ * Headers: Authorization: Bearer <firebase_id_token>
+ * Response: {
+ *   status: "active" | "expired_time" | "expired_usage",
+ *   freeSecondsUsed: number,
+ *   freeSecondsRemaining: number,
+ *   trialExpiryDateMs: number,
+ *   warningLevel: "none" | "fifty_percent" |
+ *     "eighty_percent" | "ninety_five_percent"
+ * }
+ */
+export const getTrialStatus = onRequest(async (request, response) => {
+  try {
+    // Verify Firebase Auth token
+    const authHeader = request.headers.authorization;
+    const decodedToken = await verifyAuthToken(authHeader);
+
+    if (!decodedToken) {
+      response.status(401).json({
+        error: "Unauthorized: Invalid or missing authentication token",
+      });
+      return;
+    }
+
+    const uid = decodedToken.uid;
+    logger.info(`Getting trial status for user: ${uid}`);
+
+    // Get or create user document
+    let user = await getOrCreateUser(uid);
+
+    // Get lifetime usage from logs to check for sync issues
+    const lifetimeUsage = await getTotalLifetimeUsage(uid);
+
+    // Sync freeSecondsUsed if there's a mismatch
+    // (e.g., from legacy data or missed updates)
+    if (lifetimeUsage > 0 && user.freeSecondsUsed !== lifetimeUsage) {
+      logger.info(
+        `Syncing freeSecondsUsed for ${uid}: ` +
+        `stored=${user.freeSecondsUsed}, actual=${lifetimeUsage}`
+      );
+      // Update user document with correct lifetime usage
+      await db.collection("users").doc(uid).update({
+        freeSecondsUsed: lifetimeUsage,
+      });
+      // Update local user object for response
+      user = {...user, freeSecondsUsed: lifetimeUsage};
+    }
+
+    const trialStatus = checkTrialStatus(user);
+
+    // Get total usage this billing period for the "Usage This Month" display
+    const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
+
+    response.status(200).json({
+      status: trialStatus.status,
+      freeSecondsUsed: trialStatus.freeSecondsUsed,
+      freeSecondsRemaining: trialStatus.freeSecondsRemaining,
+      trialExpiryDateMs: trialStatus.trialExpiryDateMs,
+      warningLevel: trialStatus.warningLevel,
+      totalSecondsThisMonth: totalSecondsThisMonth,
+    });
+  } catch (error) {
+    logger.error("Error getting trial status", error);
+    response.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});

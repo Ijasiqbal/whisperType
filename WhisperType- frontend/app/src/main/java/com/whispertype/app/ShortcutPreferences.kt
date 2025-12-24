@@ -56,11 +56,11 @@ object ShortcutPreferences {
      * Get the current Whisper model
      */
     fun getWhisperModel(context: Context): WhisperModel {
-        val modelName = getPrefs(context).getString(KEY_WHISPER_MODEL, WhisperModel.GPT4O_TRANSCRIBE.name)
+        val modelName = getPrefs(context).getString(KEY_WHISPER_MODEL, WhisperModel.GPT4O_TRANSCRIBE_MINI.name)
         return try {
-            WhisperModel.valueOf(modelName ?: WhisperModel.GPT4O_TRANSCRIBE.name)
+            WhisperModel.valueOf(modelName ?: WhisperModel.GPT4O_TRANSCRIBE_MINI.name)
         } catch (e: IllegalArgumentException) {
-            WhisperModel.GPT4O_TRANSCRIBE
+            WhisperModel.GPT4O_TRANSCRIBE_MINI
         }
     }
     

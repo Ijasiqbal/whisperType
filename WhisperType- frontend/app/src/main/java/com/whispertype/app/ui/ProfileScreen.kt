@@ -22,7 +22,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * ProfileScreen - Displays user profile and usage statistics
+ * ProfileScreen - Displays user profile, usage statistics, and trial info
  */
 @Composable
 fun ProfileScreen(
@@ -76,7 +76,12 @@ fun ProfileScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Usage Card
+        // Trial Status Card (Iteration 2)
+        TrialStatusCard(usageState)
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Usage Card (Monthly - keeping for backward compatibility)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -186,9 +191,182 @@ fun ProfileScreen(
 }
 
 /**
+ * Trial Status Card - Shows trial progress, remaining time, and warnings
+ */
+@Composable
+private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
+    val progressColor = when (usageState.warningLevel) {
+        UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> Color(0xFFDC2626)
+        UsageDataManager.WarningLevel.EIGHTY_PERCENT -> Color(0xFFF97316)
+        UsageDataManager.WarningLevel.FIFTY_PERCENT -> Color(0xFFEAB308)
+        else -> Color(0xFF22C55E)
+    }
+    
+    val warningMessage = when (usageState.warningLevel) {
+        UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> 
+            "⚠️ You're almost out of free minutes!"
+        UsageDataManager.WarningLevel.EIGHTY_PERCENT -> 
+            "⚠️ 80% of your free trial used"
+        UsageDataManager.WarningLevel.FIFTY_PERCENT -> 
+            "ℹ️ 50% of your free trial used"
+        else -> null
+    }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (usageState.isTrialValid) Color.White else Color(0xFFFEE2E2)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Free Trial",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF64748B)
+                )
+                
+                // Status badge
+                val (badgeColor, badgeText) = if (usageState.isTrialValid) {
+                    Color(0xFF22C55E) to "Active"
+                } else {
+                    Color(0xFFDC2626) to "Expired"
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = badgeColor.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = badgeText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = badgeColor
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Progress bar
+            val progress = (usageState.usagePercentage / 100f).coerceIn(0f, 1f)
+            @Suppress("DEPRECATION")
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = progressColor,
+                trackColor = Color(0xFFE2E8F0)
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Minutes remaining
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = String.format("%.1f", usageState.freeMinutesRemaining),
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = "minutes remaining",
+                        fontSize = 14.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = String.format("%.1f", usageState.freeMinutesUsed),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF94A3B8)
+                    )
+                    Text(
+                        text = "of 20 used",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+            }
+            
+            // Trial expiry date
+            if (usageState.trialExpiryDateMs > 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Divider(color = Color(0xFFE2E8F0))
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "📅",
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Trial expires: ${formatTrialExpiry(usageState.trialExpiryDateMs)}",
+                        fontSize = 14.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
+            
+            // Warning message
+            if (warningMessage != null && usageState.isTrialValid) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = progressColor.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = warningMessage,
+                        fontSize = 14.sp,
+                        color = progressColor
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Format timestamp to readable string
  */
 private fun formatTimestamp(timestamp: Long): String {
     val formatter = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
     return formatter.format(Date(timestamp))
+}
+
+/**
+ * Format trial expiry date
+ */
+private fun formatTrialExpiry(timestampMs: Long): String {
+    val formatter = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    return formatter.format(Date(timestampMs))
 }
