@@ -31,6 +31,7 @@ class WhisperApiClient {
     companion object {
         private const val TAG = "WhisperApiClient"
         private const val API_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio"
+        private const val TRIAL_STATUS_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/getTrialStatus"
         private const val HEALTH_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/health"
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
         
@@ -73,7 +74,40 @@ class WhisperApiClient {
         @SerializedName("secondsUsed")
         val secondsUsed: Int?,
         @SerializedName("totalSecondsThisMonth")
+        val totalSecondsThisMonth: Int?,
+        // Iteration 2: Trial status fields
+        @SerializedName("trialStatus")
+        val trialStatus: TrialStatusResponse?
+    )
+    
+    /**
+     * Trial status response nested object
+     */
+    private data class TrialStatusResponse(
+        @SerializedName("status")
+        val status: String?,
+        @SerializedName("freeSecondsUsed")
+        val freeSecondsUsed: Int?,
+        @SerializedName("freeSecondsRemaining")
+        val freeSecondsRemaining: Int?,
+        @SerializedName("trialExpiryDateMs")
+        val trialExpiryDateMs: Long?,
+        @SerializedName("warningLevel")
+        val warningLevel: String?,
+        @SerializedName("totalSecondsThisMonth")
         val totalSecondsThisMonth: Int?
+    )
+    
+    /**
+     * Trial expired error response
+     */
+    private data class TrialExpiredResponse(
+        @SerializedName("error")
+        val error: String?,
+        @SerializedName("message")
+        val message: String?,
+        @SerializedName("trialStatus")
+        val trialStatus: TrialStatusResponse?
     )
 
     /**
@@ -90,6 +124,14 @@ class WhisperApiClient {
     interface TranscriptionCallback {
         fun onSuccess(text: String)
         fun onError(error: String)
+        /**
+         * Called when trial has expired (403 TRIAL_EXPIRED)
+         * Override to handle trial expiry specifically
+         */
+        fun onTrialExpired(message: String) {
+            // Default: treat as regular error
+            onError(message)
+        }
     }
 
     /**
@@ -147,8 +189,23 @@ class WhisperApiClient {
                                 val totalSecondsThisMonth = transcribeResponse.totalSecondsThisMonth ?: 0
                                 Log.d(TAG, "Usage: ${secondsUsed}s used, ${totalSecondsThisMonth}s total this month")
                                 
-                                // Store usage data for Profile screen
-                                UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                // Update trial status if present (Iteration 2)
+                                val trial = transcribeResponse.trialStatus
+                                if (trial != null) {
+                                    Log.d(TAG, "Trial: ${trial.status}, ${trial.freeSecondsRemaining}s remaining")
+                                    UsageDataManager.updateFull(
+                                        secondsUsed = secondsUsed,
+                                        totalSecondsThisMonth = totalSecondsThisMonth,
+                                        status = trial.status ?: "active",
+                                        freeSecondsUsed = trial.freeSecondsUsed ?: 0,
+                                        freeSecondsRemaining = trial.freeSecondsRemaining ?: 1200,
+                                        trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
+                                        warningLevel = trial.warningLevel ?: "none"
+                                    )
+                                } else {
+                                    // Legacy response (pre-Iteration 2)
+                                    UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                }
                                 
                                 // Log raw text for debugging
                                 Log.d(TAG, "Raw transcription: '$text'")
@@ -171,6 +228,38 @@ class WhisperApiClient {
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to parse response", e)
                             callback.onError("Failed to parse transcription response")
+                        }
+                    }
+                    // Iteration 2: Trial expired
+                    403 -> {
+                        Log.w(TAG, "Trial expired (403)")
+                        try {
+                            val errorResponse = gson.fromJson(responseBody, TrialExpiredResponse::class.java)
+                            val message = errorResponse?.message ?: "Your free trial has ended"
+                            
+                            // Update trial status in UsageDataManager
+                            val trial = errorResponse?.trialStatus
+                            if (trial != null) {
+                                UsageDataManager.updateTrialStatus(
+                                    status = trial.status ?: "expired_usage",
+                                    freeSecondsUsed = trial.freeSecondsUsed ?: 1200,
+                                    freeSecondsRemaining = 0,
+                                    trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
+                                    warningLevel = "none"
+                                )
+                            } else {
+                                UsageDataManager.markTrialExpired(
+                                    UsageDataManager.TrialStatus.EXPIRED_USAGE
+                                )
+                            }
+                            
+                            callback.onTrialExpired(message)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to parse 403 response", e)
+                            UsageDataManager.markTrialExpired(
+                                UsageDataManager.TrialStatus.EXPIRED_USAGE
+                            )
+                            callback.onTrialExpired("Your free trial has ended")
                         }
                     }
                     400 -> {
@@ -261,5 +350,80 @@ class WhisperApiClient {
     fun release() {
         // No-op: Client is a singleton and should not be closed per instance
         // If you need to clean up, call cancelAll() instead
+    }
+    
+    /**
+     * Fetch trial status from the backend (Iteration 2)
+     * Call this on app launch to get current trial status
+     *
+     * @param authToken Firebase Auth ID token for authentication
+     * @param onSuccess Callback with trial status data
+     * @param onError Callback for errors
+     */
+    fun getTrialStatus(
+        authToken: String,
+        onSuccess: (status: String, freeSecondsUsed: Int, freeSecondsRemaining: Int, 
+                    trialExpiryDateMs: Long, warningLevel: String) -> Unit,
+        onError: (error: String) -> Unit
+    ) {
+        Log.d(TAG, "Fetching trial status")
+        
+        val request = Request.Builder()
+            .url(TRIAL_STATUS_URL)
+            .addHeader("Authorization", "Bearer $authToken")
+            .get()
+            .build()
+        
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string()
+                Log.d(TAG, "Trial status response code: ${response.code}")
+                
+                when (response.code) {
+                    200 -> {
+                        try {
+                            val trialResponse = gson.fromJson(responseBody, TrialStatusResponse::class.java)
+                            
+                            // Update UsageDataManager with full data including monthly usage
+                            UsageDataManager.updateFull(
+                                secondsUsed = 0, // No new seconds used, just fetching status
+                                totalSecondsThisMonth = trialResponse.totalSecondsThisMonth ?: 0,
+                                status = trialResponse.status ?: "active",
+                                freeSecondsUsed = trialResponse.freeSecondsUsed ?: 0,
+                                freeSecondsRemaining = trialResponse.freeSecondsRemaining ?: 1200,
+                                trialExpiryDateMs = trialResponse.trialExpiryDateMs ?: 0,
+                                warningLevel = trialResponse.warningLevel ?: "none"
+                            )
+                            
+                            Log.d(TAG, "Trial: ${trialResponse.status}, ${trialResponse.freeSecondsRemaining}s remaining, ${trialResponse.totalSecondsThisMonth}s this month")
+                            
+                            onSuccess(
+                                trialResponse.status ?: "active",
+                                trialResponse.freeSecondsUsed ?: 0,
+                                trialResponse.freeSecondsRemaining ?: 1200,
+                                trialResponse.trialExpiryDateMs ?: 0,
+                                trialResponse.warningLevel ?: "none"
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to parse trial status response", e)
+                            onError("Failed to parse trial status")
+                        }
+                    }
+                    401 -> {
+                        Log.e(TAG, "Unauthorized: Authentication failed")
+                        onError("Authentication failed")
+                    }
+                    else -> {
+                        Log.e(TAG, "Unexpected response: ${response.code}")
+                        onError("Failed to get trial status")
+                    }
+                }
+            }
+            
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "Trial status request failed", e)
+                onError("Network error")
+            }
+        })
     }
 }

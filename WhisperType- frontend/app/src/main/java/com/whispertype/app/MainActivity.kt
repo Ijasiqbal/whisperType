@@ -639,6 +639,26 @@ fun AppWithBottomNav(
 ) {
     var selectedTab by remember { mutableStateOf(BottomNavTab.HOME) }
     
+    // Fetch trial status on first composition (when user is authenticated)
+    LaunchedEffect(Unit) {
+        // Get current user's auth token and fetch trial status
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        currentUser?.getIdToken(false)?.addOnSuccessListener { result ->
+            val token = result.token
+            if (token != null) {
+                com.whispertype.app.api.WhisperApiClient().getTrialStatus(
+                    authToken = token,
+                    onSuccess = { status, freeSecondsUsed, freeSecondsRemaining, trialExpiryDateMs, warningLevel ->
+                        android.util.Log.d("MainActivity", "Trial status fetched: $freeSecondsRemaining seconds remaining")
+                    },
+                    onError = { error ->
+                        android.util.Log.e("MainActivity", "Failed to fetch trial status: $error")
+                    }
+                )
+            }
+        }
+    }
+    
     Scaffold(
         bottomBar = {
             NavigationBar(
