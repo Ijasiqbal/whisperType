@@ -187,13 +187,22 @@ class OverlayService : Service() {
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "onStartCommand: action=${intent?.action}, isOverlayVisible=$isOverlayVisible")
+        
         // Start as foreground service
         startForeground(NOTIFICATION_ID, createNotification())
         
         when (intent?.action) {
-            ACTION_SHOW -> showOverlay()
-            ACTION_HIDE -> hideOverlay()
+            ACTION_SHOW -> {
+                Log.d(TAG, "ACTION_SHOW received")
+                showOverlay()
+            }
+            ACTION_HIDE -> {
+                Log.d(TAG, "ACTION_HIDE received")
+                hideOverlay()
+            }
             ACTION_TOGGLE -> {
+                Log.d(TAG, "ACTION_TOGGLE received, will ${if (isOverlayVisible) "hide" else "show"}")
                 if (isOverlayVisible) {
                     hideOverlay()
                 } else {
@@ -453,6 +462,8 @@ class OverlayService : Service() {
         
         // === ITERATION 2: Check trial status before starting ===
         val usageState = UsageDataManager.usageState.value
+        Log.d(TAG, "Trial check: status=${usageState.trialStatus}, isTrialValid=${usageState.isTrialValid}")
+        
         if (!usageState.isTrialValid) {
             Log.w(TAG, "Trial expired, blocking transcription")
             Toast.makeText(
@@ -504,15 +515,11 @@ class OverlayService : Service() {
             return
         }
         
-        // Check if accessibility service is available for text insertion
-        if (!WhisperTypeAccessibilityService.isRunning()) {
-            Toast.makeText(
-                this,
-                "Accessibility service not running. Please enable it in settings.",
-                Toast.LENGTH_LONG
-            ).show()
-            return
-        }
+        // Note: We no longer check WhisperTypeAccessibilityService.isRunning() here
+        // because recording audio doesn't require the accessibility service.
+        // The accessibility service is only needed when inserting text, which is
+        // checked in handleRecognitionResult(). This fixes the issue where the
+        // overlay wouldn't work after app process restart (singleton was null).
         
         // Clear preview
         previewText?.text = ""
@@ -687,13 +694,12 @@ class OverlayService : Service() {
                 copyButton?.visibility = View.VISIBLE
             }
         } else {
-            // Accessibility service not available - copy to clipboard
-            val clipboardManager = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            val clip = android.content.ClipData.newPlainText("WhisperType", text)
-            clipboardManager.setPrimaryClip(clip)
-            
-            Toast.makeText(this, "Text copied to clipboard. Paste manually.", Toast.LENGTH_SHORT).show()
-            updateUI(State.IDLE)
+            // Accessibility service not available - show copy button option
+            // This can happen if the service was killed or not fully initialized yet
+            pendingText = text
+            updateUI(State.NO_FOCUS)
+            statusText?.text = "Tap copy to save to clipboard"
+            copyButton?.visibility = View.VISIBLE
         }
     }
     
@@ -716,8 +722,9 @@ class OverlayService : Service() {
                 progressIndicator?.visibility = View.GONE
                 micIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
-                // Animation is now triggered by voice detection via handleVoiceAmplitude()
-                // Only animates when speech is actually detected, not continuously
+                // Start recording animation so user knows device is listening
+                startRecordingPulseAnimation()
+                // Voice detection pulse animation is triggered via handleVoiceAmplitude()
             }
             State.PROCESSING -> {
                 statusText?.text = getString(R.string.overlay_processing)
@@ -725,8 +732,9 @@ class OverlayService : Service() {
                 progressIndicator?.visibility = View.VISIBLE
                 micIcon?.visibility = View.GONE
                 copyButton?.visibility = View.GONE
-                // Stop voice-detection animation since recording has stopped
+                // Stop all animations since recording has stopped
                 stopPulseAnimation()
+                stopRecordingPulseAnimation()
             }
             State.TRANSCRIBING -> {
                 statusText?.text = getString(R.string.overlay_transcribing)

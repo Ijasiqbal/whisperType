@@ -68,7 +68,10 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "AccessibilityService created")
+        // Set instance early in lifecycle to handle process restart scenarios
+        // This ensures the singleton is available even before onServiceConnected() completes
+        instance = this
+        Log.d(TAG, "AccessibilityService created, instance set")
     }
     
     override fun onServiceConnected() {
@@ -278,8 +281,11 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
      * Toggle the overlay service visibility
      */
     private fun toggleOverlay() {
+        Log.d(TAG, "toggleOverlay() called")
+        
         // First check if overlay permission is granted
         if (!Settings.canDrawOverlays(this)) {
+            Log.w(TAG, "Overlay permission not granted")
             Toast.makeText(
                 this, 
                 "Overlay permission required. Open WhisperType app to grant it.",
@@ -287,6 +293,8 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
             ).show()
             return
         }
+        
+        Log.d(TAG, "Overlay permission granted, starting OverlayService")
         
         // Toggle the overlay
         val overlayIntent = Intent(this, OverlayService::class.java).apply {
@@ -298,6 +306,7 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         } else {
             startService(overlayIntent)
         }
+        Log.d(TAG, "OverlayService started")
     }
     
     /**

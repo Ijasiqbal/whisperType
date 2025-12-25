@@ -242,6 +242,8 @@ class FirebaseAuthManager {
      */
     fun signOut() {
         Log.d(TAG, "Signing out user: ${auth.currentUser?.uid}")
+        // Clear cached usage data to prevent stale trial status when switching accounts
+        com.whispertype.app.data.UsageDataManager.clear()
         auth.signOut()
     }
 }

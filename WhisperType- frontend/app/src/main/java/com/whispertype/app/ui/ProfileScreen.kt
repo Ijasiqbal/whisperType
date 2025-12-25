@@ -103,17 +103,15 @@ fun ProfileScreen(
                 Row(
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    // Convert seconds to minutes with 1 decimal place
-                    val minutesUsed = usageState.totalSecondsThisMonth / 60.0
                     Text(
-                        text = String.format("%.1f", minutesUsed),
+                        text = usageState.formattedMonthlyUsage,
                         fontSize = 48.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "minutes",
+                        text = "used",
                         fontSize = 18.sp,
                         color = Color(0xFF64748B),
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -283,13 +281,13 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
             ) {
                 Column {
                     Text(
-                        text = String.format("%.1f", usageState.freeMinutesRemaining),
+                        text = usageState.formattedTimeRemaining,
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
                     )
                     Text(
-                        text = "minutes remaining",
+                        text = "remaining",
                         fontSize = 14.sp,
                         color = Color(0xFF64748B)
                     )
@@ -297,13 +295,13 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = String.format("%.1f", usageState.freeMinutesUsed),
+                        text = usageState.formattedTimeUsed,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF94A3B8)
                     )
                     Text(
-                        text = "of 20 used",
+                        text = "of ${usageState.formattedTotalTime} used",
                         fontSize = 12.sp,
                         color = Color(0xFF94A3B8)
                     )
