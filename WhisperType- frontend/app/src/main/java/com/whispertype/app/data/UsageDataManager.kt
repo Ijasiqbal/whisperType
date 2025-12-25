@@ -66,8 +66,9 @@ object UsageDataManager {
         val lastUpdated: Long = 0,              // Timestamp of last update
         // New Iteration 2 trial fields
         val trialStatus: TrialStatus = TrialStatus.ACTIVE,
-        val freeSecondsUsed: Int = 0,           // Lifetime usage (out of 1200)
-        val freeSecondsRemaining: Int = 1200,   // Remaining seconds (20 min = 1200s)
+        val freeSecondsUsed: Int = 0,           // Lifetime usage
+        val freeSecondsRemaining: Int = 1200,   // Remaining seconds
+        val totalTrialSeconds: Int = 1200,      // Total trial limit in seconds (from Remote Config)
         val trialExpiryDateMs: Long = 0,        // Trial expiry timestamp
         val warningLevel: WarningLevel = WarningLevel.NONE
     ) {
@@ -78,16 +79,60 @@ object UsageDataManager {
             get() = freeSecondsRemaining / 60f
         
         /**
+         * Time remaining formatted as M:SS (e.g., "2:50" for 170 seconds)
+         */
+        val formattedTimeRemaining: String
+            get() {
+                val minutes = freeSecondsRemaining / 60
+                val seconds = freeSecondsRemaining % 60
+                return String.format("%d:%02d", minutes, seconds)
+            }
+        
+        /**
          * Minutes used in trial (calculated)
          */
         val freeMinutesUsed: Float
             get() = freeSecondsUsed / 60f
         
         /**
+         * Trial time used formatted as M:SS (e.g., "5:30" for 330 seconds)
+         */
+        val formattedTimeUsed: String
+            get() {
+                val minutes = freeSecondsUsed / 60
+                val seconds = freeSecondsUsed % 60
+                return String.format("%d:%02d", minutes, seconds)
+            }
+        
+        /**
+         * Monthly usage formatted as M:SS (e.g., "3:45" for 225 seconds)
+         */
+        val formattedMonthlyUsage: String
+            get() {
+                val minutes = totalSecondsThisMonth / 60
+                val seconds = totalSecondsThisMonth % 60
+                return String.format("%d:%02d", minutes, seconds)
+            }
+        
+        /**
+         * Total trial time formatted as MM:SS (e.g., "20:00" for 1200 seconds)
+         */
+        val formattedTotalTime: String
+            get() {
+                val minutes = totalTrialSeconds / 60
+                val seconds = totalTrialSeconds % 60
+                return String.format("%d:%02d", minutes, seconds)
+            }
+        
+        /**
          * Percentage of trial used (0-100)
          */
         val usagePercentage: Float
-            get() = (freeSecondsUsed.toFloat() / 1200f) * 100f
+            get() = if (totalTrialSeconds > 0) {
+                (freeSecondsUsed.toFloat() / totalTrialSeconds.toFloat()) * 100f
+            } else {
+                0f
+            }
         
         /**
          * Whether the trial is still valid
@@ -119,12 +164,14 @@ object UsageDataManager {
         freeSecondsUsed: Int,
         freeSecondsRemaining: Int,
         trialExpiryDateMs: Long,
-        warningLevel: String
+        warningLevel: String,
+        totalTrialSeconds: Int = freeSecondsUsed + freeSecondsRemaining
     ) {
         _usageState.value = _usageState.value.copy(
             trialStatus = TrialStatus.fromString(status),
             freeSecondsUsed = freeSecondsUsed,
             freeSecondsRemaining = freeSecondsRemaining,
+            totalTrialSeconds = totalTrialSeconds,
             trialExpiryDateMs = trialExpiryDateMs,
             warningLevel = WarningLevel.fromString(warningLevel),
             lastUpdated = System.currentTimeMillis()
@@ -141,7 +188,8 @@ object UsageDataManager {
         freeSecondsUsed: Int,
         freeSecondsRemaining: Int,
         trialExpiryDateMs: Long,
-        warningLevel: String
+        warningLevel: String,
+        totalTrialSeconds: Int = freeSecondsUsed + freeSecondsRemaining
     ) {
         _usageState.value = UsageState(
             lastSecondsUsed = secondsUsed,
@@ -150,6 +198,7 @@ object UsageDataManager {
             trialStatus = TrialStatus.fromString(status),
             freeSecondsUsed = freeSecondsUsed,
             freeSecondsRemaining = freeSecondsRemaining,
+            totalTrialSeconds = totalTrialSeconds,
             trialExpiryDateMs = trialExpiryDateMs,
             warningLevel = WarningLevel.fromString(warningLevel)
         )

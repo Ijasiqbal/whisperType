@@ -186,11 +186,7 @@ class AudioProcessor(private val context: Context) {
             
             extractor.selectTrack(audioTrackIndex)
             
-            // Get audio properties
-            val durationUs = try {
-                audioFormat.getLong(MediaFormat.KEY_DURATION)
-            } catch (e: Exception) { 0L }
-            
+            // Get audio properties - sample rate and channel count
             val sampleRate = try {
                 audioFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
             } catch (e: Exception) { 16000 }
@@ -268,9 +264,12 @@ class AudioProcessor(private val context: Context) {
                 }
             }
             
-            val actualDurationUs = if (durationUs > 0) durationUs else {
-                (samples.size.toLong() * 1_000_000L / sampleRate / channelCount)
-            }
+            // IMPORTANT: Calculate duration from actual decoded samples, not MediaFormat.KEY_DURATION
+            // MediaFormat.KEY_DURATION can return incorrect hardcoded values (e.g., 60 seconds)
+            // Sample-based calculation: duration = samples / sampleRate / channelCount
+            val actualDurationUs = (samples.size.toLong() * 1_000_000L / sampleRate / channelCount)
+            
+            Log.d(TAG, "Calculated duration from samples: ${actualDurationUs / 1000}ms (${samples.size} samples)")
             
             DecodedAudio(
                 samples = samples.toShortArray(),

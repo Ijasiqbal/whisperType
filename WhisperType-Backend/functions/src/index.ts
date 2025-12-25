@@ -19,6 +19,7 @@ import * as path from "path";
 // Initialize Firebase Admin
 admin.initializeApp();
 const db = admin.firestore();
+const remoteConfig = admin.remoteConfig();
 
 /**
  * Verify Firebase ID token from Authorization header
@@ -77,12 +78,94 @@ async function logTranscriptionRequest(
 }
 
 // ============================================================================
-// USAGE TRACKING FUNCTIONS
+// REMOTE CONFIG & TRIAL LIMITS
 // ============================================================================
 
-// Trial limit constants
-const FREE_TRIAL_SECONDS = 20 * 60; // 20 minutes in seconds
-const FREE_TRIAL_MONTHS = 3; // 3 months trial period
+/**
+ * Trial limits interface
+ */
+interface TrialLimits {
+  freeTrialSeconds: number;
+  trialDurationMonths: number;
+}
+
+// Cache for Remote Config values (5 minute TTL)
+let cachedTrialLimits: TrialLimits | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Default fallback values if Remote Config is unavailable
+const DEFAULT_FREE_TRIAL_MINUTES = 20;
+const DEFAULT_TRIAL_DURATION_MONTHS = 3;
+
+/**
+ * Get trial limits from Remote Config with caching
+ * Falls back to defaults if Remote Config is unavailable
+ * @return {Promise<TrialLimits>} Trial limits configuration
+ */
+async function getTrialLimits(): Promise<TrialLimits> {
+  const now = Date.now();
+
+  // Return cached value if still valid
+  if (cachedTrialLimits && (now - cacheTimestamp) < CACHE_TTL_MS) {
+    return cachedTrialLimits;
+  }
+
+  try {
+    // Fetch Remote Config template
+    const template = await remoteConfig.getTemplate();
+
+    // Extract trial parameters with defaults
+    const freeTrialParam = template.parameters?.free_trial_minutes;
+    const freeTrialMinutes = freeTrialParam &&
+      freeTrialParam.defaultValue &&
+      "value" in freeTrialParam.defaultValue ?
+      Number(freeTrialParam.defaultValue.value) :
+      DEFAULT_FREE_TRIAL_MINUTES;
+
+    const trialDurationParam = template.parameters?.trial_duration_months;
+    const trialDurationMonths = trialDurationParam &&
+      trialDurationParam.defaultValue &&
+      "value" in trialDurationParam.defaultValue ?
+      Number(trialDurationParam.defaultValue.value) :
+      DEFAULT_TRIAL_DURATION_MONTHS;
+
+    // Cache the values
+    cachedTrialLimits = {
+      freeTrialSeconds: freeTrialMinutes * 60,
+      trialDurationMonths: trialDurationMonths,
+    };
+    cacheTimestamp = now;
+
+    logger.info(
+      `Remote Config loaded: ${freeTrialMinutes} min trial, ` +
+      `${trialDurationMonths} months duration`
+    );
+
+    return cachedTrialLimits;
+  } catch (error) {
+    logger.warn(
+      "Failed to fetch Remote Config, using defaults",
+      error
+    );
+
+    // Fallback to defaults
+    const fallbackLimits: TrialLimits = {
+      freeTrialSeconds: DEFAULT_FREE_TRIAL_MINUTES * 60,
+      trialDurationMonths: DEFAULT_TRIAL_DURATION_MONTHS,
+    };
+
+    // Cache fallback values
+    cachedTrialLimits = fallbackLimits;
+    cacheTimestamp = now;
+
+    return fallbackLimits;
+  }
+}
+
+// ============================================================================
+// USAGE TRACKING FUNCTIONS
+// ============================================================================
 
 /**
  * User document interface for Firestore users collection
@@ -116,13 +199,17 @@ interface TrialStatusResult {
 /**
  * Calculate trial status for a user
  * @param {UserDocument} user - The user document
+ * @param {number} freeTrialSeconds - Trial limit in seconds from Remote Config
  * @return {TrialStatusResult} The trial status
  */
-function checkTrialStatus(user: UserDocument): TrialStatusResult {
+function checkTrialStatus(
+  user: UserDocument,
+  freeTrialSeconds: number
+): TrialStatusResult {
   const now = admin.firestore.Timestamp.now();
   const freeSecondsUsed = user.freeSecondsUsed || 0;
   const freeSecondsRemaining = Math.max(
-    0, FREE_TRIAL_SECONDS - freeSecondsUsed
+    0, freeTrialSeconds - freeSecondsUsed
   );
   const trialExpiryDate = user.trialExpiryDate;
   const trialExpiryDateMs = trialExpiryDate.toMillis();
@@ -141,7 +228,7 @@ function checkTrialStatus(user: UserDocument): TrialStatusResult {
   }
 
   // Check if trial expired by usage
-  if (freeSecondsUsed >= FREE_TRIAL_SECONDS) {
+  if (freeSecondsUsed >= freeTrialSeconds) {
     return {
       isValid: false,
       status: "expired_usage",
@@ -154,7 +241,7 @@ function checkTrialStatus(user: UserDocument): TrialStatusResult {
   }
 
   // Calculate warning level based on usage percentage
-  const usagePercent = (freeSecondsUsed / FREE_TRIAL_SECONDS) * 100;
+  const usagePercent = (freeSecondsUsed / freeTrialSeconds) * 100;
   let warningLevel: TrialStatusResult["warningLevel"] = "none";
   if (usagePercent >= 95) {
     warningLevel = "ninety_five_percent";
@@ -185,15 +272,17 @@ interface UsageLogEntry {
 }
 
 /**
- * Calculate trial expiry date (3 months from start)
+ * Calculate trial expiry date from start date
  * @param {admin.firestore.Timestamp} startDate - The trial start date
+ * @param {number} trialMonths - Trial duration in months from Remote Config
  * @return {admin.firestore.Timestamp} The expiry date
  */
 function calculateTrialExpiryDate(
-  startDate: admin.firestore.Timestamp
+  startDate: admin.firestore.Timestamp,
+  trialMonths: number
 ): admin.firestore.Timestamp {
   const expiryDate = new Date(startDate.toMillis());
-  expiryDate.setMonth(expiryDate.getMonth() + FREE_TRIAL_MONTHS);
+  expiryDate.setMonth(expiryDate.getMonth() + trialMonths);
   return admin.firestore.Timestamp.fromDate(expiryDate);
 }
 
@@ -206,6 +295,9 @@ function calculateTrialExpiryDate(
 async function getOrCreateUser(uid: string): Promise<UserDocument> {
   const userRef = db.collection("users").doc(uid);
   const userDoc = await userRef.get();
+
+  // Fetch trial limits from Remote Config
+  const trialLimits = await getTrialLimits();
 
   if (userDoc.exists) {
     const userData = userDoc.data() as UserDocument;
@@ -224,7 +316,10 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
       // Calculate trial expiry date from freeTrialStart
       const freeTrialStart = userData.freeTrialStart ||
         admin.firestore.Timestamp.now();
-      const trialExpiryDate = calculateTrialExpiryDate(freeTrialStart);
+      const trialExpiryDate = calculateTrialExpiryDate(
+        freeTrialStart,
+        trialLimits.trialDurationMonths
+      );
 
       // Update the user document with new fields
       const updatedUser: UserDocument = {
@@ -253,7 +348,10 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
 
   // Create new user document with trial initialized
   const now = admin.firestore.Timestamp.now();
-  const trialExpiryDate = calculateTrialExpiryDate(now);
+  const trialExpiryDate = calculateTrialExpiryDate(
+    now,
+    trialLimits.trialDurationMonths
+  );
 
   const newUser: UserDocument = {
     createdAt: now,
@@ -314,8 +412,9 @@ async function deductTrialUsage(
 ): Promise<TrialStatusResult> {
   const userRef = db.collection("users").doc(uid);
 
-  // Round up to nearest minute in seconds (e.g., 5 seconds -> 60 seconds)
-  const secondsUsed = Math.ceil(audioDurationMs / 1000 / 60) * 60;
+  // Bill exact seconds (rounded up from milliseconds)
+  // e.g., 5248ms -> 6 seconds, 3264ms -> 4 seconds
+  const secondsUsed = Math.ceil(audioDurationMs / 1000);
 
   // Use a transaction to safely increment usage
   const updatedUser = await db.runTransaction(async (transaction) => {
@@ -346,7 +445,9 @@ async function deductTrialUsage(
     `from user ${uid}, total: ${updatedUser.freeSecondsUsed}s`
   );
 
-  return checkTrialStatus(updatedUser);
+  // Fetch trial limits and check status
+  const trialLimits = await getTrialLimits();
+  return checkTrialStatus(updatedUser, trialLimits.freeTrialSeconds);
 }
 
 /**
@@ -539,7 +640,8 @@ export const transcribeAudio = onRequest(
 
       // === ITERATION 2: Check trial validity BEFORE transcription ===
       const user = await getOrCreateUser(uid);
-      const trialStatus = checkTrialStatus(user);
+      const trialLimits = await getTrialLimits();
+      const trialStatus = checkTrialStatus(user, trialLimits.freeTrialSeconds);
 
       if (!trialStatus.isValid) {
         logger.warn(
@@ -618,10 +720,28 @@ export const transcribeAudio = onRequest(
         fs.unlinkSync(tempFilePath);
 
         // Calculate duration for usage deduction
-        // If audioDurationMs not provided, default to 60 seconds
+        // Use audioDurationMs from frontend if provided, else default
         const isValidDuration =
-          typeof audioDurationMs === "number" && audioDurationMs > 0;
-        const durationMs = isValidDuration ? audioDurationMs : 60000;
+          typeof audioDurationMs === "number" &&
+          !isNaN(audioDurationMs) &&
+          audioDurationMs >= 0;
+
+        let durationMs: number;
+        if (isValidDuration) {
+          // Use provided duration, but enforce minimum of 1 second
+          durationMs = Math.max(audioDurationMs as number, 1000);
+          logger.info(
+            `Using provided audio duration: ${audioDurationMs}ms ` +
+            `(billing: ${durationMs}ms)`
+          );
+        } else {
+          // Default to 60 seconds if not provided
+          durationMs = 60000;
+          logger.warn(
+            "No valid audioDurationMs provided " +
+            `(received: ${audioDurationMs}), defaulting to 60 seconds`
+          );
+        }
 
         // === ITERATION 2: Deduct usage AFTER successful transcription ===
         // (Whisper succeeded, so we charge the user)
@@ -635,9 +755,9 @@ export const transcribeAudio = onRequest(
         // Get total usage this billing period for backward compatibility
         const totalSecondsThisMonth = uid ?
           await getTotalUsageThisPeriod(uid) :
-          Math.ceil(durationMs / 1000 / 60) * 60;
+          Math.ceil(durationMs / 1000);
 
-        const secondsDeducted = Math.ceil(durationMs / 1000 / 60) * 60;
+        const secondsDeducted = Math.ceil(durationMs / 1000);
         logger.info(
           `Transcription success: deducted ${secondsDeducted}s, ` +
           `remaining: ${updatedTrialStatus.freeSecondsRemaining}s`
@@ -738,7 +858,9 @@ export const getTrialStatus = onRequest(async (request, response) => {
       user = {...user, freeSecondsUsed: lifetimeUsage};
     }
 
-    const trialStatus = checkTrialStatus(user);
+    // Fetch trial limits and check status
+    const trialLimits = await getTrialLimits();
+    const trialStatus = checkTrialStatus(user, trialLimits.freeTrialSeconds);
 
     // Get total usage this billing period for the "Usage This Month" display
     const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);

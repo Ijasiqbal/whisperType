@@ -197,13 +197,7 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun isAccessibilityServiceEnabled(): Boolean {
-        val accessibilityManager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-        val enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(
-            AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-        )
-        return enabledServices.any { 
-            it.resolveInfo.serviceInfo.packageName == packageName 
-        }
+        return checkAccessibilityEnabled(this)
     }
 }
 
@@ -222,10 +216,21 @@ fun MainScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     
-    // State for permission statuses - refreshed when app resumes
+    // State for permission statuses - start with false, will be updated immediately
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
     var isOverlayGranted by remember { mutableStateOf(false) }
     var isMicrophoneGranted by remember { mutableStateOf(false) }
+    
+    // Check permissions immediately when composable is first created
+    LaunchedEffect(Unit) {
+        isAccessibilityEnabled = checkAccessibilityEnabled(context)
+        isOverlayGranted = Settings.canDrawOverlays(context)
+        isMicrophoneGranted = ContextCompat.checkSelfPermission(
+            context, 
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        android.util.Log.d("MainScreen", "Initial permission check: accessibility=$isAccessibilityEnabled")
+    }
     
     // Refresh permissions when returning to app
     DisposableEffect(lifecycleOwner) {
@@ -237,6 +242,7 @@ fun MainScreen(
                     context, 
                     Manifest.permission.RECORD_AUDIO
                 ) == PackageManager.PERMISSION_GRANTED
+                android.util.Log.d("MainScreen", "Resume permission check: accessibility=$isAccessibilityEnabled")
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -809,15 +815,25 @@ fun UsageStep(number: String, text: String) {
 
 /**
  * Helper function to check if our accessibility service is enabled
+ * Uses Settings.Secure API which is more reliable than AccessibilityManager
  */
 fun checkAccessibilityEnabled(context: Context): Boolean {
-    val accessibilityManager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-    val enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(
-        AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-    )
-    return enabledServices.any { 
-        it.resolveInfo.serviceInfo.packageName == context.packageName 
+    val serviceId = "${context.packageName}/${context.packageName}.service.WhisperTypeAccessibilityService"
+    
+    // Primary check: Use Settings.Secure (most reliable)
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: ""
+    
+    val isEnabled = enabledServices.split(':').any { service ->
+        service.equals(serviceId, ignoreCase = true) ||
+        service.contains("WhisperTypeAccessibilityService", ignoreCase = true)
     }
+    
+    android.util.Log.d("MainActivity", "Accessibility check: serviceId=$serviceId, enabledServices=$enabledServices, isEnabled=$isEnabled")
+    
+    return isEnabled
 }
 
 /**
