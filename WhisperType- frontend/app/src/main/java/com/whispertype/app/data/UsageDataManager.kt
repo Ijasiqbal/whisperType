@@ -57,21 +57,62 @@ object UsageDataManager {
     }
     
     /**
+     * User plan enum for Iteration 3
+     */
+    enum class Plan {
+        FREE_TRIAL,
+        PRO;
+        
+        companion object {
+            fun fromString(value: String): Plan {
+                return when (value) {
+                    "pro" -> PRO
+                    else -> FREE_TRIAL
+                }
+            }
+        }
+    }
+    
+    /**
      * Data class representing usage and trial state
      */
     data class UsageState(
+        // Current plan (Iteration 3)
+        val currentPlan: Plan = Plan.FREE_TRIAL,
         // Existing fields
         val lastSecondsUsed: Int = 0,           // Seconds used in last transcription
         val totalSecondsThisMonth: Int = 0,     // Total seconds used this month
         val lastUpdated: Long = 0,              // Timestamp of last update
-        // New Iteration 2 trial fields
+        // Trial fields
         val trialStatus: TrialStatus = TrialStatus.ACTIVE,
         val freeSecondsUsed: Int = 0,           // Lifetime usage
         val freeSecondsRemaining: Int = 1200,   // Remaining seconds
         val totalTrialSeconds: Int = 1200,      // Total trial limit in seconds (from Remote Config)
         val trialExpiryDateMs: Long = 0,        // Trial expiry timestamp
-        val warningLevel: WarningLevel = WarningLevel.NONE
+        val warningLevel: WarningLevel = WarningLevel.NONE,
+        // Pro plan fields (Iteration 3)
+        val proSecondsUsed: Int = 0,
+        val proSecondsRemaining: Int = 9000,    // 150 minutes default
+        val proSecondsLimit: Int = 9000,
+        val proResetDateMs: Long = 0            // Next monthly reset date
     ) {
+        /**
+         * Whether user is on Pro plan
+         */
+        val isProUser: Boolean
+            get() = currentPlan == Plan.PRO
+        
+        /**
+         * Current quota seconds remaining (trial or Pro based on plan)
+         */
+        val currentSecondsRemaining: Int
+            get() = if (isProUser) proSecondsRemaining else freeSecondsRemaining
+        
+        /**
+         * Current quota is valid (has minutes remaining)
+         */
+        val isQuotaValid: Boolean
+            get() = if (isProUser) proSecondsRemaining > 0 else isTrialValid
         /**
          * Minutes remaining in trial (calculated)
          */
@@ -216,9 +257,65 @@ object UsageDataManager {
     }
     
     /**
+     * Update Pro subscription status (Iteration 3)
+     */
+    fun updateProStatus(
+        proSecondsUsed: Int,
+        proSecondsRemaining: Int,
+        proSecondsLimit: Int,
+        proResetDateMs: Long
+    ) {
+        _usageState.value = _usageState.value.copy(
+            currentPlan = Plan.PRO,
+            proSecondsUsed = proSecondsUsed,
+            proSecondsRemaining = proSecondsRemaining,
+            proSecondsLimit = proSecondsLimit,
+            proResetDateMs = proResetDateMs,
+            lastUpdated = System.currentTimeMillis()
+        )
+    }
+    
+    /**
+     * Update subscription status from getSubscriptionStatus endpoint (Iteration 3)
+     * Handles both trial and Pro users
+     */
+    fun updateSubscriptionStatus(
+        plan: String,
+        status: String,
+        secondsRemaining: Int,
+        warningLevel: String,
+        // Trial-specific
+        freeSecondsUsed: Int? = null,
+        trialExpiryDateMs: Long? = null,
+        // Pro-specific
+        proSecondsUsed: Int? = null,
+        proSecondsLimit: Int? = null,
+        resetDateMs: Long? = null
+    ) {
+        val currentPlan = Plan.fromString(plan)
+        
+        _usageState.value = _usageState.value.copy(
+            currentPlan = currentPlan,
+            trialStatus = TrialStatus.fromString(status),
+            warningLevel = WarningLevel.fromString(warningLevel),
+            // Trial fields
+            freeSecondsUsed = freeSecondsUsed ?: _usageState.value.freeSecondsUsed,
+            freeSecondsRemaining = if (currentPlan == Plan.FREE_TRIAL) secondsRemaining else _usageState.value.freeSecondsRemaining,
+            trialExpiryDateMs = trialExpiryDateMs ?: _usageState.value.trialExpiryDateMs,
+            // Pro fields
+            proSecondsUsed = proSecondsUsed ?: _usageState.value.proSecondsUsed,
+            proSecondsRemaining = if (currentPlan == Plan.PRO) secondsRemaining else _usageState.value.proSecondsRemaining,
+            proSecondsLimit = proSecondsLimit ?: _usageState.value.proSecondsLimit,
+            proResetDateMs = resetDateMs ?: _usageState.value.proResetDateMs,
+            lastUpdated = System.currentTimeMillis()
+        )
+    }
+    
+    /**
      * Clear usage data (e.g., on sign out)
      */
     fun clear() {
         _usageState.value = UsageState()
     }
 }
+

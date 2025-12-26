@@ -170,6 +170,13 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     
+    // Google Play Billing for Pro subscription (Iteration 3)
+    val billing_version = "7.1.1"
+    implementation("com.android.billingclient:billing-ktx:$billing_version")
+    
+    // Firebase Remote Config for dynamic plan configuration
+    implementation("com.google.firebase:firebase-config-ktx")
+    
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

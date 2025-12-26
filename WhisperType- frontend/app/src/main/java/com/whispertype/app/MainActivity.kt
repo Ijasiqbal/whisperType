@@ -44,6 +44,8 @@ import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.service.OverlayService
 import com.whispertype.app.ui.LoginScreen
 import com.whispertype.app.ui.ProfileScreen
+import com.whispertype.app.ui.PlanScreen
+import com.whispertype.app.data.UsageDataManager
 
 /**
  * MainActivity - Onboarding and permission setup screen
@@ -627,7 +629,8 @@ fun MainScreen(
  */
 enum class BottomNavTab(val label: String, val iconRes: Int) {
     HOME("Home", R.drawable.ic_home),
-    PROFILE("Profile", R.drawable.ic_person)
+    PROFILE("Profile", R.drawable.ic_person),
+    PLAN("Pricing", R.drawable.ic_plan)
 }
 
 /**
@@ -645,6 +648,9 @@ fun AppWithBottomNav(
 ) {
     var selectedTab by remember { mutableStateOf(BottomNavTab.HOME) }
     
+    // Observe usage/trial state from UsageDataManager
+    val usageState by UsageDataManager.usageState.collectAsStateWithLifecycle()
+    
     // Fetch trial status on first composition (when user is authenticated)
     LaunchedEffect(Unit) {
         // Get current user's auth token and fetch trial status
@@ -655,7 +661,15 @@ fun AppWithBottomNav(
                 com.whispertype.app.api.WhisperApiClient().getTrialStatus(
                     authToken = token,
                     onSuccess = { status, freeSecondsUsed, freeSecondsRemaining, trialExpiryDateMs, warningLevel ->
-                        android.util.Log.d("MainActivity", "Trial status fetched: $freeSecondsRemaining seconds remaining")
+                        android.util.Log.d("MainActivity", "Trial status fetched: $status, $freeSecondsRemaining seconds remaining")
+                        // Update UsageDataManager with the fetched status
+                        UsageDataManager.updateTrialStatus(
+                            status = status,
+                            freeSecondsUsed = freeSecondsUsed,
+                            freeSecondsRemaining = freeSecondsRemaining,
+                            trialExpiryDateMs = trialExpiryDateMs,
+                            warningLevel = warningLevel
+                        )
                     },
                     onError = { error ->
                         android.util.Log.e("MainActivity", "Failed to fetch trial status: $error")
@@ -665,11 +679,22 @@ fun AppWithBottomNav(
         }
     }
     
+    // Auto-redirect to Plan tab when trial expires (soft redirect, not blocking)
+    val isTrialExpired = !usageState.isTrialValid && usageState.currentPlan == UsageDataManager.Plan.FREE_TRIAL
+    
+    LaunchedEffect(isTrialExpired) {
+        if (isTrialExpired) {
+            selectedTab = BottomNavTab.PLAN
+            android.util.Log.d("MainActivity", "Trial expired, redirecting to Plan tab")
+        }
+    }
+    
     Scaffold(
         bottomBar = {
             NavigationBar(
                 containerColor = Color.White,
-                tonalElevation = 8.dp
+                tonalElevation = 8.dp,
+                modifier = Modifier.height(72.dp)
             ) {
                 BottomNavTab.values().forEach { tab ->
                     NavigationBarItem(
@@ -715,6 +740,20 @@ fun AppWithBottomNav(
                         onTestOverlay = onTestOverlay,
                         onSignOut = onSignOut,
                         userEmail = userEmail
+                    )
+                }
+                BottomNavTab.PLAN -> {
+                    PlanScreen(
+                        priceDisplay = "₹79/month",
+                        minutesLimit = 150,
+                        onUpgrade = {
+                            // TODO: Wire up BillingManager purchase flow
+                            android.util.Log.d("MainActivity", "Upgrade button clicked")
+                        },
+                        onContactSupport = {
+                            // TODO: Open support link
+                            android.util.Log.d("MainActivity", "Contact support clicked")
+                        }
                     )
                 }
                 BottomNavTab.PROFILE -> {
