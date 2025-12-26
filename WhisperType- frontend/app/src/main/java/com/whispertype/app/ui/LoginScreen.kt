@@ -1,16 +1,26 @@
 package com.whispertype.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -28,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.whispertype.app.R
 import com.whispertype.app.auth.AuthResult
 import com.whispertype.app.auth.FirebaseAuthManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -51,6 +62,15 @@ fun LoginScreen(
     
     // Focus requesters
     val passwordFocusRequester = remember { FocusRequester() }
+    
+    // Animation states
+    var isVisible by remember { mutableStateOf(false) }
+    
+    // Trigger entrance animation on composition
+    LaunchedEffect(Unit) {
+        delay(100) // Small delay for smoother entrance
+        isVisible = true
+    }
     
     // Handle email/password auth
     fun handleEmailAuth() {
@@ -116,64 +136,111 @@ fun LoginScreen(
         }
     }
     
-    Column(
+    // Gradient background
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        // App icon
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF6366F1),
-                            Color(0xFF8B5CF6)
-                        )
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFF8FAFC),  // Soft white at top
+                        Color(0xFFEEF2FF),  // Light indigo tint
+                        Color(0xFFE0E7FF)   // Slightly deeper indigo at bottom
                     )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_microphone),
-                contentDescription = "WhisperType Icon",
-                tint = Color.White,
-                modifier = Modifier.size(40.dp)
+                )
             )
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(
-            text = "WhisperType",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF1E293B)
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = if (isSignUp) "Create your account" else "Sign in to continue",
-            fontSize = 16.sp,
-            color = Color(0xFF64748B)
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        // Login Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
+            // Animated App icon
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(600)) + slideInVertically(
+                    animationSpec = tween(600),
+                    initialOffsetY = { -50 }
+                )
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .shadow(
+                            elevation = 16.dp,
+                            shape = CircleShape,
+                            ambientColor = Color(0xFF6366F1).copy(alpha = 0.3f),
+                            spotColor = Color(0xFF6366F1).copy(alpha = 0.3f)
+                        )
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF6366F1),
+                                    Color(0xFF8B5CF6)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_microphone),
+                        contentDescription = "WhisperType Icon",
+                        tint = Color.White,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Animated Title
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(600, delayMillis = 150)) + slideInVertically(
+                    animationSpec = tween(600, delayMillis = 150),
+                    initialOffsetY = { -30 }
+                )
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "WhisperType",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = if (isSignUp) "Create your account" else "Sign in to continue",
+                        fontSize = 16.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Animated Login Card
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(600, delayMillis = 300)) + slideInVertically(
+                    animationSpec = tween(600, delayMillis = 300),
+                    initialOffsetY = { 80 }
+                )
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp)
+                    ) {
                 // Email field
                 OutlinedTextField(
                     value = email,
@@ -229,12 +296,18 @@ fun LoginScreen(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Sign In / Sign Up button
+                // Sign In / Sign Up button with shadow
                 Button(
                     onClick = { handleEmailAuth() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
+                        .height(52.dp)
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = RoundedCornerShape(12.dp),
+                            ambientColor = Color(0xFF6366F1).copy(alpha = 0.4f),
+                            spotColor = Color(0xFF6366F1).copy(alpha = 0.4f)
+                        ),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF6366F1)
@@ -274,7 +347,7 @@ fun LoginScreen(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Google Sign-In button
+                // Google Sign-In button with icon
                 OutlinedButton(
                     onClick = { handleGoogleSignIn() },
                     modifier = Modifier
@@ -286,11 +359,23 @@ fun LoginScreen(
                     ),
                     enabled = !isLoading
                 ) {
-                    Text(
-                        text = "🔵 Continue with Google",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_google),
+                            contentDescription = "Google",
+                            modifier = Modifier.size(20.dp),
+                            tint = Color.Unspecified // Preserve original colors
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Continue with Google",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
                 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -322,14 +407,22 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isLoading
                 ) {
-                    Text(
-                        text = if (isSignUp) 
-                            "Already have an account? Sign In" 
-                        else 
-                            "Don't have an account? Sign Up",
-                        color = Color(0xFF6366F1),
-                        fontSize = 14.sp
-                    )
+                    Crossfade(
+                        targetState = isSignUp,
+                        animationSpec = tween(300),
+                        label = "toggle_text"
+                    ) { signUp ->
+                        Text(
+                            text = if (signUp) 
+                                "Already have an account? Sign In" 
+                            else 
+                                "Don't have an account? Sign Up",
+                            color = Color(0xFF6366F1),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
                 }
             }
         }

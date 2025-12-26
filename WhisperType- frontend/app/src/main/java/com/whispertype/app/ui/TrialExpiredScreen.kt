@@ -18,23 +18,26 @@ import com.whispertype.app.R
 import com.whispertype.app.data.UsageDataManager
 
 /**
- * TrialExpiredScreen - Full-screen blocking UI when trial has ended
+ * TrialExpiredScreen - Upgrade flow when trial has ended
  * 
- * Shows:
- * - Clear message that trial is over
- * - Reason (time or usage)
- * - Placeholder sections for Pro and Recharge (Iteration 3)
+ * Iteration 3: Calm, matter-of-fact upgrade screen
+ * - Clear message about trial ending
+ * - Single Pro option with clear value proposition
+ * - No urgency, no sales pressure
  */
 @Composable
 fun TrialExpiredScreen(
     trialStatus: UsageDataManager.TrialStatus,
+    priceDisplay: String = "₹79/month",
+    minutesLimit: Int = 150,
+    onUpgrade: () -> Unit = {},
     onContactSupport: () -> Unit = {}
 ) {
     val reasonText = when (trialStatus) {
         UsageDataManager.TrialStatus.EXPIRED_TIME -> 
             "Your 3-month free trial period has ended."
         UsageDataManager.TrialStatus.EXPIRED_USAGE -> 
-            "You've used all 20 minutes of your free trial."
+            "You've used all your free trial minutes."
         else -> 
             "Your free trial has ended."
     }
@@ -63,7 +66,7 @@ fun TrialExpiredScreen(
                 modifier = Modifier
                     .size(80.dp)
                     .background(
-                        color = Color(0xFFFEE2E2),
+                        color = Color(0xFFEDE9FE),
                         shape = RoundedCornerShape(50)
                     ),
                 contentAlignment = Alignment.Center
@@ -71,16 +74,16 @@ fun TrialExpiredScreen(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_microphone),
                     contentDescription = null,
-                    tint = Color(0xFFDC2626),
+                    tint = Color(0xFF7C3AED),
                     modifier = Modifier.size(40.dp)
                 )
             }
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Title
+            // Title - calm, not alarming
             Text(
-                text = "Free Trial Ended",
+                text = "Ready to Continue?",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1E293B),
@@ -99,82 +102,72 @@ fun TrialExpiredScreen(
             
             Spacer(modifier = Modifier.height(40.dp))
             
-            // Pro section placeholder
+            // Pro section - single clear option
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp)
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "🚀 WhisperType Pro",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        text = "WhisperType Pro",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Unlimited transcriptions, priority support, and more.",
-                        fontSize = 14.sp,
-                        color = Color(0xFF64748B)
-                    )
+                    
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { /* Coming in Iteration 3 */ },
+                    
+                    // Clear value proposition
+                    Text(
+                        text = "$minutesLimit minutes every month",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF6366F1)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Price - clear and simple
+                    Text(
+                        text = priceDisplay,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Benefits - brief list
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = false,
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        BenefitRow("✓ $minutesLimit minutes resets monthly")
+                        BenefitRow("✓ No trial expiry anxiety")
+                        BenefitRow("✓ Cancel anytime")
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    // Single upgrade button
+                    Button(
+                        onClick = onUpgrade,
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6366F1),
-                            disabledContainerColor = Color(0xFFCBD5E1)
+                            containerColor = Color(0xFF6366F1)
                         )
                     ) {
                         Text(
-                            text = "Coming Soon",
-                            fontSize = 16.sp,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Recharge section placeholder
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9))
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-                    Text(
-                        text = "⚡ Recharge Pack",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1E293B)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Buy minutes as needed. No subscription required.",
-                        fontSize = 14.sp,
-                        color = Color(0xFF64748B)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(
-                        onClick = { /* Coming in Iteration 3 */ },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = false,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "Coming Soon",
-                            fontSize = 16.sp,
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            text = "Upgrade to Pro",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
                 }
@@ -193,3 +186,14 @@ fun TrialExpiredScreen(
         }
     }
 }
+
+@Composable
+private fun BenefitRow(text: String) {
+    Text(
+        text = text,
+        fontSize = 14.sp,
+        color = Color(0xFF64748B),
+        modifier = Modifier.padding(vertical = 2.dp)
+    )
+}
+
