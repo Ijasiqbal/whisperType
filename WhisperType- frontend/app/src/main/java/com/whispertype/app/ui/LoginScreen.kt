@@ -25,6 +25,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -141,12 +142,13 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
+                Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFFF8FAFC),  // Soft white at top
-                        Color(0xFFEEF2FF),  // Light indigo tint
-                        Color(0xFFE0E7FF)   // Slightly deeper indigo at bottom
-                    )
+                        Color(0xFFEEF2FF),  // Light indigo center
+                        Color(0xFFF8FAFC)   // Fade to white
+                    ),
+                    center = Offset(0.5f, 0f),  // Top center
+                    radius = 1500f
                 )
             )
     ) {

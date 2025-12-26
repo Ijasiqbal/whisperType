@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -255,13 +256,28 @@ fun MainScreen(
     
     val allPermissionsGranted = isAccessibilityEnabled && isOverlayGranted && isMicrophoneGranted
     
-    Column(
+    // Radial gradient background matching app theme
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFEEF2FF),  // Light indigo center
+                        Color(0xFFF8FAFC)   // Fade to white
+                    ),
+                    center = Offset(0.5f, 0f),  // Top center
+                    radius = 1500f
+                )
+            )
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Spacer(modifier = Modifier.height(24.dp))
         
         // App icon
@@ -621,6 +637,7 @@ fun MainScreen(
         }
         
         Spacer(modifier = Modifier.height(32.dp))
+        }
     }
 }
 

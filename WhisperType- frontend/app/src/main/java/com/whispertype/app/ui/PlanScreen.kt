@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -46,11 +47,13 @@ fun PlanScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
+                Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFFF8FAFC),
-                        Color(0xFFE2E8F0)
-                    )
+                        Color(0xFFEEF2FF),  // Light indigo center
+                        Color(0xFFF8FAFC)   // Fade to white
+                    ),
+                    center = Offset(0.5f, 0f),  // Top center
+                    radius = 1500f
                 )
             )
             .verticalScroll(rememberScrollState())
