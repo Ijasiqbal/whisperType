@@ -2,8 +2,10 @@ package com.whispertype.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,10 +32,12 @@ fun ProfileScreen(
     onSignOut: () -> Unit
 ) {
     val usageState by UsageDataManager.usageState.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
     
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -166,7 +170,7 @@ fun ProfileScreen(
             }
         }
         
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(32.dp))
         
         // Sign out button
         OutlinedButton(

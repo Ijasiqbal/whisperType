@@ -722,9 +722,8 @@ class OverlayService : Service() {
                 progressIndicator?.visibility = View.GONE
                 micIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
-                // Start recording animation so user knows device is listening
-                startRecordingPulseAnimation()
                 // Voice detection pulse animation is triggered via handleVoiceAmplitude()
+                // Animation only shows when voice is actually detected, not continuously
             }
             State.PROCESSING -> {
                 statusText?.text = getString(R.string.overlay_processing)
