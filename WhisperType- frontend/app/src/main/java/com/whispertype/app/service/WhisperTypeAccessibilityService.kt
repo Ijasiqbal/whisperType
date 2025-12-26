@@ -58,9 +58,17 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     }
     
     // Volume key tracking for double-press detection
+    // lastVolume*Time tracks the most recent press of each button
+    // previousVolume*Time tracks the previous press of the same button (for double-press detection)
+    // lastBothButtonsGestureTime tracks when we detected a "both buttons" gesture (to block false triggers)
+    // lastPressedButton tracks which button was pressed last (to detect alternating presses = both buttons gesture)
     private var lastVolumeUpTime: Long = 0
     private var lastVolumeDownTime: Long = 0
+    private var previousVolumeUpTime: Long = 0
+    private var previousVolumeDownTime: Long = 0
     private var lastBothButtonsTime: Long = 0
+    private var lastBothButtonsGestureTime: Long = 0
+    private var lastPressedButton: Int = 0 // 0 = none, KEYCODE_VOLUME_UP or KEYCODE_VOLUME_DOWN
     
     // Accessibility button controller (API 26+)
     private var accessibilityButtonController: AccessibilityButtonController? = null
@@ -157,84 +165,151 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
      */
     override fun onKeyEvent(event: KeyEvent?): Boolean {
         if (event == null) return false
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        
+        val currentTime = System.currentTimeMillis()
+        val keyCode = event.keyCode
+        
+        val isVolumeUp = keyCode == KeyEvent.KEYCODE_VOLUME_UP
+        val isVolumeDown = keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+        
+        if (!isVolumeUp && !isVolumeDown) {
+            return false // Not a volume button, don't handle
+        }
+        
+        // SIMPLE APPROACH: Check if this button is DIFFERENT from the last button pressed
+        // If different AND within threshold time, it's a "both buttons" gesture
+        var isBothButtonsGesture = false
+        
+        val lastPressTime = if (isVolumeUp) lastVolumeDownTime else lastVolumeUpTime
+        val timeSinceOtherButton = currentTime - lastPressTime
+        
+        // If last button was DIFFERENT and pressed recently, this is a both-buttons gesture
+        if (lastPressedButton != 0 && lastPressedButton != keyCode && lastPressTime > 0) {
+            if (timeSinceOtherButton < Constants.BOTH_BUTTONS_THRESHOLD_MS) {
+                isBothButtonsGesture = true
+                lastBothButtonsGestureTime = currentTime
+                Log.d(TAG, "BOTH-BUTTONS GESTURE DETECTED: Different button within ${timeSinceOtherButton}ms")
+            }
+        }
+        
+        // Update the timestamp for the current button
+        if (isVolumeUp) {
+            lastVolumeUpTime = currentTime
+        } else {
+            lastVolumeDownTime = currentTime
+        }
+        
+        // Track which button was just pressed
+        lastPressedButton = keyCode
         
         val mode = ShortcutPreferences.getShortcutMode(this)
+        Log.d(TAG, "Key: ${if (isVolumeUp) "UP" else "DOWN"}, mode=$mode, isBothGesture=$isBothButtonsGesture, lastBtn=$lastPressedButton")
         
         return when (mode) {
-            ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_UP -> handleDoubleVolumeUp(event)
-            ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_DOWN -> handleDoubleVolumeDown(event)
-            ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS -> handleBothButtons(event)
+            ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_UP -> {
+                if (isBothButtonsGesture) {
+                    Log.d(TAG, "BLOCKED: Both-buttons gesture in DOUBLE_VOLUME_UP mode")
+                    previousVolumeUpTime = 0
+                    false
+                } else {
+                    handleDoubleVolumeUp(event, currentTime)
+                }
+            }
+            ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_DOWN -> {
+                if (isBothButtonsGesture) {
+                    Log.d(TAG, "BLOCKED: Both-buttons gesture in DOUBLE_VOLUME_DOWN mode")
+                    previousVolumeDownTime = 0
+                    false
+                } else {
+                    handleDoubleVolumeDown(event, currentTime)
+                }
+            }
+            ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS -> handleBothButtons(event, currentTime)
         }
     }
     
     /**
      * Handle double volume up detection
+     * 
+     * Only triggers if two volume up presses occurred within 500ms
+     * AND no both-buttons gesture was detected recently
+     * 
+     * @param currentTime The timestamp when the key was pressed
      */
-    private fun handleDoubleVolumeUp(event: KeyEvent): Boolean {
+    private fun handleDoubleVolumeUp(event: KeyEvent, currentTime: Long): Boolean {
         if (event.keyCode != KeyEvent.KEYCODE_VOLUME_UP) return false
-        if (event.action != KeyEvent.ACTION_DOWN) return false
         
-        val currentTime = System.currentTimeMillis()
-        val timeSinceLastPress = currentTime - lastVolumeUpTime
+        // Additional safety: Check if a "both buttons" gesture was detected recently
+        val timeSinceBothGesture = currentTime - lastBothButtonsGestureTime
+        if (lastBothButtonsGestureTime > 0 && timeSinceBothGesture < 1000L) {
+            Log.d(TAG, "BLOCKING: Both-buttons gesture was ${timeSinceBothGesture}ms ago")
+            previousVolumeUpTime = 0
+            return false
+        }
         
-        if (timeSinceLastPress < Constants.DOUBLE_PRESS_THRESHOLD_MS) {
-            lastVolumeUpTime = 0
+        // Check for double-press: compare with previousVolumeUpTime
+        val timeSinceLastPress = currentTime - previousVolumeUpTime
+        
+        // Update previous for next check
+        previousVolumeUpTime = currentTime
+        
+        if (timeSinceLastPress < Constants.DOUBLE_PRESS_THRESHOLD_MS && timeSinceLastPress > 0) {
+            previousVolumeUpTime = 0 // Reset
             Log.d(TAG, "Double volume-up detected! Triggering overlay.")
             toggleOverlay()
             return true
-        } else {
-            lastVolumeUpTime = currentTime
-            return false
         }
+        
+        return false
     }
     
     /**
      * Handle double volume down detection
+     * 
+     * Only triggers if two volume down presses occurred within 500ms
+     * AND no both-buttons gesture was detected recently
+     * 
+     * @param currentTime The timestamp when the key was pressed
      */
-    private fun handleDoubleVolumeDown(event: KeyEvent): Boolean {
+    private fun handleDoubleVolumeDown(event: KeyEvent, currentTime: Long): Boolean {
         if (event.keyCode != KeyEvent.KEYCODE_VOLUME_DOWN) return false
-        if (event.action != KeyEvent.ACTION_DOWN) return false
         
-        val currentTime = System.currentTimeMillis()
-        val timeSinceLastPress = currentTime - lastVolumeDownTime
+        // Additional safety: Check if a "both buttons" gesture was detected recently
+        val timeSinceBothGesture = currentTime - lastBothButtonsGestureTime
+        if (lastBothButtonsGestureTime > 0 && timeSinceBothGesture < 1000L) {
+            Log.d(TAG, "BLOCKING: Both-buttons gesture was ${timeSinceBothGesture}ms ago")
+            previousVolumeDownTime = 0
+            return false
+        }
         
-        if (timeSinceLastPress < Constants.DOUBLE_PRESS_THRESHOLD_MS) {
-            lastVolumeDownTime = 0
+        // Check for double-press: compare with previousVolumeDownTime
+        val timeSinceLastPress = currentTime - previousVolumeDownTime
+        
+        // Update previous for next check
+        previousVolumeDownTime = currentTime
+        
+        if (timeSinceLastPress < Constants.DOUBLE_PRESS_THRESHOLD_MS && timeSinceLastPress > 0) {
+            previousVolumeDownTime = 0 // Reset
             Log.d(TAG, "Double volume-down detected! Triggering overlay.")
             toggleOverlay()
             return true
-        } else {
-            lastVolumeDownTime = currentTime
-            return false
         }
+        
+        return false
     }
     
     /**
      * Handle both buttons pressed simultaneously
      * Detects when volume up and volume down are pressed within 300ms of each other
+     * 
+     * @param currentTime The timestamp when the key was pressed
      */
-    private fun handleBothButtons(event: KeyEvent): Boolean {
-        // Only handle key down events
-        if (event.action != KeyEvent.ACTION_DOWN) return false
-        
-        val currentTime = System.currentTimeMillis()
+    private fun handleBothButtons(event: KeyEvent, currentTime: Long): Boolean {
         val keyName = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) "UP" else "DOWN"
         
         Log.d(TAG, "BOTH_MODE: Key $keyName pressed at $currentTime")
-        Log.d(TAG, "BOTH_MODE: Before - lastUp=$lastVolumeUpTime, lastDown=$lastVolumeDownTime")
-        
-        // Record the timestamp for whichever button was pressed
-        when (event.keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> {
-                lastVolumeUpTime = currentTime
-            }
-            KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                lastVolumeDownTime = currentTime
-            }
-            else -> return false
-        }
-        
-        Log.d(TAG, "BOTH_MODE: After - lastUp=$lastVolumeUpTime, lastDown=$lastVolumeDownTime")
+        Log.d(TAG, "BOTH_MODE: lastUp=$lastVolumeUpTime, lastDown=$lastVolumeDownTime")
         
         // Check if both buttons were pressed within 300ms of each other
         // Both timestamps must be non-zero (both buttons pressed)
