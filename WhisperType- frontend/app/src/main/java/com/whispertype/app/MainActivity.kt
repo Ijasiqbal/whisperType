@@ -15,6 +15,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -26,6 +30,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
@@ -47,6 +52,11 @@ import com.whispertype.app.ui.LoginScreen
 import com.whispertype.app.ui.ProfileScreen
 import com.whispertype.app.ui.PlanScreen
 import com.whispertype.app.data.UsageDataManager
+import com.whispertype.app.config.RemoteConfigManager
+import com.whispertype.app.billing.BillingManagerFactory
+import com.whispertype.app.billing.IBillingManager
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 /**
  * MainActivity - Onboarding and permission setup screen
@@ -67,6 +77,9 @@ class MainActivity : ComponentActivity() {
     // Firebase Auth Manager
     private val authManager = FirebaseAuthManager()
     
+    // Billing Manager (auto-selects Mock in DEBUG, Real in RELEASE)
+    private lateinit var billingManager: IBillingManager
+    
     // Permission request launcher for microphone
     private val microphonePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -80,6 +93,15 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize billing manager
+        billingManager = BillingManagerFactory.create(this)
+        billingManager.initialize {
+            // Billing ready - query product details
+            lifecycleScope.launch {
+                billingManager.queryProSubscription()
+            }
+        }
         
         setContent {
             WhisperTypeTheme {
@@ -117,7 +139,8 @@ class MainActivity : ComponentActivity() {
                                 onGrantMicrophone = { requestMicrophonePermission() },
                                 onTestOverlay = { testOverlay() },
                                 onSignOut = { authManager.signOut() },
-                                userEmail = (authState as AuthState.Authenticated).user.email
+                                userEmail = (authState as AuthState.Authenticated).user.email,
+                                onUpgrade = { launchBillingFlow() }
                             )
                         }
                         is AuthState.Error -> {
@@ -131,6 +154,28 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::billingManager.isInitialized) {
+            billingManager.release()
+        }
+    }
+    
+    /**
+     * Launch the billing purchase flow
+     */
+    private fun launchBillingFlow() {
+        billingManager.launchPurchaseFlow(
+            activity = this,
+            onSuccess = {
+                Toast.makeText(this, "🎉 Welcome to WhisperType Pro!", Toast.LENGTH_LONG).show()
+            },
+            onError = { errorMessage ->
+                Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
+            }
+        )
     }
     
     private fun openAccessibilitySettings() {
@@ -256,6 +301,13 @@ fun MainScreen(
     
     val allPermissionsGranted = isAccessibilityEnabled && isOverlayGranted && isMicrophoneGranted
     
+    // Animation state for entrance animations
+    var isVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
+    
     // Radial gradient background matching app theme
     Box(
         modifier = Modifier
@@ -280,50 +332,87 @@ fun MainScreen(
         ) {
         Spacer(modifier = Modifier.height(24.dp))
         
-        // App icon
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF6366F1),
-                            Color(0xFF8B5CF6)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_microphone),
-                contentDescription = "WhisperType Icon",
-                tint = Color.White,
-                modifier = Modifier.size(40.dp)
+        // Animated App icon
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(animationSpec = tween(150)) + slideInHorizontally(
+                animationSpec = tween(150),
+                initialOffsetX = { -30 }
             )
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .shadow(
+                        elevation = 16.dp,
+                        shape = CircleShape,
+                        ambientColor = Color(0xFF6366F1).copy(alpha = 0.3f),
+                        spotColor = Color(0xFF6366F1).copy(alpha = 0.3f)
+                    )
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF6366F1),
+                                Color(0xFF8B5CF6)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_microphone),
+                    contentDescription = "WhisperType Icon",
+                    tint = Color.White,
+                    modifier = Modifier.size(50.dp)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        Text(
-            text = "WhisperType",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF1E293B)
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "Voice input for any text field",
-            fontSize = 16.sp,
-            color = Color(0xFF64748B)
-        )
+        // Animated Title
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(animationSpec = tween(150, delayMillis = 30)) + slideInHorizontally(
+                animationSpec = tween(150, delayMillis = 30),
+                initialOffsetX = { -25 }
+            )
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "WhisperType",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "Voice input for any text field",
+                    fontSize = 16.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+        }
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // User info section
-        if (userEmail != null) {
+        // Animated content section
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(animationSpec = tween(150, delayMillis = 60)) + slideInHorizontally(
+                animationSpec = tween(150, delayMillis = 60),
+                initialOffsetX = { -35 }
+            )
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // User info section
+                if (userEmail != null) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -637,6 +726,8 @@ fun MainScreen(
         }
         
         Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
         }
     }
 }
@@ -661,12 +752,21 @@ fun AppWithBottomNav(
     onGrantMicrophone: () -> Unit,
     onTestOverlay: () -> Unit,
     onSignOut: () -> Unit,
-    userEmail: String?
+    userEmail: String?,
+    onUpgrade: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(BottomNavTab.HOME) }
     
     // Observe usage/trial state from UsageDataManager
     val usageState by UsageDataManager.usageState.collectAsStateWithLifecycle()
+    
+    // Initialize and observe Remote Config for plan configuration
+    val planConfig by RemoteConfigManager.planConfig.collectAsStateWithLifecycle()
+    
+    // Initialize Remote Config on first composition
+    LaunchedEffect(Unit) {
+        RemoteConfigManager.initialize()
+    }
     
     // Fetch trial status on first composition (when user is authenticated)
     LaunchedEffect(Unit) {
@@ -761,12 +861,10 @@ fun AppWithBottomNav(
                 }
                 BottomNavTab.PLAN -> {
                     PlanScreen(
-                        priceDisplay = "₹79/month",
-                        minutesLimit = 150,
-                        onUpgrade = {
-                            // TODO: Wire up BillingManager purchase flow
-                            android.util.Log.d("MainActivity", "Upgrade button clicked")
-                        },
+                        priceDisplay = planConfig.proPriceDisplay,
+                        minutesLimit = planConfig.proMinutesLimit,
+                        planName = planConfig.proPlanName,
+                        onUpgrade = onUpgrade,
                         onContactSupport = {
                             // TODO: Open support link
                             android.util.Log.d("MainActivity", "Contact support clicked")

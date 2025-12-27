@@ -26,6 +26,9 @@ class BillingManager(private val context: Context) {
     private var billingClient: BillingClient? = null
     private var productDetails: ProductDetails? = null
     
+    // Callback to invoke on successful purchase
+    private var pendingSuccessCallback: (() -> Unit)? = null
+    
     // Subscription state
     private val _isProUser = MutableStateFlow(false)
     val isProUser: StateFlow<Boolean> = _isProUser.asStateFlow()
@@ -110,6 +113,7 @@ class BillingManager(private val context: Context) {
      */
     fun launchPurchaseFlow(
         activity: Activity,
+        onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
         val billingClient = this.billingClient
@@ -119,6 +123,9 @@ class BillingManager(private val context: Context) {
             onError("Billing not initialized")
             return
         }
+        
+        // Store success callback for when purchase completes
+        pendingSuccessCallback = onSuccess
         
         // Get the offer token for the subscription
         val offerToken = details.subscriptionOfferDetails?.firstOrNull()?.offerToken
@@ -139,6 +146,7 @@ class BillingManager(private val context: Context) {
         val result = billingClient.launchBillingFlow(activity, flowParams)
         if (result.responseCode != BillingResponseCode.OK) {
             Log.e(TAG, "Failed to launch billing flow: ${result.debugMessage}")
+            pendingSuccessCallback = null
             onError("Failed to start purchase: ${result.debugMessage}")
         }
     }
@@ -215,6 +223,10 @@ class BillingManager(private val context: Context) {
                 if (!purchase.isAcknowledged) {
                     acknowledgePurchase(purchase)
                 }
+                
+                // Call success callback
+                pendingSuccessCallback?.invoke()
+                pendingSuccessCallback = null
                 
                 // TODO: Verify with backend and update user document
                 // verifyWithBackend(purchase.purchaseToken)
