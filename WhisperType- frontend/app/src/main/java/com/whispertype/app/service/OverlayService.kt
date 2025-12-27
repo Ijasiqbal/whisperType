@@ -112,6 +112,16 @@ class OverlayService : Service() {
     private var copyButtonRef: WeakReference<android.widget.Button>? = null
     private val copyButton: android.widget.Button? get() = copyButtonRef?.get()
     
+    // New iOS-style UI elements
+    private var recordingRingRef: WeakReference<View>? = null
+    private val recordingRing: View? get() = recordingRingRef?.get()
+    
+    private var recordingRingOuterRef: WeakReference<View>? = null
+    private val recordingRingOuter: View? get() = recordingRingOuterRef?.get()
+    
+    private var successIconRef: WeakReference<ImageView>? = null
+    private val successIcon: ImageView? get() = successIconRef?.get()
+    
     // Pending text for clipboard copy (when no text field is focused)
     private var pendingText: String? = null
     
@@ -121,6 +131,13 @@ class OverlayService : Service() {
     
     // Voice activity animation
     private var pulseAnimator: ObjectAnimator? = null
+    
+    // Recording ring animators (iOS-style layered pulse)
+    private var ringAnimator: ObjectAnimator? = null
+    private var ringOuterAnimator: ObjectAnimator? = null
+    
+    // Success checkmark animation
+    private var successAnimator: ObjectAnimator? = null
     
     // Recording animation (subtle pulse to indicate recording is active)
     private var recordingPulseAnimator: ObjectAnimator? = null
@@ -260,6 +277,11 @@ class OverlayService : Service() {
         progressIndicatorRef = WeakReference(view.findViewById(R.id.progress_indicator))
         copyButtonRef = WeakReference(view.findViewById(R.id.btn_copy))
         
+        // New iOS-style UI elements
+        recordingRingRef = WeakReference(view.findViewById(R.id.recording_ring))
+        recordingRingOuterRef = WeakReference(view.findViewById(R.id.recording_ring_outer))
+        successIconRef = WeakReference(view.findViewById(R.id.ic_success))
+        
         // Configure window parameters
         val layoutParams = createLayoutParams()
         
@@ -345,7 +367,14 @@ class OverlayService : Service() {
         closeButtonRef = null
         progressIndicatorRef = null
         copyButtonRef = null
+        recordingRingRef = null
+        recordingRingOuterRef = null
+        successIconRef = null
         pendingText = null
+        
+        // Clean up animators
+        stopRingAnimations()
+        stopSuccessAnimation()
     }
     
     /**
@@ -662,6 +691,159 @@ class OverlayService : Service() {
     }
     
     /**
+     * Start iOS-style recording ring animations
+     * Creates a layered pulsing ring effect behind the mic button
+     */
+    private fun startRingAnimations() {
+        // Stop any existing ring animations
+        stopRingAnimations()
+        
+        // Make rings visible
+        recordingRing?.visibility = View.VISIBLE
+        recordingRingOuter?.visibility = View.VISIBLE
+        
+        // Inner ring animation - faster, smaller
+        recordingRing?.let { ring ->
+            ring.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            
+            val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.25f)
+            val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.25f)
+            val alpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.8f, 0f)
+            
+            ringAnimator = ObjectAnimator.ofPropertyValuesHolder(ring, scaleX, scaleY, alpha).apply {
+                duration = 1200L
+                repeatCount = ObjectAnimator.INFINITE
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        }
+        
+        // Outer ring animation - slower, larger, delayed
+        recordingRingOuter?.let { ring ->
+            ring.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            
+            val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.35f)
+            val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.35f)
+            val alpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.5f, 0f)
+            
+            ringOuterAnimator = ObjectAnimator.ofPropertyValuesHolder(ring, scaleX, scaleY, alpha).apply {
+                duration = 1500L
+                startDelay = 300L  // Start slightly after inner ring
+                repeatCount = ObjectAnimator.INFINITE
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        }
+    }
+    
+    /**
+     * Stop ring animations and clean up
+     */
+    private fun stopRingAnimations() {
+        ringAnimator?.let { animator ->
+            if (animator.isRunning) {
+                animator.cancel()
+            }
+            animator.removeAllListeners()
+        }
+        ringAnimator = null
+        
+        ringOuterAnimator?.let { animator ->
+            if (animator.isRunning) {
+                animator.cancel()
+            }
+            animator.removeAllListeners()
+        }
+        ringOuterAnimator = null
+        
+        // Reset and hide rings
+        recordingRing?.apply {
+            scaleX = 1.0f
+            scaleY = 1.0f
+            alpha = 0f
+            visibility = View.GONE
+            setLayerType(View.LAYER_TYPE_NONE, null)
+        }
+        recordingRingOuter?.apply {
+            scaleX = 1.0f
+            scaleY = 1.0f
+            alpha = 0f
+            visibility = View.GONE
+            setLayerType(View.LAYER_TYPE_NONE, null)
+        }
+    }
+    
+    /**
+     * Play success checkmark animation
+     * Scales the checkmark from 0 to 1 with a satisfying overshoot bounce
+     */
+    private fun playSuccessAnimation() {
+        successIcon?.let { icon ->
+            // Hide mic icon, show success icon
+            micIcon?.visibility = View.GONE
+            icon.visibility = View.VISIBLE
+            icon.scaleX = 0f
+            icon.scaleY = 0f
+            
+            icon.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            
+            val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 0f, 1.15f, 1f)
+            val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 0f, 1.15f, 1f)
+            
+            successAnimator = ObjectAnimator.ofPropertyValuesHolder(icon, scaleX, scaleY).apply {
+                duration = 400L
+                interpolator = android.view.animation.OvershootInterpolator(2f)
+                start()
+            }
+        }
+    }
+    
+    /**
+     * Stop success animation and reset
+     */
+    private fun stopSuccessAnimation() {
+        successAnimator?.let { animator ->
+            if (animator.isRunning) {
+                animator.cancel()
+            }
+            animator.removeAllListeners()
+        }
+        successAnimator = null
+        
+        // Hide success icon
+        successIcon?.apply {
+            visibility = View.GONE
+            scaleX = 0f
+            scaleY = 0f
+            setLayerType(View.LAYER_TYPE_NONE, null)
+        }
+    }
+    
+    /**
+     * Play shake animation on error
+     * Subtle horizontal shake to indicate something went wrong
+     */
+    private fun playShakeAnimation() {
+        micButton?.let { button ->
+            button.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            
+            ObjectAnimator.ofFloat(
+                button, View.TRANSLATION_X,
+                0f, -8f, 8f, -8f, 8f, -4f, 4f, 0f
+            ).apply {
+                duration = 400L
+                interpolator = AccelerateDecelerateInterpolator()
+                addListener(object : android.animation.AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: android.animation.Animator) {
+                        button.setLayerType(View.LAYER_TYPE_NONE, null)
+                    }
+                })
+                start()
+            }
+        }
+    }
+    
+    /**
      * Handle the final recognition result
      */
     private fun handleRecognitionResult(text: String) {
@@ -705,63 +887,78 @@ class OverlayService : Service() {
     
     /**
      * Update UI based on current state
+     * Uses iOS-style glass effects and animations
      */
     private fun updateUI(state: State) {
         when (state) {
             State.IDLE -> {
                 statusText?.text = getString(R.string.overlay_ready)
-                micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
                 previewText?.visibility = View.GONE
                 progressIndicator?.visibility = View.GONE
                 micIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
+                // Reset animations
+                stopRingAnimations()
+                stopSuccessAnimation()
             }
             State.RECORDING -> {
                 statusText?.text = getString(R.string.overlay_recording)
-                micButton?.setBackgroundResource(R.drawable.mic_button_listening)
+                micButton?.setBackgroundResource(R.drawable.mic_button_glass_listening)
                 progressIndicator?.visibility = View.GONE
                 micIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
-                // Voice detection pulse animation is triggered via handleVoiceAmplitude()
-                // Animation only shows when voice is actually detected, not continuously
+                stopSuccessAnimation()
+                // Start iOS-style pulsing ring animation
+                startRingAnimations()
             }
             State.PROCESSING -> {
                 statusText?.text = getString(R.string.overlay_processing)
-                micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
                 progressIndicator?.visibility = View.VISIBLE
                 micIcon?.visibility = View.GONE
                 copyButton?.visibility = View.GONE
-                // Stop all animations since recording has stopped
+                // Stop all recording animations
                 stopPulseAnimation()
                 stopRecordingPulseAnimation()
+                stopRingAnimations()
+                stopSuccessAnimation()
             }
             State.TRANSCRIBING -> {
                 statusText?.text = getString(R.string.overlay_transcribing)
-                micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
                 progressIndicator?.visibility = View.VISIBLE
                 micIcon?.visibility = View.GONE
                 copyButton?.visibility = View.GONE
             }
             State.SUCCESS -> {
                 statusText?.text = getString(R.string.overlay_inserted)
-                micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
                 progressIndicator?.visibility = View.GONE
-                micIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
+                stopRingAnimations()
+                // Play success checkmark animation
+                playSuccessAnimation()
             }
             State.ERROR -> {
                 // Error message set by caller
-                micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
                 progressIndicator?.visibility = View.GONE
                 micIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
+                stopRingAnimations()
+                stopSuccessAnimation()
+                // Play shake animation for error feedback
+                playShakeAnimation()
             }
             State.NO_FOCUS -> {
                 // No text field focused - show copy option
-                micButton?.setBackgroundResource(R.drawable.mic_button_background)
+                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
                 previewText?.visibility = View.GONE
                 progressIndicator?.visibility = View.GONE
                 micIcon?.visibility = View.VISIBLE
+                stopRingAnimations()
+                stopSuccessAnimation()
                 // copyButton visibility is set by caller
             }
         }

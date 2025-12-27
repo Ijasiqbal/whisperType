@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.view.accessibility.AccessibilityManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -25,6 +26,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,6 +62,8 @@ import com.whispertype.app.billing.BillingManagerFactory
 import com.whispertype.app.billing.IBillingManager
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import com.whispertype.app.service.WhisperTypeAccessibilityService
 
 /**
  * MainActivity - Onboarding and permission setup screen
@@ -101,6 +108,16 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 billingManager.queryProSubscription()
             }
+        }
+        
+        // FIX 1: Auto-nudge accessibility service on app launch to prevent zombie state
+        // This ensures the service is awake when the app starts
+        try {
+            val serviceIntent = Intent(this, WhisperTypeAccessibilityService::class.java)
+            startService(serviceIntent)
+            Log.d("MainActivity", "Accessibility service nudged on app launch")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to nudge accessibility service", e)
         }
         
         setContent {
@@ -259,10 +276,25 @@ fun MainScreen(
     onGrantMicrophone: () -> Unit,
     onTestOverlay: () -> Unit,
     onSignOut: () -> Unit = {},
-    userEmail: String? = null
+    userEmail: String? = null,
+    showServiceWarning: Boolean = false,
+    onFixService: () -> Unit = {},
+    onIgnoreBatteryOptimizations: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    
+    // State for foreground service toggle
+    var isForegroundServiceEnabled by remember { mutableStateOf(
+        context.getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
+            .getBoolean("foreground_service_enabled", false)
+    ) }
+    
+    // State for showing foreground service explanation dialog
+    var showForegroundServiceDialog by remember { mutableStateOf(false) }
+    
+    // State for showing battery optimization explanation dialog
+    var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
     
     // State for permission statuses - start with false, will be updated immediately
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
@@ -411,6 +443,15 @@ fun MainScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Service Zombie Warning
+                if (showServiceWarning && isAccessibilityEnabled) {
+                    ServiceZombieWarning(
+                        onFixService = onFixService,
+                        onIgnoreBatteryOptimizations = onIgnoreBatteryOptimizations
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
                 // User info section
                 if (userEmail != null) {
             Card(
@@ -506,6 +547,136 @@ fun MainScreen(
                     onClick = onGrantMicrophone,
                     enabled = !isMicrophoneGranted
                 )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Advanced Settings (Optional)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Advanced Settings",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1E293B)
+                    )
+                    
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF1F5F9) // Slate-100
+                    ) {
+                        Text(
+                            text = "OPTIONAL",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF64748B), // Slate-500
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Divider(color = Color(0xFFE2E8F0))
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Foreground Service Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Keep Service Alive",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1E293B)
+                        )
+                        Text(
+                            text = "Shows a persistent notification",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                    
+                    Switch(
+                        checked = isForegroundServiceEnabled,
+                        onCheckedChange = { newValue ->
+                            if (newValue) {
+                                // Show explanation dialog before enabling
+                                showForegroundServiceDialog = true
+                            } else {
+                                // Disable immediately
+                                isForegroundServiceEnabled = false
+                                context.getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
+                                    .edit()
+                                    .putBoolean("foreground_service_enabled", false)
+                                    .apply()
+                                Toast.makeText(context, "Foreground service disabled", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF6366F1),
+                            checkedTrackColor = Color(0xFFE0E7FF)
+                        )
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Battery Optimization Exemption
+                OutlinedButton(
+                    onClick = { showBatteryOptimizationDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF64748B)
+                    )
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = "Battery Optimization",
+                            tint = Color(0xFF64748B),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(
+                            horizontalAlignment = Alignment.Start,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "Disable Battery Optimization",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Prevents Android from putting the service to sleep",
+                                fontSize = 11.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+                }
             }
         }
         
@@ -691,8 +862,203 @@ fun MainScreen(
                     containerColor = Color(0xFF10B981)
                 )
             ) {
-                Text("🎤 Test Overlay", fontSize = 16.sp)
+                Text("Test Overlay", fontSize = 16.sp)
             }
+        }
+        
+        // Foreground Service Explanation Dialog
+        if (showForegroundServiceDialog) {
+            AlertDialog(
+                onDismissRequest = { showForegroundServiceDialog = false },
+                title = {
+                    Text(
+                        text = "Keep Service Alive",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = "This feature keeps WhisperType running in the background by showing a persistent notification.",
+                            fontSize = 14.sp,
+                            color = Color(0xFF475569)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "What you'll see:",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "• A permanent notification in your notification tray",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "Good news:",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF10B981)
+                        )
+                        Text(
+                            text = "• No battery drain (service is idle until activated)",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        Text(
+                            text = "• No performance impact",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        Text(
+                            text = "• Prevents the service from being killed by Android",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "Enable this if you experience issues with the service not responding to volume key shortcuts.",
+                            fontSize = 12.sp,
+                            color = Color(0xFFD97706),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            isForegroundServiceEnabled = true
+                            context.getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
+                                .edit()
+                                .putBoolean("foreground_service_enabled", true)
+                                .apply()
+                            
+                            // Start the service in foreground mode
+                            val serviceIntent = Intent(context, WhisperTypeAccessibilityService::class.java)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(serviceIntent)
+                            } else {
+                                context.startService(serviceIntent)
+                            }
+                            
+                            showForegroundServiceDialog = false
+                            Toast.makeText(
+                                context,
+                                "Foreground service enabled. You'll see a notification.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF6366F1)
+                        )
+                    ) {
+                        Text("Enable")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showForegroundServiceDialog = false }) {
+                        Text("Cancel", color = Color(0xFF64748B))
+                    }
+                }
+            )
+        }
+        
+        // Battery Optimization Explanation Dialog
+        if (showBatteryOptimizationDialog) {
+            AlertDialog(
+                onDismissRequest = { showBatteryOptimizationDialog = false },
+                title = {
+                    Text(
+                        text = "Disable Battery Optimization",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = "This setting prevents Android from putting WhisperType to sleep to save battery.",
+                            fontSize = 14.sp,
+                            color = Color(0xFF475569)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "What happens:",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "• WhisperType can run in the background without restrictions",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        Text(
+                            text = "• The service won't be killed by Android's battery saver",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "Battery impact:",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF10B981)
+                        )
+                        Text(
+                            text = "• Minimal - The service is idle most of the time",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        Text(
+                            text = "• Uses resources only when you activate it",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        Text(
+                            text = "• No background tasks or polling",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "Enable this if the volume shortcut stops working after your phone has been idle for a while.",
+                            fontSize = 12.sp,
+                            color = Color(0xFFD97706),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showBatteryOptimizationDialog = false
+                            onIgnoreBatteryOptimizations()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF6366F1)
+                        )
+                    ) {
+                        Text("Open Settings")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showBatteryOptimizationDialog = false }) {
+                        Text("Cancel", color = Color(0xFF64748B))
+                    }
+                }
+            )
         }
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -769,6 +1135,28 @@ fun AppWithBottomNav(
         RemoteConfigManager.initialize()
     }
     
+    // Check accessibility service status on resume
+    var isAccessibilityServiceRunning by remember { mutableStateOf(true) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // Check if service is actually running
+                // We use a small delay to allow service to bind if it was just engaged
+                lifecycleOwner.lifecycleScope.launch {
+                    delay(500)
+                    isAccessibilityServiceRunning = WhisperTypeAccessibilityService.isRunning()
+                    android.util.Log.d("MainActivity", "Service running check: $isAccessibilityServiceRunning")
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    
     // Fetch trial status on first composition (when user is authenticated)
     LaunchedEffect(Unit) {
         // Get current user's auth token and fetch trial status
@@ -798,7 +1186,7 @@ fun AppWithBottomNav(
     }
     
     // Auto-redirect to Plan tab when trial expires (soft redirect, not blocking)
-    val isTrialExpired = !usageState.isTrialValid && usageState.currentPlan == UsageDataManager.Plan.FREE_TRIAL
+    val isTrialExpired = !usageState.isTrialValid && usageState.currentPlan == UsageDataManager.Plan.FREE
     
     LaunchedEffect(isTrialExpired) {
         if (isTrialExpired) {
@@ -857,7 +1245,68 @@ fun AppWithBottomNav(
                         onGrantMicrophone = onGrantMicrophone,
                         onTestOverlay = onTestOverlay,
                         onSignOut = onSignOut,
-                        userEmail = userEmail
+                        userEmail = userEmail,
+                        showServiceWarning = !isAccessibilityServiceRunning,
+                        onFixService = {
+                            // "Nudge" the service: Try to start it to wake the process
+                            try {
+                                val context = (lifecycleOwner as ComponentActivity)
+                                val intent = Intent(context, WhisperTypeAccessibilityService::class.java)
+                                context.startService(intent)
+                                
+                                // Re-check after delay
+                                lifecycleOwner.lifecycleScope.launch {
+                                    delay(500)
+                                    val running = WhisperTypeAccessibilityService.isRunning()
+                                    isAccessibilityServiceRunning = running
+                                    if (running) {
+                                        Toast.makeText(context, "Service revived! Try using it now.", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        // If still dead, open settings
+                                        onEnableAccessibility()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("MainActivity", "Failed to nudge service", e)
+                                onEnableAccessibility()
+                            }
+                        },
+                        onIgnoreBatteryOptimizations = {
+                            try {
+                                val context = (lifecycleOwner as ComponentActivity)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    // Direct to app-specific battery optimization
+                                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = android.net.Uri.parse("package:${context.packageName}")
+                                    }
+                                    context.startActivity(intent)
+                                    Toast.makeText(
+                                        context,
+                                        "Please allow WhisperType to run unrestricted",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Battery optimization not available on this Android version",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("MainActivity", "Failed to open battery optimization", e)
+                                // Fallback to general settings
+                                try {
+                                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                    (lifecycleOwner as ComponentActivity).startActivity(intent)
+                                } catch (e2: Exception) {
+                                    Toast.makeText(
+                                        (lifecycleOwner as ComponentActivity),
+                                        "Could not open battery settings",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
                     )
                 }
                 BottomNavTab.PLAN -> {
@@ -947,6 +1396,67 @@ fun PermissionStep(
                 text = buttonText,
                 fontSize = 12.sp
             )
+        }
+    }
+}
+
+@Composable
+fun ServiceZombieWarning(
+    onFixService: () -> Unit,
+    onIgnoreBatteryOptimizations: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)) // Red-50
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFEF4444), CircleShape), // Red-500
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("!", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Service Needs Restart",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF991B1B) // Red-800
+                    )
+                    Text(
+                        text = "System put the service to sleep.",
+                        fontSize = 12.sp,
+                        color = Color(0xFFB91C1C) // Red-700
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(), 
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onFixService,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)) // Red-600
+                ) {
+                    Text("Fix Service")
+                }
+                
+                OutlinedButton(
+                    onClick = onIgnoreBatteryOptimizations,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB91C1C))
+                ) {
+                    Text("Permanent Fix", fontSize = 11.sp)
+                }
+            }
         }
     }
 }

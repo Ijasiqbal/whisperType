@@ -233,7 +233,7 @@ interface ProSubscription {
 interface UserDocument {
   createdAt: admin.firestore.Timestamp;
   country?: string;
-  plan: "free_trial" | "pro";
+  plan: "free" | "pro";
   // Trial fields
   freeTrialStart: admin.firestore.Timestamp;
   freeSecondsUsed: number; // Lifetime usage in seconds
@@ -377,7 +377,7 @@ function checkProStatus(
 interface UsageLogEntry {
   secondsUsed: number;
   timestamp: admin.firestore.Timestamp;
-  source: "free_trial" | "pro" | "overage" | "recharge";
+  source: "free" | "pro" | "overage" | "recharge";
 }
 
 /**
@@ -464,7 +464,7 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
 
   const newUser: UserDocument = {
     createdAt: now,
-    plan: "free_trial",
+    plan: "free",
     freeTrialStart: now,
     freeSecondsUsed: 0,
     trialExpiryDate,
@@ -483,13 +483,13 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
  * Log usage after transcription
  * @param {string} uid - User ID
  * @param {number} secondsUsed - Seconds of audio transcribed
- * @param {string} source - Usage source (free_trial, pro, etc.)
+ * @param {string} source - Usage source (free, pro, etc.)
  * @return {Promise<void>}
  */
 async function logUsage(
   uid: string,
   secondsUsed: number,
-  source: UsageLogEntry["source"] = "free_trial"
+  source: UsageLogEntry["source"] = "free"
 ): Promise<void> {
   try {
     const entry: Omit<UsageLogEntry, "timestamp"> & {
@@ -813,14 +813,14 @@ export const transcribeAudio = onRequest(
       const limits = await getPlanLimits();
 
       let canProceed = false;
-      let usageSource: "free_trial" | "pro" = "free_trial";
+      let usageSource: "free" | "pro" = "free";
 
       // Priority 1: Check free trial (if user is on trial plan)
-      if (user.plan === "free_trial") {
+      if (user.plan === "free") {
         const trialStatus = checkTrialStatus(user, limits.freeTrialSeconds);
         if (trialStatus.isValid) {
           canProceed = true;
-          usageSource = "free_trial";
+          usageSource = "free";
           logger.info(
             `Trial valid for ${uid}: ` +
             `${trialStatus.freeSecondsRemaining}s remaining`
@@ -860,7 +860,7 @@ export const transcribeAudio = onRequest(
               "Your free trial period has ended" :
               "You have used all your free trial minutes"),
           plan: user.plan,
-          trialStatus: user.plan === "free_trial" ? {
+          trialStatus: user.plan === "free" ? {
             status: trialStatus.status,
             freeSecondsUsed: trialStatus.freeSecondsUsed,
             freeSecondsRemaining: 0,
@@ -982,7 +982,7 @@ export const transcribeAudio = onRequest(
             // Deduct from free trial
             const trialStatus = await deductTrialUsage(uid, durationMs);
             responseStatus = {
-              plan: "free_trial",
+              plan: "free",
               status: trialStatus.status,
               secondsRemaining: trialStatus.freeSecondsRemaining,
               warningLevel: trialStatus.warningLevel,
@@ -992,7 +992,7 @@ export const transcribeAudio = onRequest(
         } else {
           // Fallback for no uid
           responseStatus = {
-            plan: "free_trial",
+            plan: "free",
             status: "active",
             secondsRemaining: 0,
             warningLevel: "none",
@@ -1024,7 +1024,7 @@ export const transcribeAudio = onRequest(
             warningLevel: responseStatus.warningLevel,
           },
           // Backward compatibility for trial-only clients
-          trialStatus: responseStatus.plan === "free_trial" ? {
+          trialStatus: responseStatus.plan === "free" ? {
             status: responseStatus.status,
             freeSecondsUsed:
               limits.freeTrialSeconds - responseStatus.secondsRemaining,
@@ -1188,7 +1188,7 @@ export const getSubscriptionStatus = onRequest(async (request, response) => {
       const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
 
       response.status(200).json({
-        plan: "free_trial",
+        plan: "free",
         isActive: trialStatus.isValid,
         // Trial-specific fields
         freeSecondsUsed: trialStatus.freeSecondsUsed,
