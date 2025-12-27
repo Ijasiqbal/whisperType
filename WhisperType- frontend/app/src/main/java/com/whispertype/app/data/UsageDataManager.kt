@@ -60,14 +60,14 @@ object UsageDataManager {
      * User plan enum for Iteration 3
      */
     enum class Plan {
-        FREE_TRIAL,
+        FREE,
         PRO;
         
         companion object {
             fun fromString(value: String): Plan {
                 return when (value) {
                     "pro" -> PRO
-                    else -> FREE_TRIAL
+                    else -> FREE
                 }
             }
         }
@@ -80,7 +80,7 @@ object UsageDataManager {
         // Loading state - true until first API fetch completes
         val isLoading: Boolean = true,
         // Current plan (Iteration 3)
-        val currentPlan: Plan = Plan.FREE_TRIAL,
+        val currentPlan: Plan = Plan.FREE,
         // Existing fields
         val lastSecondsUsed: Int = 0,           // Seconds used in last transcription
         val totalSecondsThisMonth: Int = 0,     // Total seconds used this month
@@ -307,7 +307,7 @@ object UsageDataManager {
             warningLevel = WarningLevel.fromString(warningLevel),
             // Trial fields
             freeSecondsUsed = freeSecondsUsed ?: _usageState.value.freeSecondsUsed,
-            freeSecondsRemaining = if (currentPlan == Plan.FREE_TRIAL) secondsRemaining else _usageState.value.freeSecondsRemaining,
+            freeSecondsRemaining = if (currentPlan == Plan.FREE) secondsRemaining else _usageState.value.freeSecondsRemaining,
             trialExpiryDateMs = trialExpiryDateMs ?: _usageState.value.trialExpiryDateMs,
             // Pro fields
             proSecondsUsed = proSecondsUsed ?: _usageState.value.proSecondsUsed,

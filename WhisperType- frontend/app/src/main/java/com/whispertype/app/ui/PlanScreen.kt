@@ -44,7 +44,7 @@ fun PlanScreen(
     onContactSupport: () -> Unit = {}
 ) {
     val usageState by UsageDataManager.usageState.collectAsState()
-    val isExpired = !usageState.isTrialValid && usageState.currentPlan == UsageDataManager.Plan.FREE_TRIAL
+    val isExpired = !usageState.isTrialValid && usageState.currentPlan == UsageDataManager.Plan.FREE
     
     // Animation state - trigger on first composition
     var isVisible by remember { mutableStateOf(false) }

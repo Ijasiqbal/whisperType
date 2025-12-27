@@ -3,6 +3,11 @@ package com.whispertype.app.service
 import android.accessibilityservice.AccessibilityButtonController
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -12,7 +17,10 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.core.app.NotificationCompat
 import com.whispertype.app.Constants
+import com.whispertype.app.MainActivity
+import com.whispertype.app.R
 import com.whispertype.app.ShortcutPreferences
 
 /**
@@ -47,6 +55,10 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "WhisperTypeA11y"
         
+        // Foreground service notification
+        private const val NOTIFICATION_ID = 1002
+        private const val CHANNEL_ID = "whispertype_accessibility_channel"
+        
         // Singleton instance for other components to communicate with
         var instance: WhisperTypeAccessibilityService? = null
             private set
@@ -80,6 +92,16 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         // This ensures the singleton is available even before onServiceConnected() completes
         instance = this
         Log.d(TAG, "AccessibilityService created, instance set")
+        
+        // Check if foreground service is enabled and start if needed
+        val prefs = getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
+        val isForegroundEnabled = prefs.getBoolean("foreground_service_enabled", false)
+        
+        if (isForegroundEnabled) {
+            Log.d(TAG, "Foreground service enabled, starting as foreground")
+            createNotificationChannel()
+            startForeground(NOTIFICATION_ID, createNotification())
+        }
     }
     
     override fun onServiceConnected() {
@@ -151,6 +173,40 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     
     override fun onInterrupt() {
         Log.d(TAG, "AccessibilityService interrupted")
+    }
+
+    /**
+     * Standard Service lifecycle method.
+     * We implement this to allow "nudging" the service via startService()
+     * from the main app if it gets into a zombie state.
+     * 
+     * Also handles enabling/disabling foreground service mode dynamically.
+     */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "onStartCommand called: action=${intent?.action}")
+        
+        // Check if foreground service should be enabled/disabled
+        val prefs = getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
+        val isForegroundEnabled = prefs.getBoolean("foreground_service_enabled", false)
+        
+        if (isForegroundEnabled) {
+            // Start or update foreground service
+            createNotificationChannel()
+            startForeground(NOTIFICATION_ID, createNotification())
+            Log.d(TAG, "Service running in foreground mode")
+        } else {
+            // Stop foreground service if it was running
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            Log.d(TAG, "Service running in background mode")
+        }
+        
+        // Return START_STICKY to encourage the system to restart the service if killed
+        return START_STICKY
     }
     
     /**
@@ -562,5 +618,46 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         }
         
         return success
+    }
+    
+    /**
+     * Create notification channel for foreground service (API 26+)
+     */
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "WhisperType Service",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Keeps WhisperType accessibility service running"
+                setShowBadge(false)
+            }
+            
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager?.createNotificationChannel(channel)
+        }
+    }
+    
+    /**
+     * Create foreground service notification
+     */
+    private fun createNotification(): Notification {
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("WhisperType is active")
+            .setContentText("Ready for voice input shortcuts")
+            .setSmallIcon(R.drawable.ic_microphone)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setShowWhen(false)
+            .build()
     }
 }

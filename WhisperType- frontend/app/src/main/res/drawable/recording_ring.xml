@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+iOS-style pulsing ring for recording state
+Semi-transparent indigo ring that pulses outward during recording
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <stroke
+        android:width="2.5dp"
+        android:color="#606366F1" />
+    <solid android:color="@android:color/transparent" />
+</shape>
