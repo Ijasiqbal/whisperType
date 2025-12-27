@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/overlay_background" />
-    <corners android:radius="16dp" />
-</shape>
+<!--
+Glassmorphism-style overlay background
+- Semi-transparent dark background with slight indigo tint
+- Subtle border for definition
+- Larger corner radius for modern look
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Border layer -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#40FFFFFF" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+    <!-- Inner fill with semi-transparent dark indigo -->
+    <item
+        android:top="1dp"
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#E0242938" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+</layer-list>

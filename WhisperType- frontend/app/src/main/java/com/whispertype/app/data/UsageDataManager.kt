@@ -77,6 +77,8 @@ object UsageDataManager {
      * Data class representing usage and trial state
      */
     data class UsageState(
+        // Loading state - true until first API fetch completes
+        val isLoading: Boolean = true,
         // Current plan (Iteration 3)
         val currentPlan: Plan = Plan.FREE_TRIAL,
         // Existing fields
@@ -209,6 +211,7 @@ object UsageDataManager {
         totalTrialSeconds: Int = freeSecondsUsed + freeSecondsRemaining
     ) {
         _usageState.value = _usageState.value.copy(
+            isLoading = false,
             trialStatus = TrialStatus.fromString(status),
             freeSecondsUsed = freeSecondsUsed,
             freeSecondsRemaining = freeSecondsRemaining,
@@ -233,6 +236,7 @@ object UsageDataManager {
         totalTrialSeconds: Int = freeSecondsUsed + freeSecondsRemaining
     ) {
         _usageState.value = UsageState(
+            isLoading = false,
             lastSecondsUsed = secondsUsed,
             totalSecondsThisMonth = totalSecondsThisMonth,
             lastUpdated = System.currentTimeMillis(),
@@ -250,6 +254,7 @@ object UsageDataManager {
      */
     fun markTrialExpired(status: TrialStatus) {
         _usageState.value = _usageState.value.copy(
+            isLoading = false,
             trialStatus = status,
             freeSecondsRemaining = 0,
             lastUpdated = System.currentTimeMillis()
@@ -266,6 +271,7 @@ object UsageDataManager {
         proResetDateMs: Long
     ) {
         _usageState.value = _usageState.value.copy(
+            isLoading = false,
             currentPlan = Plan.PRO,
             proSecondsUsed = proSecondsUsed,
             proSecondsRemaining = proSecondsRemaining,
@@ -295,6 +301,7 @@ object UsageDataManager {
         val currentPlan = Plan.fromString(plan)
         
         _usageState.value = _usageState.value.copy(
+            isLoading = false,
             currentPlan = currentPlan,
             trialStatus = TrialStatus.fromString(status),
             warningLevel = WarningLevel.fromString(warningLevel),

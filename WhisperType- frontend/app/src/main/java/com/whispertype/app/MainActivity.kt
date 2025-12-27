@@ -762,6 +762,7 @@ fun AppWithBottomNav(
     
     // Initialize and observe Remote Config for plan configuration
     val planConfig by RemoteConfigManager.planConfig.collectAsStateWithLifecycle()
+    val isConfigLoading by RemoteConfigManager.isLoading.collectAsStateWithLifecycle()
     
     // Initialize Remote Config on first composition
     LaunchedEffect(Unit) {
@@ -864,6 +865,7 @@ fun AppWithBottomNav(
                         priceDisplay = planConfig.proPriceDisplay,
                         minutesLimit = planConfig.proMinutesLimit,
                         planName = planConfig.proPlanName,
+                        isLoading = isConfigLoading,
                         onUpgrade = onUpgrade,
                         onContactSupport = {
                             // TODO: Open support link
