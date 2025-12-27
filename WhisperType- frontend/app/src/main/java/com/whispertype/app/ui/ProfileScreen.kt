@@ -1,16 +1,26 @@
 package com.whispertype.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
@@ -21,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.whispertype.app.R
 import com.whispertype.app.data.UsageDataManager
+import com.whispertype.app.ui.components.SkeletonText
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -34,6 +46,10 @@ fun ProfileScreen(
 ) {
     val usageState by UsageDataManager.usageState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
+    
+    // Animation state - trigger on first composition
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { isVisible = true }
     
     // Gradient background matching app theme
     Box(
@@ -59,45 +75,76 @@ fun ProfileScreen(
         ) {
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Profile icon
-        Box(
-            modifier = Modifier
-                .size(100.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF6366F1),
-                            Color(0xFF8B5CF6)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_microphone),
-                contentDescription = "Profile",
-                tint = Color.White,
-                modifier = Modifier.size(50.dp)
+        // Animated Profile icon - using person icon instead of mic
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(animationSpec = tween(150)) + slideInHorizontally(
+                animationSpec = tween(150),
+                initialOffsetX = { -30 }
             )
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .shadow(
+                        elevation = 16.dp,
+                        shape = CircleShape,
+                        ambientColor = Color(0xFF6366F1).copy(alpha = 0.3f),
+                        spotColor = Color(0xFF6366F1).copy(alpha = 0.3f)
+                    )
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF6366F1),
+                                Color(0xFF8B5CF6)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_person),
+                    contentDescription = "Profile",
+                    tint = Color.White,
+                    modifier = Modifier.size(50.dp)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // User email
-        if (userEmail != null) {
-            Text(
-                text = userEmail,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF1E293B)
+        // Animated User email
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(animationSpec = tween(150, delayMillis = 30)) + slideInHorizontally(
+                animationSpec = tween(150, delayMillis = 30),
+                initialOffsetX = { -25 }
             )
+        ) {
+            if (userEmail != null) {
+                Text(
+                    text = userEmail,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF1E293B)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Trial Status Card (Iteration 2)
-        TrialStatusCard(usageState)
+        // Animated content
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(animationSpec = tween(150, delayMillis = 60)) + slideInHorizontally(
+                animationSpec = tween(150, delayMillis = 60),
+                initialOffsetX = { -35 }
+            )
+        ) {
+            Column {
+                // Trial Status Card
+                TrialStatusCard(usageState)
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -123,19 +170,36 @@ fun ProfileScreen(
                 Row(
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    Text(
-                        text = usageState.formattedMonthlyUsage,
-                        fontSize = 48.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
-                    )
+                    if (usageState.isLoading) {
+                        // Show skeleton while loading - 48sp ≈ 58dp with font metrics
+                        SkeletonText(
+                            width = 100.dp,
+                            height = 58.dp
+                        )
+                    } else {
+                        Text(
+                            text = usageState.formattedMonthlyUsage,
+                            fontSize = 48.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "used",
-                        fontSize = 18.sp,
-                        color = Color(0xFF64748B),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    if (usageState.isLoading) {
+                        // Skeleton for "used" label - 18sp ≈ 22dp
+                        SkeletonText(
+                            width = 40.dp,
+                            height = 22.dp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "used",
+                            fontSize = 18.sp,
+                            color = Color(0xFF64748B),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
                 }
                 
                 if (usageState.lastUpdated > 0) {
@@ -164,9 +228,11 @@ fun ProfileScreen(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "📝",
-                        fontSize = 24.sp
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Transcription",
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
@@ -205,6 +271,8 @@ fun ProfileScreen(
         }
         
         Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
         }
     }
 }
@@ -223,11 +291,18 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
     
     val warningMessage = when (usageState.warningLevel) {
         UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> 
-            "⚠️ You're almost out of free minutes!"
+            "You're almost out of free minutes!"
         UsageDataManager.WarningLevel.EIGHTY_PERCENT -> 
-            "⚠️ 80% of your free trial used"
+            "80% of your free trial used"
         UsageDataManager.WarningLevel.FIFTY_PERCENT -> 
-            "ℹ️ 50% of your free trial used"
+            "50% of your free trial used"
+        else -> null
+    }
+    
+    val warningIcon = when (usageState.warningLevel) {
+        UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT,
+        UsageDataManager.WarningLevel.EIGHTY_PERCENT -> Icons.Filled.Warning
+        UsageDataManager.WarningLevel.FIFTY_PERCENT -> Icons.Filled.Info
         else -> null
     }
     
@@ -301,31 +376,53 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(
-                        text = usageState.formattedTimeRemaining,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
-                    )
-                    Text(
-                        text = "remaining",
-                        fontSize = 14.sp,
-                        color = Color(0xFF64748B)
-                    )
+                    if (usageState.isLoading) {
+                        // 32sp ≈ 40dp with font metrics
+                        SkeletonText(width = 80.dp, height = 40.dp)
+                    } else {
+                        Text(
+                            text = usageState.formattedTimeRemaining,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+                    if (usageState.isLoading) {
+                        // Skeleton for "remaining" label - 14sp ≈ 18dp
+                        Spacer(modifier = Modifier.height(4.dp))
+                        SkeletonText(width = 70.dp, height = 18.dp)
+                    } else {
+                        Text(
+                            text = "remaining",
+                            fontSize = 14.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
                 }
                 
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = usageState.formattedTimeUsed,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF94A3B8)
-                    )
-                    Text(
-                        text = "of ${usageState.formattedTotalTime} used",
-                        fontSize = 12.sp,
-                        color = Color(0xFF94A3B8)
-                    )
+                    if (usageState.isLoading) {
+                        // 24sp ≈ 30dp with font metrics
+                        SkeletonText(width = 60.dp, height = 30.dp)
+                    } else {
+                        Text(
+                            text = usageState.formattedTimeUsed,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (usageState.isLoading) {
+                        // 12sp ≈ 16dp with font metrics
+                        SkeletonText(width = 100.dp, height = 16.dp)
+                    } else {
+                        Text(
+                            text = "of ${usageState.formattedTotalTime} used",
+                            fontSize = 12.sp,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
                 }
             }
             
@@ -338,9 +435,11 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "📅",
-                        fontSize = 16.sp
+                    Icon(
+                        imageVector = Icons.Filled.DateRange,
+                        contentDescription = "Calendar",
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -351,8 +450,8 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                 }
             }
             
-            // Warning message
-            if (warningMessage != null && usageState.isTrialValid) {
+            // Warning message with icon
+            if (warningMessage != null && warningIcon != null && usageState.isTrialValid) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Box(
                     modifier = Modifier
@@ -363,11 +462,22 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                         )
                         .padding(12.dp)
                 ) {
-                    Text(
-                        text = warningMessage,
-                        fontSize = 14.sp,
-                        color = progressColor
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = warningIcon,
+                            contentDescription = "Warning",
+                            tint = progressColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = warningMessage,
+                            fontSize = 14.sp,
+                            color = progressColor
+                        )
+                    }
                 }
             }
         }

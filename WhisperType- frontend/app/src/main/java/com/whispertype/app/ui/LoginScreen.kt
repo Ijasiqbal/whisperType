@@ -69,7 +69,6 @@ fun LoginScreen(
     
     // Trigger entrance animation on composition
     LaunchedEffect(Unit) {
-        delay(100) // Small delay for smoother entrance
         isVisible = true
     }
     
