@@ -7,6 +7,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.pm.PackageManager
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -62,24 +64,26 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         // Singleton instance for other components to communicate with
         var instance: WhisperTypeAccessibilityService? = null
             private set
+
+        @Volatile
+        private var isConnected: Boolean = false
         
         /**
          * Check if the service is currently running
          */
-        fun isRunning(): Boolean = instance != null
+        fun isRunning(): Boolean = isConnected
     }
     
     // Volume key tracking for double-press detection
-    // lastVolume*Time tracks the most recent press of each button
+    // lastVolume*Time tracks the most recent press of each button (used in BOTH_VOLUME_BUTTONS mode)
     // previousVolume*Time tracks the previous press of the same button (for double-press detection)
-    // lastBothButtonsGestureTime tracks when we detected a "both buttons" gesture (to block false triggers)
+    // lastBothButtonsTime tracks when we last triggered in "both buttons" mode (to prevent repeated triggers)
     // lastPressedButton tracks which button was pressed last (to detect alternating presses = both buttons gesture)
     private var lastVolumeUpTime: Long = 0
     private var lastVolumeDownTime: Long = 0
     private var previousVolumeUpTime: Long = 0
     private var previousVolumeDownTime: Long = 0
     private var lastBothButtonsTime: Long = 0
-    private var lastBothButtonsGestureTime: Long = 0
     private var lastPressedButton: Int = 0 // 0 = none, KEYCODE_VOLUME_UP or KEYCODE_VOLUME_DOWN
     
     // Accessibility button controller (API 26+)
@@ -88,25 +92,14 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     
     override fun onCreate() {
         super.onCreate()
-        // Set instance early in lifecycle to handle process restart scenarios
-        // This ensures the singleton is available even before onServiceConnected() completes
         instance = this
         Log.d(TAG, "AccessibilityService created, instance set")
-        
-        // Check if foreground service is enabled and start if needed
-        val prefs = getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
-        val isForegroundEnabled = prefs.getBoolean("foreground_service_enabled", false)
-        
-        if (isForegroundEnabled) {
-            Log.d(TAG, "Foreground service enabled, starting as foreground")
-            createNotificationChannel()
-            startForeground(NOTIFICATION_ID, createNotification())
-        }
     }
     
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        isConnected = true
         Log.d(TAG, "AccessibilityService connected")
         
         // Configure the service
@@ -116,6 +109,9 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
                 AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON or
                 AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         }
+
+        // Apply (optional) keep-alive foreground notification mode.
+        applyForegroundModeFromPrefs()
         
         // Set up accessibility button callback (API 26+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -157,9 +153,17 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
             accessibilityButtonController?.unregisterAccessibilityButtonCallback(accessibilityButtonCallback!!)
         }
         
+        isConnected = false
         instance = null
         Log.d(TAG, "AccessibilityService destroyed")
         super.onDestroy()
+    }
+
+    /**
+     * Called from the app UI after the user toggles the keep-alive preference.
+     */
+    fun refreshForegroundMode() {
+        applyForegroundModeFromPrefs()
     }
     
     /**
@@ -184,29 +188,44 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand called: action=${intent?.action}")
-        
-        // Check if foreground service should be enabled/disabled
-        val prefs = getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
-        val isForegroundEnabled = prefs.getBoolean("foreground_service_enabled", false)
-        
-        if (isForegroundEnabled) {
-            // Start or update foreground service
-            createNotificationChannel()
-            startForeground(NOTIFICATION_ID, createNotification())
-            Log.d(TAG, "Service running in foreground mode")
-        } else {
-            // Stop foreground service if it was running
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
-            Log.d(TAG, "Service running in background mode")
-        }
+
+        applyForegroundModeFromPrefs()
         
         // Return START_STICKY to encourage the system to restart the service if killed
         return START_STICKY
+    }
+
+    private fun applyForegroundModeFromPrefs() {
+        val prefs = getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+        val isForegroundEnabled = prefs.getBoolean("foreground_service_enabled", false)
+
+        if (isForegroundEnabled) {
+            if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.w(TAG, "Keep-alive enabled but POST_NOTIFICATIONS is not granted; skipping foreground notification")
+                return
+            }
+            try {
+                createNotificationChannel()
+                startForeground(NOTIFICATION_ID, createNotification())
+                Log.d(TAG, "Keep-alive enabled: running in foreground mode")
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to enter foreground mode (notification may be blocked)", t)
+            }
+        } else {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
+                Log.d(TAG, "Keep-alive disabled: foreground mode stopped")
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to stop foreground mode", t)
+            }
+        }
     }
     
     /**
@@ -233,77 +252,51 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
             return false // Not a volume button, don't handle
         }
         
-        // SIMPLE APPROACH: Check if this button is DIFFERENT from the last button pressed
-        // If different AND within threshold time, it's a "both buttons" gesture
-        var isBothButtonsGesture = false
-        
-        val lastPressTime = if (isVolumeUp) lastVolumeDownTime else lastVolumeUpTime
-        val timeSinceOtherButton = currentTime - lastPressTime
-        
-        // If last button was DIFFERENT and pressed recently, this is a both-buttons gesture
-        if (lastPressedButton != 0 && lastPressedButton != keyCode && lastPressTime > 0) {
-            if (timeSinceOtherButton < Constants.BOTH_BUTTONS_THRESHOLD_MS) {
-                isBothButtonsGesture = true
-                lastBothButtonsGestureTime = currentTime
-                Log.d(TAG, "BOTH-BUTTONS GESTURE DETECTED: Different button within ${timeSinceOtherButton}ms")
-            }
-        }
-        
-        // Update the timestamp for the current button
-        if (isVolumeUp) {
-            lastVolumeUpTime = currentTime
-        } else {
-            lastVolumeDownTime = currentTime
-        }
-        
-        // Track which button was just pressed
-        lastPressedButton = keyCode
-        
         val mode = ShortcutPreferences.getShortcutMode(this)
-        Log.d(TAG, "Key: ${if (isVolumeUp) "UP" else "DOWN"}, mode=$mode, isBothGesture=$isBothButtonsGesture, lastBtn=$lastPressedButton")
+        Log.d(TAG, "Key: ${if (isVolumeUp) "UP" else "DOWN"}, mode=$mode")
         
+        // Handle each mode with strict button filtering to prevent cross-triggering
         return when (mode) {
             ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_UP -> {
-                if (isBothButtonsGesture) {
-                    Log.d(TAG, "BLOCKED: Both-buttons gesture in DOUBLE_VOLUME_UP mode")
-                    previousVolumeUpTime = 0
-                    false
-                } else {
-                    handleDoubleVolumeUp(event, currentTime)
+                // ONLY process volume UP buttons, completely ignore DOWN
+                if (!isVolumeUp) {
+                    Log.d(TAG, "DOUBLE_VOLUME_UP mode: Ignoring DOWN button")
+                    return false
                 }
+                handleDoubleVolumeUp(event, currentTime)
             }
             ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_DOWN -> {
-                if (isBothButtonsGesture) {
-                    Log.d(TAG, "BLOCKED: Both-buttons gesture in DOUBLE_VOLUME_DOWN mode")
-                    previousVolumeDownTime = 0
-                    false
-                } else {
-                    handleDoubleVolumeDown(event, currentTime)
+                // ONLY process volume DOWN buttons, completely ignore UP
+                if (!isVolumeDown) {
+                    Log.d(TAG, "DOUBLE_VOLUME_DOWN mode: Ignoring UP button")
+                    return false
                 }
+                handleDoubleVolumeDown(event, currentTime)
             }
-            ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS -> handleBothButtons(event, currentTime)
+            ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS -> {
+                // Update timestamps for both buttons to detect simultaneous press
+                if (isVolumeUp) {
+                    lastVolumeUpTime = currentTime
+                } else {
+                    lastVolumeDownTime = currentTime
+                }
+                
+                // Track which button was just pressed
+                lastPressedButton = keyCode
+                
+                handleBothButtons(event, currentTime)
+            }
         }
     }
     
     /**
      * Handle double volume up detection
      * 
-     * Only triggers if two volume up presses occurred within 500ms
-     * AND no both-buttons gesture was detected recently
+     * Only triggers if two volume up presses occurred within 350ms
      * 
      * @param currentTime The timestamp when the key was pressed
      */
     private fun handleDoubleVolumeUp(event: KeyEvent, currentTime: Long): Boolean {
-        if (event.keyCode != KeyEvent.KEYCODE_VOLUME_UP) return false
-        
-        // Additional safety: Check if a "both buttons" gesture was detected recently
-        val timeSinceBothGesture = currentTime - lastBothButtonsGestureTime
-        if (lastBothButtonsGestureTime > 0 && timeSinceBothGesture < 1000L) {
-            Log.d(TAG, "BLOCKING: Both-buttons gesture was ${timeSinceBothGesture}ms ago")
-            previousVolumeUpTime = 0
-            return false
-        }
-        
         // Check for double-press: compare with previousVolumeUpTime
         val timeSinceLastPress = currentTime - previousVolumeUpTime
         
@@ -323,22 +316,11 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     /**
      * Handle double volume down detection
      * 
-     * Only triggers if two volume down presses occurred within 500ms
-     * AND no both-buttons gesture was detected recently
+     * Only triggers if two volume down presses occurred within 350ms
      * 
      * @param currentTime The timestamp when the key was pressed
      */
     private fun handleDoubleVolumeDown(event: KeyEvent, currentTime: Long): Boolean {
-        if (event.keyCode != KeyEvent.KEYCODE_VOLUME_DOWN) return false
-        
-        // Additional safety: Check if a "both buttons" gesture was detected recently
-        val timeSinceBothGesture = currentTime - lastBothButtonsGestureTime
-        if (lastBothButtonsGestureTime > 0 && timeSinceBothGesture < 1000L) {
-            Log.d(TAG, "BLOCKING: Both-buttons gesture was ${timeSinceBothGesture}ms ago")
-            previousVolumeDownTime = 0
-            return false
-        }
-        
         // Check for double-press: compare with previousVolumeDownTime
         val timeSinceLastPress = currentTime - previousVolumeDownTime
         

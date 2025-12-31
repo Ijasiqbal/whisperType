@@ -14,6 +14,7 @@ import android.view.accessibility.AccessibilityManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -108,16 +110,6 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 billingManager.queryProSubscription()
             }
-        }
-        
-        // FIX 1: Auto-nudge accessibility service on app launch to prevent zombie state
-        // This ensures the service is awake when the app starts
-        try {
-            val serviceIntent = Intent(this, WhisperTypeAccessibilityService::class.java)
-            startService(serviceIntent)
-            Log.d("MainActivity", "Accessibility service nudged on app launch")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to nudge accessibility service", e)
         }
         
         setContent {
@@ -283,12 +275,34 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    
+
     // State for foreground service toggle
-    var isForegroundServiceEnabled by remember { mutableStateOf(
-        context.getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
-            .getBoolean("foreground_service_enabled", false)
-    ) }
+    var isForegroundServiceEnabled by remember {
+        mutableStateOf(
+            context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean("foreground_service_enabled", false)
+        )
+    }
+
+    var pendingEnableKeepAlive by remember { mutableStateOf(false) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!pendingEnableKeepAlive) return@rememberLauncherForActivityResult
+        pendingEnableKeepAlive = false
+
+        if (isGranted) {
+            context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("foreground_service_enabled", true)
+                .apply()
+            isForegroundServiceEnabled = true
+            WhisperTypeAccessibilityService.instance?.refreshForegroundMode()
+            Toast.makeText(context, "Keep-alive enabled. You should see a notification.", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(context, "Notification permission is required to show the keep-alive notification", Toast.LENGTH_LONG).show()
+        }
+    }
     
     // State for showing foreground service explanation dialog
     var showForegroundServiceDialog by remember { mutableStateOf(false) }
@@ -457,7 +471,8 @@ fun MainScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF2FF))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF2FF)),
+                border = BorderStroke(1.dp, Color(0xFFE0E7FF))
             ) {
                 Row(
                     modifier = Modifier
@@ -497,7 +512,8 @@ fun MainScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -557,7 +573,7 @@ fun MainScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -623,10 +639,11 @@ fun MainScreen(
                             } else {
                                 // Disable immediately
                                 isForegroundServiceEnabled = false
-                                context.getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
+                                context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
                                     .edit()
                                     .putBoolean("foreground_service_enabled", false)
                                     .apply()
+                                WhisperTypeAccessibilityService.instance?.refreshForegroundMode()
                                 Toast.makeText(context, "Foreground service disabled", Toast.LENGTH_SHORT).show()
                             }
                         },
@@ -686,7 +703,8 @@ fun MainScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -772,7 +790,8 @@ fun MainScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -934,24 +953,32 @@ fun MainScreen(
                 confirmButton = {
                     Button(
                         onClick = {
+                            showForegroundServiceDialog = false
+
+                            val needsNotificationPermission =
+                                Build.VERSION.SDK_INT >= 33 &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) != PackageManager.PERMISSION_GRANTED
+
+                            if (needsNotificationPermission) {
+                                pendingEnableKeepAlive = true
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                return@Button
+                            }
+
                             isForegroundServiceEnabled = true
-                            context.getSharedPreferences("whispertype_prefs", Context.MODE_PRIVATE)
+                            context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
                                 .edit()
                                 .putBoolean("foreground_service_enabled", true)
                                 .apply()
-                            
-                            // Start the service in foreground mode
-                            val serviceIntent = Intent(context, WhisperTypeAccessibilityService::class.java)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                context.startForegroundService(serviceIntent)
-                            } else {
-                                context.startService(serviceIntent)
-                            }
-                            
-                            showForegroundServiceDialog = false
+
+                            WhisperTypeAccessibilityService.instance?.refreshForegroundMode()
+
                             Toast.makeText(
                                 context,
-                                "Foreground service enabled. You'll see a notification.",
+                                "Keep-alive enabled. You should see a notification.",
                                 Toast.LENGTH_LONG
                             ).show()
                         },
@@ -1067,7 +1094,8 @@ fun MainScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -1248,28 +1276,9 @@ fun AppWithBottomNav(
                         userEmail = userEmail,
                         showServiceWarning = !isAccessibilityServiceRunning,
                         onFixService = {
-                            // "Nudge" the service: Try to start it to wake the process
-                            try {
-                                val context = (lifecycleOwner as ComponentActivity)
-                                val intent = Intent(context, WhisperTypeAccessibilityService::class.java)
-                                context.startService(intent)
-                                
-                                // Re-check after delay
-                                lifecycleOwner.lifecycleScope.launch {
-                                    delay(500)
-                                    val running = WhisperTypeAccessibilityService.isRunning()
-                                    isAccessibilityServiceRunning = running
-                                    if (running) {
-                                        Toast.makeText(context, "Service revived! Try using it now.", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        // If still dead, open settings
-                                        onEnableAccessibility()
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                android.util.Log.e("MainActivity", "Failed to nudge service", e)
-                                onEnableAccessibility()
-                            }
+                            // Accessibility services can't be reliably restarted from the app process.
+                            // Best recovery is to open settings and toggle the service OFF/ON.
+                            onEnableAccessibility()
                         },
                         onIgnoreBatteryOptimizations = {
                             try {
