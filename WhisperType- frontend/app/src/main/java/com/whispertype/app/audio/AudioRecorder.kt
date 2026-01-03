@@ -291,12 +291,12 @@ class AudioRecorder(private val context: Context) {
     }
     
     /**
-     * Stop amplitude monitoring and clean up resources to prevent memory leaks
+     * Stop amplitude monitoring and clean up handler resources
+     * Note: Does NOT clear amplitudeCallback - that's managed separately via setAmplitudeCallback()
      */
     private fun stopAmplitudeMonitoring() {
         amplitudeHandler?.removeCallbacks(amplitudeRunnable)
         amplitudeHandler = null
-        amplitudeCallback = null
         lastVoiceDetectedTime = 0L
     }
     
