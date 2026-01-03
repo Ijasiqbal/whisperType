@@ -66,6 +66,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import com.whispertype.app.service.WhisperTypeAccessibilityService
+import com.whispertype.app.util.MiuiHelper
 
 /**
  * MainActivity - Onboarding and permission setup screen
@@ -309,6 +310,13 @@ fun MainScreen(
     
     // State for showing battery optimization explanation dialog
     var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
+    
+    // State for showing MIUI setup dialog
+    var showMiuiSetupDialog by remember { mutableStateOf(false) }
+    
+    // Check if this is a MIUI device and show prompt if needed
+    val isMiuiDevice = remember { MiuiHelper.isMiuiDevice() }
+    var showMiuiCard by remember { mutableStateOf(MiuiHelper.shouldShowSetupPrompt(context)) }
     
     // State for permission statuses - start with false, will be updated immediately
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
@@ -690,6 +698,102 @@ fun MainScreen(
                                 text = "Prevents Android from putting the service to sleep",
                                 fontSize = 11.sp,
                                 color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // MIUI-specific settings card (only shown on Xiaomi/Redmi/POCO devices)
+        if (showMiuiCard && isMiuiDevice) {
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)), // Orange-50
+                border = BorderStroke(1.dp, Color(0xFFFED7AA)) // Orange-200
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "⚠️",
+                            fontSize = 20.sp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "MIUI Device Detected",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFC2410C) // Orange-700
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "Xiaomi/Redmi/POCO devices require additional setup to prevent the system from killing WhisperType in the background.",
+                        fontSize = 13.sp,
+                        color = Color(0xFF9A3412) // Orange-800
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // AutoStart button
+                    Button(
+                        onClick = { 
+                            MiuiHelper.openAutoStartSettings(context)
+                            MiuiHelper.markSetupPromptShown(context)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFEA580C) // Orange-600
+                        )
+                    ) {
+                        Text("Enable AutoStart", fontWeight = FontWeight.Medium)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Battery Settings button
+                    OutlinedButton(
+                        onClick = { 
+                            MiuiHelper.openBatterySettings(context)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFEA580C) // Orange-600
+                        ),
+                        border = BorderStroke(1.dp, Color(0xFFFDBA74)) // Orange-300
+                    ) {
+                        Text("Battery Settings → No Restrictions", fontWeight = FontWeight.Medium)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Dismiss option
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = {
+                                MiuiHelper.markSetupDismissed(context)
+                                showMiuiCard = false
+                            }
+                        ) {
+                            Text(
+                                "Don't show again",
+                                fontSize = 12.sp,
+                                color = Color(0xFF9A3412)
                             )
                         }
                     }
