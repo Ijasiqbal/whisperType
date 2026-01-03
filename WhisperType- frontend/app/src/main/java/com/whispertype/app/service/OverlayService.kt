@@ -33,6 +33,7 @@ import com.whispertype.app.Constants
 import com.whispertype.app.audio.AudioRecorder
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.speech.SpeechRecognitionHelper
+import com.whispertype.app.view.CircularWaveformView
 import java.lang.ref.WeakReference
 
 /**
@@ -121,6 +122,10 @@ class OverlayService : Service() {
     
     private var successIconRef: WeakReference<ImageView>? = null
     private val successIcon: ImageView? get() = successIconRef?.get()
+    
+    // Circular waveform visualizer
+    private var circularWaveformRef: WeakReference<CircularWaveformView>? = null
+    private val circularWaveform: CircularWaveformView? get() = circularWaveformRef?.get()
     
     // Pending text for clipboard copy (when no text field is focused)
     private var pendingText: String? = null
@@ -282,6 +287,9 @@ class OverlayService : Service() {
         recordingRingOuterRef = WeakReference(view.findViewById(R.id.recording_ring_outer))
         successIconRef = WeakReference(view.findViewById(R.id.ic_success))
         
+        // Circular waveform visualizer (around mic button)
+        circularWaveformRef = WeakReference(view.findViewById(R.id.circular_waveform))
+        
         // Configure window parameters
         val layoutParams = createLayoutParams()
         
@@ -370,6 +378,7 @@ class OverlayService : Service() {
         recordingRingRef = null
         recordingRingOuterRef = null
         successIconRef = null
+        circularWaveformRef = null
         pendingText = null
         
         // Clean up animators
@@ -578,7 +587,8 @@ class OverlayService : Service() {
         stopPulseAnimation()
         speechHelper?.getAudioRecorder()?.setAmplitudeCallback(null)
         
-        updateUI(State.IDLE)
+        // Note: Don't set IDLE state here - onEndOfSpeech callback will set PROCESSING state,
+        // then onTranscribing will set TRANSCRIBING state
     }
     
     /**
@@ -587,6 +597,9 @@ class OverlayService : Service() {
      */
     private fun handleVoiceAmplitude(amplitude: Int) {
         if (!isOverlayVisible) return
+        
+        // Debug logging
+        Log.d(TAG, "Amplitude received: $amplitude")
         
         val wasSpeaking = isSpeaking
         isSpeaking = amplitude > Constants.VOICE_ACTIVITY_THRESHOLD
@@ -598,6 +611,33 @@ class OverlayService : Service() {
             // Stopped speaking - stop pulse animation
             stopPulseAnimation()
         }
+        
+        // Animate waveform bars based on current amplitude (ensure on main thread)
+        uiHandler.post {
+            updateAmplitudeBars(amplitude)
+        }
+    }
+    
+    /**
+     * Update circular waveform based on current audio amplitude
+     */
+    private fun updateAmplitudeBars(amplitude: Int) {
+        circularWaveform?.updateAmplitude(amplitude)
+    }
+    
+    /**
+     * Reset circular waveform to default state and hide it
+     */
+    private fun resetAmplitudeBars() {
+        circularWaveform?.visibility = View.GONE
+        circularWaveform?.reset()
+    }
+    
+    /**
+     * Show the circular waveform visualizer
+     */
+    private fun showCircularWaveform() {
+        circularWaveform?.visibility = View.VISIBLE
     }
     
     /**
@@ -901,6 +941,7 @@ class OverlayService : Service() {
                 // Reset animations
                 stopRingAnimations()
                 stopSuccessAnimation()
+                resetAmplitudeBars()
             }
             State.RECORDING -> {
                 statusText?.text = getString(R.string.overlay_recording)
@@ -911,6 +952,8 @@ class OverlayService : Service() {
                 stopSuccessAnimation()
                 // Start iOS-style pulsing ring animation
                 startRingAnimations()
+                // Show circular waveform during recording
+                showCircularWaveform()
             }
             State.PROCESSING -> {
                 statusText?.text = getString(R.string.overlay_processing)
@@ -923,6 +966,7 @@ class OverlayService : Service() {
                 stopRecordingPulseAnimation()
                 stopRingAnimations()
                 stopSuccessAnimation()
+                resetAmplitudeBars()
             }
             State.TRANSCRIBING -> {
                 statusText?.text = getString(R.string.overlay_transcribing)
@@ -930,6 +974,7 @@ class OverlayService : Service() {
                 progressIndicator?.visibility = View.VISIBLE
                 micIcon?.visibility = View.GONE
                 copyButton?.visibility = View.GONE
+                resetAmplitudeBars()
             }
             State.SUCCESS -> {
                 statusText?.text = getString(R.string.overlay_inserted)
@@ -937,6 +982,7 @@ class OverlayService : Service() {
                 progressIndicator?.visibility = View.GONE
                 copyButton?.visibility = View.GONE
                 stopRingAnimations()
+                resetAmplitudeBars()
                 // Play success checkmark animation
                 playSuccessAnimation()
             }
@@ -948,6 +994,7 @@ class OverlayService : Service() {
                 copyButton?.visibility = View.GONE
                 stopRingAnimations()
                 stopSuccessAnimation()
+                resetAmplitudeBars()
                 // Play shake animation for error feedback
                 playShakeAnimation()
             }
@@ -959,6 +1006,7 @@ class OverlayService : Service() {
                 micIcon?.visibility = View.VISIBLE
                 stopRingAnimations()
                 stopSuccessAnimation()
+                resetAmplitudeBars()
                 // copyButton visibility is set by caller
             }
         }

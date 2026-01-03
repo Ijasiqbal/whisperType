@@ -41,6 +41,12 @@ object Constants {
     // Animation
     const val PULSE_ANIMATION_DURATION_MS = 400L
     
+    // Amplitude Visualization
+    const val MAX_AMPLITUDE = 32767  // Maximum amplitude value from MediaRecorder
+    const val MIN_AMPLITUDE_BAR_SCALE = 0.3f  // Minimum bar scale when silent
+    const val MAX_AMPLITUDE_BAR_SCALE = 1.0f  // Maximum bar scale at peak volume
+    const val AMPLITUDE_SMOOTHING_FACTOR = 0.35f  // Smooth interpolation (0-1, higher = more responsive)
+    
     // Battery Optimization
     const val SILENCE_DURATION_FOR_IDLE_MS = 2000L  // After 2s of silence, reduce monitoring frequency
     

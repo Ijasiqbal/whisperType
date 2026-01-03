@@ -976,17 +976,16 @@ fun MainScreen(
         Spacer(modifier = Modifier.height(16.dp))
         
         // Test overlay button
-        if (allPermissionsGranted) {
-            Button(
-                onClick = onTestOverlay,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF10B981)
-                )
-            ) {
-                Text("Test Overlay", fontSize = 16.sp)
-            }
+        // Test overlay button
+        Button(
+            onClick = onTestOverlay,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF10B981)
+            )
+        ) {
+            Text("Test Overlay", fontSize = 16.sp)
         }
         
         // Foreground Service Explanation Dialog

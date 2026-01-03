@@ -54,10 +54,10 @@ The layout consists of:
                 android:scaleType="centerInside" />
         </FrameLayout>
 
-        <!-- Mic button wrapper with recording ring -->
+        <!-- Mic button wrapper with circular waveform -->
         <FrameLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
             android:layout_marginTop="4dp">
 
             <!-- Pulsing recording ring (behind button, animated) -->
@@ -79,6 +79,15 @@ The layout consists of:
                 android:background="@drawable/recording_ring"
                 android:alpha="0"
                 android:visibility="gone" />
+
+            <!-- Circular Waveform Visualizer (around mic button) -->
+            <com.whispertype.app.view.CircularWaveformView
+                android:id="@+id/circular_waveform"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_gravity="center"
+                android:visibility="gone"
+                tools:visibility="visible" />
 
             <!-- Mic button - glass effect -->
             <FrameLayout
@@ -120,6 +129,7 @@ The layout consists of:
                     tools:visibility="visible" />
             </FrameLayout>
         </FrameLayout>
+
 
         <!-- Status text indicator -->
         <TextView
