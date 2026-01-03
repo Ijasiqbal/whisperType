@@ -59,6 +59,17 @@
 -dontwarn com.google.android.gms.**
 
 # ============================================================
+# Google Play Billing
+# ============================================================
+
+# Keep Play Billing library classes (required for subscription flow)
+-keep class com.android.vending.billing.** { *; }
+-keep class com.android.billingclient.** { *; }
+
+# Keep our billing manager classes
+-keep class com.whispertype.app.billing.** { *; }
+
+# ============================================================
 # OkHttp & Networking
 # ============================================================
 

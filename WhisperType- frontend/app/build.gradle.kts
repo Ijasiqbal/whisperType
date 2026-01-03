@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.whispertype.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.whispertype.app"
@@ -15,9 +15,9 @@ android {
         // - Good device coverage (~95% of active devices)
         // - TYPE_PHONE window type fallback for API 24-25
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 35
+        versionCode = 2
+        versionName = "1.0.2"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -65,15 +65,15 @@ android {
         }
     }
     
-    // Size optimization: Create separate APKs per architecture
-    // Users only download the APK for their device architecture
-    // Reduces download size by 50-70%
+    // Size optimization: APK splits are NOT needed for AAB (Android App Bundle)
+    // When uploading AAB to Play Store, Google automatically generates optimized APKs
+    // per device architecture. Only enable this if building APKs directly.
     splits {
         abi {
-            isEnable = true
+            isEnable = false  // Disabled for AAB - Play Store handles this
             reset()
             include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-            isUniversalApk = true  // Also generate a universal APK
+            isUniversalApk = false
         }
     }
     
