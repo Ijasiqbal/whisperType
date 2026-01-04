@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Copy Button - Liquid Glass Pill Style
+Compact pill-shaped button for the copy action
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Pressed state -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#E08B5CF6" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    
+    <!-- Default state -->
+    <item>
+        <layer-list>
+            <!-- Border -->
+            <item>
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:type="linear"
+                        android:startColor="#608B5CF6"
+                        android:endColor="#408B5CF6"
+                        android:angle="135" />
+                    <corners android:radius="14dp" />
+                </shape>
+            </item>
+            <!-- Fill -->
+            <item
+                android:top="1dp"
+                android:bottom="1dp"
+                android:left="1dp"
+                android:right="1dp">
+                <shape android:shape="rectangle">
+                    <solid android:color="#D08B5CF6" />
+                    <corners android:radius="13dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+    
+</selector>

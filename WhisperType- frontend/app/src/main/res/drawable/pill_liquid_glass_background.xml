@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Liquid Glass Pill Background - iOS 26 Style
+Multi-layer translucent glass effect with:
+- Outer purple accent glow
+- Gradient border (white translucent)
+- Dark glass fill
+- Inner highlight for depth
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Layer 4: Outer purple accent glow -->
+    <item
+        android:top="-3dp"
+        android:bottom="-3dp"
+        android:left="-3dp"
+        android:right="-3dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#1F8B5CF6" />
+            <corners android:radius="29dp" />
+        </shape>
+    </item>
+    
+    <!-- Layer 3: Border gradient - white translucent -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:startColor="#40FFFFFF"
+                android:endColor="#15FFFFFF"
+                android:angle="135" />
+            <corners android:radius="26dp" />
+        </shape>
+    </item>
+    
+    <!-- Layer 2: Main glass fill - dark translucent -->
+    <item
+        android:top="1dp"
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#B31A1F2E" />
+            <corners android:radius="25dp" />
+        </shape>
+    </item>
+    
+    <!-- Layer 1: Inner highlight - top edge glow -->
+    <item
+        android:top="1dp"
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:startColor="#12FFFFFF"
+                android:centerColor="#08FFFFFF"
+                android:endColor="#00FFFFFF"
+                android:angle="90" />
+            <corners android:radius="25dp" />
+        </shape>
+    </item>
+    
+</layer-list>

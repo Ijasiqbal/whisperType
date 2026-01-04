@@ -21,6 +21,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.animation.LayoutTransition
+import android.widget.LinearLayout
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -34,7 +36,23 @@ import com.whispertype.app.audio.AudioRecorder
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.speech.SpeechRecognitionHelper
 import com.whispertype.app.view.CircularWaveformView
+import com.whispertype.app.view.LinearWaveformView
 import java.lang.ref.WeakReference
+
+/**
+ * Extension function to safely cancel and clean up an ObjectAnimator
+ * Prevents memory leaks by properly removing listeners
+ */
+private fun ObjectAnimator?.cancelAndCleanup(): ObjectAnimator? {
+    this?.let { animator ->
+        if (animator.isRunning) {
+            animator.cancel()
+        }
+        animator.removeAllListeners()
+        animator.removeAllUpdateListeners()
+    }
+    return null
+}
 
 /**
  * OverlayService - Manages the floating mic overlay
@@ -113,17 +131,35 @@ class OverlayService : Service() {
     private var copyButtonRef: WeakReference<android.widget.Button>? = null
     private val copyButton: android.widget.Button? get() = copyButtonRef?.get()
     
-    // New iOS-style UI elements
-    private var recordingRingRef: WeakReference<View>? = null
-    private val recordingRing: View? get() = recordingRingRef?.get()
+    // Pill container for background changes
+    private var pillContainerRef: WeakReference<View>? = null
+    private val pillContainer: View? get() = pillContainerRef?.get()
     
-    private var recordingRingOuterRef: WeakReference<View>? = null
-    private val recordingRingOuter: View? get() = recordingRingOuterRef?.get()
+    // Mic button wrapper (contains pulse rings and mic button)
+    private var micButtonWrapperRef: WeakReference<View>? = null
+    private val micButtonWrapper: View? get() = micButtonWrapperRef?.get()
+    
+    // Pulse ring UI elements (Liquid Glass style)
+    private var pulseRingInnerRef: WeakReference<View>? = null
+    private val pulseRingInner: View? get() = pulseRingInnerRef?.get()
+    
+    private var pulseRingOuterRef: WeakReference<View>? = null
+    private val pulseRingOuter: View? get() = pulseRingOuterRef?.get()
     
     private var successIconRef: WeakReference<ImageView>? = null
     private val successIcon: ImageView? get() = successIconRef?.get()
     
-    // Circular waveform visualizer
+    private var errorIconRef: WeakReference<ImageView>? = null
+    private val errorIcon: ImageView? get() = errorIconRef?.get()
+    
+    private var clipboardIconRef: WeakReference<ImageView>? = null
+    private val clipboardIcon: ImageView? get() = clipboardIconRef?.get()
+    
+    // Linear waveform visualizer (for pill layout)
+    private var linearWaveformRef: WeakReference<LinearWaveformView>? = null
+    private val linearWaveform: LinearWaveformView? get() = linearWaveformRef?.get()
+    
+    // Circular waveform visualizer (legacy, kept for reference)
     private var circularWaveformRef: WeakReference<CircularWaveformView>? = null
     private val circularWaveform: CircularWaveformView? get() = circularWaveformRef?.get()
     
@@ -268,12 +304,14 @@ class OverlayService : Service() {
         
         Log.d(TAG, "Showing overlay")
         
-        // Inflate the overlay layout
+        // Inflate the new pill overlay layout
         val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
-        val view = inflater.inflate(R.layout.overlay_mic_view, null)
+        val view = inflater.inflate(R.layout.overlay_pill_view, null)
         overlayViewRef = WeakReference(view)
         
-        // Get UI references using WeakReferences
+        // Get UI references for pill layout
+        pillContainerRef = WeakReference(view.findViewById(R.id.pill_container))
+        micButtonWrapperRef = WeakReference(view.findViewById(R.id.mic_button_wrapper))
         micButtonRef = WeakReference(view.findViewById(R.id.mic_button_container))
         micIconRef = WeakReference(view.findViewById(R.id.ic_mic))
         statusTextRef = WeakReference(view.findViewById(R.id.tv_status))
@@ -282,13 +320,18 @@ class OverlayService : Service() {
         progressIndicatorRef = WeakReference(view.findViewById(R.id.progress_indicator))
         copyButtonRef = WeakReference(view.findViewById(R.id.btn_copy))
         
-        // New iOS-style UI elements
-        recordingRingRef = WeakReference(view.findViewById(R.id.recording_ring))
-        recordingRingOuterRef = WeakReference(view.findViewById(R.id.recording_ring_outer))
+        // Pulse ring UI elements (Liquid Glass style)
+        pulseRingInnerRef = WeakReference(view.findViewById(R.id.pulse_ring_inner))
+        pulseRingOuterRef = WeakReference(view.findViewById(R.id.pulse_ring_outer))
         successIconRef = WeakReference(view.findViewById(R.id.ic_success))
+        errorIconRef = WeakReference(view.findViewById(R.id.ic_error))
+        clipboardIconRef = WeakReference(view.findViewById(R.id.ic_clipboard))
         
-        // Circular waveform visualizer (around mic button)
-        circularWaveformRef = WeakReference(view.findViewById(R.id.circular_waveform))
+        // Linear waveform visualizer (inline in pill)
+        linearWaveformRef = WeakReference(view.findViewById(R.id.linear_waveform))
+        
+        // Enable smooth layout transitions for state changes
+        setupLayoutTransitions()
         
         // Configure window parameters
         val layoutParams = createLayoutParams()
@@ -363,11 +406,10 @@ class OverlayService : Service() {
         }
     }
     
-    /**
-     * Clean up all view references to prevent memory leaks
-     */
     private fun cleanupViewReferences() {
         overlayViewRef = null
+        pillContainerRef = null
+        micButtonWrapperRef = null
         micButtonRef = null
         micIconRef = null
         statusTextRef = null
@@ -375,9 +417,12 @@ class OverlayService : Service() {
         closeButtonRef = null
         progressIndicatorRef = null
         copyButtonRef = null
-        recordingRingRef = null
-        recordingRingOuterRef = null
+        pulseRingInnerRef = null
+        pulseRingOuterRef = null
         successIconRef = null
+        errorIconRef = null
+        clipboardIconRef = null
+        linearWaveformRef = null
         circularWaveformRef = null
         pendingText = null
         
@@ -427,7 +472,7 @@ class OverlayService : Service() {
      */
     @SuppressLint("ClickableViewAccessibility")
     private fun setupTouchHandling(view: View, params: WindowManager.LayoutParams) {
-        val container = view.findViewById<View>(R.id.overlay_container)
+        val container = view.findViewById<View>(R.id.pill_container)
         
         var initialX = 0
         var initialY = 0
@@ -489,6 +534,48 @@ class OverlayService : Service() {
         // Copy button copies pending text to clipboard
         copyButton?.setOnClickListener {
             copyToClipboard()
+        }
+    }
+    
+    /**
+     * Set up smooth layout transitions for state changes
+     * Adds subtle easing animations when pill size/content changes
+     */
+    private fun setupLayoutTransitions() {
+        // Enable layout transitions on pill container
+        (pillContainer as? LinearLayout)?.let { container ->
+            val transition = LayoutTransition().apply {
+                // Set animation durations (short for snappy feel)
+                setDuration(150L)
+                
+                // Enable all transition types
+                enableTransitionType(LayoutTransition.CHANGING)
+                enableTransitionType(LayoutTransition.APPEARING)
+                enableTransitionType(LayoutTransition.DISAPPEARING)
+                enableTransitionType(LayoutTransition.CHANGE_APPEARING)
+                enableTransitionType(LayoutTransition.CHANGE_DISAPPEARING)
+                
+                // Use smooth interpolator
+                setInterpolator(LayoutTransition.CHANGE_APPEARING, AccelerateDecelerateInterpolator())
+                setInterpolator(LayoutTransition.CHANGE_DISAPPEARING, AccelerateDecelerateInterpolator())
+                setInterpolator(LayoutTransition.CHANGING, AccelerateDecelerateInterpolator())
+            }
+            container.layoutTransition = transition
+        }
+        
+        // Also enable on the text container inside the pill
+        overlayView?.findViewById<LinearLayout>(R.id.pill_container)?.let { pill ->
+            // Find the text container (first LinearLayout child)
+            for (i in 0 until pill.childCount) {
+                val child = pill.getChildAt(i)
+                if (child is LinearLayout) {
+                    child.layoutTransition = LayoutTransition().apply {
+                        setDuration(120L)
+                        enableTransitionType(LayoutTransition.CHANGING)
+                    }
+                    break
+                }
+            }
         }
     }
     
@@ -619,25 +706,31 @@ class OverlayService : Service() {
     }
     
     /**
-     * Update circular waveform based on current audio amplitude
+     * Update waveform based on current audio amplitude
      */
     private fun updateAmplitudeBars(amplitude: Int) {
+        // Use linear waveform for pill layout
+        linearWaveform?.updateAmplitude(amplitude)
+        // Legacy circular waveform (if still in use)
         circularWaveform?.updateAmplitude(amplitude)
     }
     
     /**
-     * Reset circular waveform to default state and hide it
+     * Reset waveform to default state and hide it
      */
     private fun resetAmplitudeBars() {
+        linearWaveform?.visibility = View.GONE
+        linearWaveform?.reset()
         circularWaveform?.visibility = View.GONE
         circularWaveform?.reset()
     }
     
     /**
-     * Show the circular waveform visualizer
+     * Show the waveform visualizer
      */
-    private fun showCircularWaveform() {
-        circularWaveform?.visibility = View.VISIBLE
+    private fun showWaveform() {
+        linearWaveform?.visibility = View.VISIBLE
+        // Legacy: circularWaveform?.visibility = View.VISIBLE
     }
     
     /**
@@ -670,13 +763,7 @@ class OverlayService : Service() {
      * Battery optimized: Resets hardware layer
      */
     private fun stopPulseAnimation() {
-        pulseAnimator?.let { animator ->
-            if (animator.isRunning) {
-                animator.cancel()
-            }
-            animator.removeAllListeners()
-        }
-        pulseAnimator = null
+        pulseAnimator = pulseAnimator.cancelAndCleanup()
         
         // Reset scale to normal and restore layer type
         micButton?.apply {
@@ -714,13 +801,7 @@ class OverlayService : Service() {
      * Stop recording pulse animation
      */
     private fun stopRecordingPulseAnimation() {
-        recordingPulseAnimator?.let { animator ->
-            if (animator.isRunning) {
-                animator.cancel()
-            }
-            animator.removeAllListeners()
-        }
-        recordingPulseAnimator = null
+        recordingPulseAnimator = recordingPulseAnimator.cancelAndCleanup()
         
         // Reset the purple button scale
         micButton?.apply {
@@ -739,11 +820,11 @@ class OverlayService : Service() {
         stopRingAnimations()
         
         // Make rings visible
-        recordingRing?.visibility = View.VISIBLE
-        recordingRingOuter?.visibility = View.VISIBLE
+        pulseRingInner?.visibility = View.VISIBLE
+        pulseRingOuter?.visibility = View.VISIBLE
         
         // Inner ring animation - faster, smaller
-        recordingRing?.let { ring ->
+        pulseRingInner?.let { ring ->
             ring.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             
             val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.25f)
@@ -759,7 +840,7 @@ class OverlayService : Service() {
         }
         
         // Outer ring animation - slower, larger, delayed
-        recordingRingOuter?.let { ring ->
+        pulseRingOuter?.let { ring ->
             ring.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             
             val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.35f)
@@ -780,31 +861,18 @@ class OverlayService : Service() {
      * Stop ring animations and clean up
      */
     private fun stopRingAnimations() {
-        ringAnimator?.let { animator ->
-            if (animator.isRunning) {
-                animator.cancel()
-            }
-            animator.removeAllListeners()
-        }
-        ringAnimator = null
-        
-        ringOuterAnimator?.let { animator ->
-            if (animator.isRunning) {
-                animator.cancel()
-            }
-            animator.removeAllListeners()
-        }
-        ringOuterAnimator = null
+        ringAnimator = ringAnimator.cancelAndCleanup()
+        ringOuterAnimator = ringOuterAnimator.cancelAndCleanup()
         
         // Reset and hide rings
-        recordingRing?.apply {
+        pulseRingInner?.apply {
             scaleX = 1.0f
             scaleY = 1.0f
             alpha = 0f
             visibility = View.GONE
             setLayerType(View.LAYER_TYPE_NONE, null)
         }
-        recordingRingOuter?.apply {
+        pulseRingOuter?.apply {
             scaleX = 1.0f
             scaleY = 1.0f
             alpha = 0f
@@ -842,13 +910,7 @@ class OverlayService : Service() {
      * Stop success animation and reset
      */
     private fun stopSuccessAnimation() {
-        successAnimator?.let { animator ->
-            if (animator.isRunning) {
-                animator.cancel()
-            }
-            animator.removeAllListeners()
-        }
-        successAnimator = null
+        successAnimator = successAnimator.cancelAndCleanup()
         
         // Hide success icon
         successIcon?.apply {
@@ -864,22 +926,24 @@ class OverlayService : Service() {
      * Subtle horizontal shake to indicate something went wrong
      */
     private fun playShakeAnimation() {
-        micButton?.let { button ->
-            button.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-            
-            ObjectAnimator.ofFloat(
-                button, View.TRANSLATION_X,
-                0f, -8f, 8f, -8f, 8f, -4f, 4f, 0f
-            ).apply {
-                duration = 400L
-                interpolator = AccelerateDecelerateInterpolator()
-                addListener(object : android.animation.AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: android.animation.Animator) {
-                        button.setLayerType(View.LAYER_TYPE_NONE, null)
-                    }
-                })
-                start()
-            }
+        val button = micButton ?: return
+        // Use WeakReference to prevent memory leak in listener
+        val buttonRef = WeakReference(button)
+        
+        button.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        
+        ObjectAnimator.ofFloat(
+            button, View.TRANSLATION_X,
+            0f, -8f, 8f, -8f, 8f, -4f, 4f, 0f
+        ).apply {
+            duration = 400L
+            interpolator = AccelerateDecelerateInterpolator()
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    buttonRef.get()?.setLayerType(View.LAYER_TYPE_NONE, null)
+                }
+            })
+            start()
         }
     }
     
@@ -927,13 +991,20 @@ class OverlayService : Service() {
     
     /**
      * Update UI based on current state
-     * Uses iOS-style glass effects and animations
+     * Uses Liquid Glass effects and animations for pill layout
      */
     private fun updateUI(state: State) {
+        // Reset visibility of elements that may be hidden in certain states
+        errorIcon?.visibility = View.GONE
+        clipboardIcon?.visibility = View.GONE
+        micButtonWrapper?.visibility = View.VISIBLE  // Restore wrapper if coming from NO_FOCUS
+        micButton?.visibility = View.VISIBLE
+        
         when (state) {
             State.IDLE -> {
                 statusText?.text = getString(R.string.overlay_ready)
-                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
+                pillContainer?.setBackgroundResource(R.drawable.pill_liquid_glass_background)
+                micButton?.setBackgroundResource(R.drawable.mic_button_liquid_glass)
                 previewText?.visibility = View.GONE
                 progressIndicator?.visibility = View.GONE
                 micIcon?.visibility = View.VISIBLE
@@ -945,19 +1016,21 @@ class OverlayService : Service() {
             }
             State.RECORDING -> {
                 statusText?.text = getString(R.string.overlay_recording)
-                micButton?.setBackgroundResource(R.drawable.mic_button_glass_listening)
+                pillContainer?.setBackgroundResource(R.drawable.pill_border_recording)
+                micButton?.setBackgroundResource(R.drawable.mic_button_liquid_glass)
                 progressIndicator?.visibility = View.GONE
                 micIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
                 stopSuccessAnimation()
-                // Start iOS-style pulsing ring animation
+                // Start pulse ring animation
                 startRingAnimations()
-                // Show circular waveform during recording
-                showCircularWaveform()
+                // Show inline waveform during recording
+                showWaveform()
             }
             State.PROCESSING -> {
                 statusText?.text = getString(R.string.overlay_processing)
-                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
+                pillContainer?.setBackgroundResource(R.drawable.pill_liquid_glass_background)
+                micButton?.setBackgroundResource(R.drawable.mic_button_liquid_glass)
                 progressIndicator?.visibility = View.VISIBLE
                 micIcon?.visibility = View.GONE
                 copyButton?.visibility = View.GONE
@@ -970,7 +1043,8 @@ class OverlayService : Service() {
             }
             State.TRANSCRIBING -> {
                 statusText?.text = getString(R.string.overlay_transcribing)
-                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
+                pillContainer?.setBackgroundResource(R.drawable.pill_liquid_glass_background)
+                micButton?.setBackgroundResource(R.drawable.mic_button_liquid_glass)
                 progressIndicator?.visibility = View.VISIBLE
                 micIcon?.visibility = View.GONE
                 copyButton?.visibility = View.GONE
@@ -978,7 +1052,8 @@ class OverlayService : Service() {
             }
             State.SUCCESS -> {
                 statusText?.text = getString(R.string.overlay_inserted)
-                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
+                pillContainer?.setBackgroundResource(R.drawable.pill_border_success)
+                micButton?.setBackgroundResource(R.drawable.mic_button_liquid_glass)
                 progressIndicator?.visibility = View.GONE
                 copyButton?.visibility = View.GONE
                 stopRingAnimations()
@@ -988,9 +1063,11 @@ class OverlayService : Service() {
             }
             State.ERROR -> {
                 // Error message set by caller
-                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
+                pillContainer?.setBackgroundResource(R.drawable.pill_border_error)
+                micButton?.setBackgroundResource(R.drawable.mic_button_liquid_glass)
                 progressIndicator?.visibility = View.GONE
-                micIcon?.visibility = View.VISIBLE
+                micIcon?.visibility = View.GONE
+                errorIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
                 stopRingAnimations()
                 stopSuccessAnimation()
@@ -999,11 +1076,12 @@ class OverlayService : Service() {
                 playShakeAnimation()
             }
             State.NO_FOCUS -> {
-                // No text field focused - show copy option
-                micButton?.setBackgroundResource(R.drawable.mic_button_glass)
+                // No text field focused - show combined copy button (icon + text)
+                pillContainer?.setBackgroundResource(R.drawable.pill_liquid_glass_background)
                 previewText?.visibility = View.GONE
                 progressIndicator?.visibility = View.GONE
-                micIcon?.visibility = View.VISIBLE
+                // Hide the entire mic button wrapper - copy button has the icon now
+                micButtonWrapper?.visibility = View.GONE
                 stopRingAnimations()
                 stopSuccessAnimation()
                 resetAmplitudeBars()

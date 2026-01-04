@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Liquid Glass Pill - Error State Border
+Rose red accent glow for error states
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Outer rose/red glow -->
+    <item
+        android:top="-4dp"
+        android:bottom="-4dp"
+        android:left="-4dp"
+        android:right="-4dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#40EF4444" />
+            <corners android:radius="30dp" />
+        </shape>
+    </item>
+    
+    <!-- Border gradient with rose tint -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:startColor="#60EF4444"
+                android:endColor="#30EF4444"
+                android:angle="135" />
+            <corners android:radius="26dp" />
+        </shape>
+    </item>
+    
+    <!-- Main glass fill -->
+    <item
+        android:top="1.5dp"
+        android:bottom="1.5dp"
+        android:left="1.5dp"
+        android:right="1.5dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#B31A1F2E" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    
+    <!-- Inner highlight with red tint -->
+    <item
+        android:top="1.5dp"
+        android:bottom="1.5dp"
+        android:left="1.5dp"
+        android:right="1.5dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:startColor="#15EF4444"
+                android:centerColor="#08FFFFFF"
+                android:endColor="#00FFFFFF"
+                android:angle="90" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    
+</layer-list>
