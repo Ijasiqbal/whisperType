@@ -152,6 +152,9 @@ class OverlayService : Service() {
     private var errorIconRef: WeakReference<ImageView>? = null
     private val errorIcon: ImageView? get() = errorIconRef?.get()
     
+    private var stopIconRef: WeakReference<ImageView>? = null
+    private val stopIcon: ImageView? get() = stopIconRef?.get()
+    
     private var clipboardIconRef: WeakReference<ImageView>? = null
     private val clipboardIcon: ImageView? get() = clipboardIconRef?.get()
     
@@ -325,6 +328,7 @@ class OverlayService : Service() {
         pulseRingOuterRef = WeakReference(view.findViewById(R.id.pulse_ring_outer))
         successIconRef = WeakReference(view.findViewById(R.id.ic_success))
         errorIconRef = WeakReference(view.findViewById(R.id.ic_error))
+        stopIconRef = WeakReference(view.findViewById(R.id.ic_stop))
         clipboardIconRef = WeakReference(view.findViewById(R.id.ic_clipboard))
         
         // Linear waveform visualizer (inline in pill)
@@ -421,6 +425,7 @@ class OverlayService : Service() {
         pulseRingOuterRef = null
         successIconRef = null
         errorIconRef = null
+        stopIconRef = null
         clipboardIconRef = null
         linearWaveformRef = null
         circularWaveformRef = null
@@ -997,6 +1002,7 @@ class OverlayService : Service() {
         // Reset visibility of elements that may be hidden in certain states
         errorIcon?.visibility = View.GONE
         clipboardIcon?.visibility = View.GONE
+        stopIcon?.visibility = View.GONE
         micButtonWrapper?.visibility = View.VISIBLE  // Restore wrapper if coming from NO_FOCUS
         micButton?.visibility = View.VISIBLE
         
@@ -1019,7 +1025,9 @@ class OverlayService : Service() {
                 pillContainer?.setBackgroundResource(R.drawable.pill_border_recording)
                 micButton?.setBackgroundResource(R.drawable.mic_button_liquid_glass)
                 progressIndicator?.visibility = View.GONE
-                micIcon?.visibility = View.VISIBLE
+                // Show stop icon instead of mic icon during recording
+                micIcon?.visibility = View.GONE
+                stopIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
                 stopSuccessAnimation()
                 // Start pulse ring animation
