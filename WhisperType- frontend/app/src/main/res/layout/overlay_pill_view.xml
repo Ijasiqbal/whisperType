@@ -165,6 +165,16 @@ Layout (left to right):
                     android:src="@drawable/ic_mic"
                     android:contentDescription="Microphone button" />
 
+                <!-- Stop icon (shown during recording) -->
+                <ImageView
+                    android:id="@+id/ic_stop"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_stop"
+                    android:contentDescription="Stop recording"
+                    android:visibility="gone" />
+
                 <!-- Success checkmark icon (hidden by default) -->
                 <ImageView
                     android:id="@+id/ic_success"
