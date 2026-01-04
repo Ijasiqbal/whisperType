@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Liquid Glass Pill - Success State Border
+Emerald green accent glow for successful text insertion
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Outer emerald glow -->
+    <item
+        android:top="-4dp"
+        android:bottom="-4dp"
+        android:left="-4dp"
+        android:right="-4dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#4010B981" />
+            <corners android:radius="30dp" />
+        </shape>
+    </item>
+    
+    <!-- Border gradient with emerald tint -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:startColor="#6010B981"
+                android:endColor="#3010B981"
+                android:angle="135" />
+            <corners android:radius="26dp" />
+        </shape>
+    </item>
+    
+    <!-- Main glass fill -->
+    <item
+        android:top="1.5dp"
+        android:bottom="1.5dp"
+        android:left="1.5dp"
+        android:right="1.5dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#B31A1F2E" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    
+    <!-- Inner highlight with green tint -->
+    <item
+        android:top="1.5dp"
+        android:bottom="1.5dp"
+        android:left="1.5dp"
+        android:right="1.5dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:startColor="#1510B981"
+                android:centerColor="#08FFFFFF"
+                android:endColor="#00FFFFFF"
+                android:angle="90" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    
+</layer-list>

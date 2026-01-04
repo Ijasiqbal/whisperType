@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Pulse Ring - Violet
+Used for the recording pulse animation behind the mic button
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    
+    <stroke
+        android:width="2dp"
+        android:color="#8B5CF6" />
+    
+    <solid android:color="#00000000" />
+    
+</shape>
