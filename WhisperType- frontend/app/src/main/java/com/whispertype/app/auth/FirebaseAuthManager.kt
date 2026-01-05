@@ -55,14 +55,23 @@ class FirebaseAuthManager {
     // Auth state flow for reactive UI updates
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
+    
+    // Cached ID token for synchronous access (used by BillingManager)
+    @Volatile
+    private var cachedIdToken: String? = null
 
     init {
         // Listen for auth state changes
         auth.addAuthStateListener { firebaseAuth ->
             val user = firebaseAuth.currentUser
             _authState.value = if (user != null) {
+                // Pre-cache the token when user signs in
+                user.getIdToken(false).addOnSuccessListener { result ->
+                    cachedIdToken = result.token
+                }
                 AuthState.Authenticated(user)
             } else {
+                cachedIdToken = null
                 AuthState.Unauthenticated
             }
         }
@@ -73,6 +82,12 @@ class FirebaseAuthManager {
      */
     val currentUser: FirebaseUser?
         get() = auth.currentUser
+    
+    /**
+     * Get cached ID token synchronously (may be stale, refresh if needed)
+     * Used by BillingManager for quick access without suspend
+     */
+    fun getCachedIdToken(): String? = cachedIdToken
 
     /**
      * Check if a user is currently signed in

@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import com.android.billingclient.api.*
 import com.android.billingclient.api.BillingClient.BillingResponseCode
+import com.whispertype.app.api.WhisperApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +29,12 @@ class BillingManager(private val context: Context) {
     
     // Callback to invoke on successful purchase
     private var pendingSuccessCallback: (() -> Unit)? = null
+    
+    // Auth token provider for backend verification
+    private var authTokenProvider: (() -> String?)? = null
+    
+    // API client for backend verification
+    private val apiClient = WhisperApiClient()
     
     // Subscription state
     private val _isProUser = MutableStateFlow(false)
@@ -216,25 +223,75 @@ class BillingManager(private val context: Context) {
             Log.d(TAG, "Purchase completed: ${purchase.products}")
             
             if (purchase.products.contains(PRO_MONTHLY_PRODUCT_ID)) {
-                _isProUser.value = true
-                _subscriptionStatus.value = SubscriptionStatus.Active
-                
-                // Acknowledge the purchase
+                // Acknowledge the purchase first
                 if (!purchase.isAcknowledged) {
                     acknowledgePurchase(purchase)
                 }
                 
-                // Call success callback
-                pendingSuccessCallback?.invoke()
-                pendingSuccessCallback = null
-                
-                // TODO: Verify with backend and update user document
-                // verifyWithBackend(purchase.purchaseToken)
+                // Verify with backend
+                verifyWithBackend(
+                    purchaseToken = purchase.purchaseToken,
+                    productId = PRO_MONTHLY_PRODUCT_ID,
+                    onSuccess = {
+                        _isProUser.value = true
+                        _subscriptionStatus.value = SubscriptionStatus.Active
+                        pendingSuccessCallback?.invoke()
+                        pendingSuccessCallback = null
+                    },
+                    onError = { error ->
+                        Log.e(TAG, "Backend verification failed: $error")
+                        // Still set Pro locally (will be verified on next app launch)
+                        _isProUser.value = true
+                        _subscriptionStatus.value = SubscriptionStatus.Active
+                        pendingSuccessCallback?.invoke()
+                        pendingSuccessCallback = null
+                    }
+                )
             }
         } else if (purchase.purchaseState == Purchase.PurchaseState.PENDING) {
             Log.d(TAG, "Purchase pending")
             // Handle pending purchase (e.g., show message to user)
         }
+    }
+    
+    /**
+     * Verify purchase with backend server
+     * This ensures the purchase is recorded in Firestore
+     */
+    private fun verifyWithBackend(
+        purchaseToken: String,
+        productId: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val authToken = authTokenProvider?.invoke()
+        if (authToken == null) {
+            Log.e(TAG, "No auth token available for verification")
+            onError("Authentication required")
+            return
+        }
+        
+        apiClient.verifySubscription(
+            authToken = authToken,
+            purchaseToken = purchaseToken,
+            productId = productId,
+            onSuccess = { _, _, _ ->
+                Log.d(TAG, "Backend verification successful")
+                onSuccess()
+            },
+            onError = { error ->
+                Log.e(TAG, "Backend verification error: $error")
+                onError(error)
+            }
+        )
+    }
+    
+    /**
+     * Set the auth token provider for backend verification
+     * Call this after Firebase Auth is ready
+     */
+    fun setAuthTokenProvider(provider: () -> String?) {
+        authTokenProvider = provider
     }
     
     /**

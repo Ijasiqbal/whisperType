@@ -426,4 +426,120 @@ class WhisperApiClient {
             }
         })
     }
+    
+    /**
+     * Verify subscription purchase with backend (Iteration 3)
+     * Sends purchase token to backend for Google Play verification
+     *
+     * @param authToken Firebase Auth ID token for authentication
+     * @param purchaseToken The purchase token from Google Play
+     * @param productId The subscription product ID
+     * @param onSuccess Callback with Pro status data
+     * @param onError Callback for errors
+     */
+    fun verifySubscription(
+        authToken: String,
+        purchaseToken: String,
+        productId: String,
+        onSuccess: (proSecondsRemaining: Int, proSecondsLimit: Int, resetDateMs: Long) -> Unit,
+        onError: (error: String) -> Unit
+    ) {
+        Log.d(TAG, "Verifying subscription: $productId")
+        
+        val requestBody = mapOf(
+            "purchaseToken" to purchaseToken,
+            "productId" to productId
+        )
+        val jsonBody = gson.toJson(requestBody)
+        
+        val request = Request.Builder()
+            .url("https://us-central1-whispertype-1de9f.cloudfunctions.net/verifySubscription")
+            .addHeader("Authorization", "Bearer $authToken")
+            .post(jsonBody.toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+        
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string()
+                Log.d(TAG, "Verify subscription response: ${response.code}")
+                
+                when (response.code) {
+                    200 -> {
+                        try {
+                            val result = gson.fromJson(responseBody, VerifySubscriptionResponse::class.java)
+                            
+                            if (result.success == true && result.proStatus != null) {
+                                Log.d(TAG, "Subscription verified: ${result.proStatus.proSecondsRemaining}s remaining")
+                                
+                                // Update UsageDataManager with Pro status
+                                UsageDataManager.updateProStatus(
+                                    proSecondsUsed = result.proStatus.proSecondsUsed ?: 0,
+                                    proSecondsRemaining = result.proStatus.proSecondsRemaining ?: 9000,
+                                    proSecondsLimit = result.proStatus.proSecondsLimit ?: 9000,
+                                    proResetDateMs = result.proStatus.currentPeriodEndMs ?: 0
+                                )
+                                
+                                onSuccess(
+                                    result.proStatus.proSecondsRemaining ?: 9000,
+                                    result.proStatus.proSecondsLimit ?: 9000,
+                                    result.proStatus.currentPeriodEndMs ?: 0
+                                )
+                            } else {
+                                Log.e(TAG, "Verification failed: success=${result.success}")
+                                onError("Subscription verification failed")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to parse verification response", e)
+                            onError("Failed to verify subscription")
+                        }
+                    }
+                    400 -> {
+                        Log.e(TAG, "Invalid purchase: $responseBody")
+                        onError("Invalid purchase")
+                    }
+                    401 -> {
+                        Log.e(TAG, "Unauthorized")
+                        onError("Authentication failed")
+                    }
+                    else -> {
+                        Log.e(TAG, "Unexpected response: ${response.code}")
+                        onError("Verification failed")
+                    }
+                }
+            }
+            
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "Subscription verification request failed", e)
+                onError("Network error")
+            }
+        })
+    }
+    
+    /**
+     * Response for subscription verification
+     */
+    private data class VerifySubscriptionResponse(
+        @SerializedName("success")
+        val success: Boolean?,
+        @SerializedName("plan")
+        val plan: String?,
+        @SerializedName("proStatus")
+        val proStatus: ProStatusResponse?
+    )
+    
+    /**
+     * Pro status nested object
+     */
+    private data class ProStatusResponse(
+        @SerializedName("isActive")
+        val isActive: Boolean?,
+        @SerializedName("proSecondsUsed")
+        val proSecondsUsed: Int?,
+        @SerializedName("proSecondsRemaining")
+        val proSecondsRemaining: Int?,
+        @SerializedName("proSecondsLimit")
+        val proSecondsLimit: Int?,
+        @SerializedName("currentPeriodEndMs")
+        val currentPeriodEndMs: Long?
+    )
 }

@@ -15,6 +15,7 @@ import OpenAI from "openai";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import {google} from "googleapis";
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -1210,3 +1211,208 @@ export const getSubscriptionStatus = onRequest(async (request, response) => {
     });
   }
 });
+
+/**
+ * Verify Google Play subscription purchase
+ * POST /verifySubscription
+ * Body: {
+ *   purchaseToken: string,
+ *   productId: string
+ * }
+ * Response: { success: boolean, plan: string, proStatus: {...} }
+ */
+export const verifySubscription = onRequest(
+  {secrets: ["GOOGLE_PLAY_KEY"]},
+  async (request, response) => {
+    try {
+      // Only allow POST requests
+      if (request.method !== "POST") {
+        response.status(405).send("Method Not Allowed");
+        return;
+      }
+
+      // Verify Firebase Auth token
+      const authHeader = request.headers.authorization;
+      const decodedToken = await verifyAuthToken(authHeader);
+
+      if (!decodedToken) {
+        response.status(401).json({
+          error: "Unauthorized: Invalid or missing authentication token",
+        });
+        return;
+      }
+
+      const uid = decodedToken.uid;
+      logger.info(`Verifying subscription for user: ${uid}`);
+
+      // Validate request body
+      const {purchaseToken, productId} = request.body;
+      if (!purchaseToken || !productId) {
+        response.status(400).json({
+          error: "Missing purchaseToken or productId",
+        });
+        return;
+      }
+
+      // Get the service account key from secret
+      const keyJson = process.env.GOOGLE_PLAY_KEY;
+      if (!keyJson) {
+        logger.error("GOOGLE_PLAY_KEY secret not configured");
+        response.status(500).json({
+          error: "Server configuration error",
+        });
+        return;
+      }
+
+      // Parse the service account key
+      let credentials;
+      try {
+        credentials = JSON.parse(keyJson);
+      } catch (parseError) {
+        logger.error("Failed to parse GOOGLE_PLAY_KEY", parseError);
+        response.status(500).json({
+          error: "Server configuration error",
+        });
+        return;
+      }
+
+      // Initialize Google Auth client
+      const auth = new google.auth.GoogleAuth({
+        credentials: credentials,
+        scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+      });
+
+      const androidpublisher = google.androidpublisher({
+        version: "v3",
+        auth: auth,
+      });
+
+      // Verify the subscription with Google Play
+      let subscriptionData;
+      try {
+        const result = await androidpublisher.purchases.subscriptions.get({
+          packageName: "com.whispertype.app",
+          subscriptionId: productId,
+          token: purchaseToken,
+        });
+        subscriptionData = result.data;
+        logger.info(
+          "Google Play verification response: " +
+          `paymentState=${subscriptionData.paymentState}, ` +
+          `expiryTimeMillis=${subscriptionData.expiryTimeMillis}`
+        );
+      } catch (apiError: unknown) {
+        const error = apiError as { message?: string; code?: number };
+        logger.error("Google Play API error", error);
+        response.status(400).json({
+          error: "Invalid purchase",
+          details: error.message || "Unknown error",
+        });
+        return;
+      }
+
+      // Check if subscription is valid
+      // paymentState: 0=pending, 1=received, 2=free trial, 3=deferred
+      const paymentState = subscriptionData.paymentState;
+      const expiryTimeMs = parseInt(
+        subscriptionData.expiryTimeMillis || "0",
+        10
+      );
+      const now = Date.now();
+
+      // Subscription is valid if payment received and not expired
+      // Also allow free trial (paymentState=2) and pending upgrades (0)
+      const isActive = (
+        (paymentState === 1 || paymentState === 2) &&
+        expiryTimeMs > now
+      );
+
+      if (!isActive) {
+        logger.warn(
+          `Subscription not active for ${uid}: ` +
+          `paymentState=${paymentState}, expired=${expiryTimeMs < now}`
+        );
+        response.status(400).json({
+          error: "Subscription not active",
+          paymentState: paymentState,
+          expired: expiryTimeMs < now,
+        });
+        return;
+      }
+
+      // Update user document in Firestore
+      const userRef = db.collection("users").doc(uid);
+      const nowTimestamp = admin.firestore.Timestamp.now();
+      const expiryTimestamp =
+        admin.firestore.Timestamp.fromMillis(expiryTimeMs);
+      const limits = await getPlanLimits();
+
+      // Check if this is a new subscription or renewal
+      const userDoc = await userRef.get();
+      const existingUser = userDoc.exists ?
+        userDoc.data() as UserDocument : null;
+      const existingSub = existingUser?.proSubscription;
+
+      // Determine if this is a new period (reset usage)
+      let proSecondsUsed = 0;
+      if (existingSub && existingSub.purchaseToken === purchaseToken) {
+        // Same purchase token - keep existing usage
+        proSecondsUsed = existingSub.proSecondsUsed || 0;
+      } else if (existingSub && existingSub.currentPeriodEnd) {
+        // Different token but existing sub - check if new period
+        const oldPeriodEnd = existingSub.currentPeriodEnd.toMillis();
+        if (now > oldPeriodEnd) {
+          // New period - reset usage
+          proSecondsUsed = 0;
+          logger.info(`New billing period for ${uid}, resetting usage`);
+        } else {
+          // Same period - keep usage
+          proSecondsUsed = existingSub.proSecondsUsed || 0;
+        }
+      }
+
+      // Build the subscription object
+      const proSubscription: ProSubscription = {
+        purchaseToken: purchaseToken,
+        productId: productId,
+        status: "active",
+        startDate: existingSub?.startDate || nowTimestamp,
+        currentPeriodStart: nowTimestamp,
+        currentPeriodEnd: expiryTimestamp,
+        proSecondsUsed: proSecondsUsed,
+      };
+
+      // Update the user document
+      await userRef.set(
+        {
+          plan: "pro",
+          proSubscription: proSubscription,
+        },
+        {merge: true}
+      );
+
+      logger.info(
+        `Subscription verified and saved for ${uid}: ` +
+        `expires ${expiryTimestamp.toDate().toISOString()}`
+      );
+
+      // Return success with Pro status
+      response.status(200).json({
+        success: true,
+        plan: "pro",
+        proStatus: {
+          isActive: true,
+          proSecondsUsed: proSecondsUsed,
+          proSecondsRemaining: limits.proSecondsLimit - proSecondsUsed,
+          proSecondsLimit: limits.proSecondsLimit,
+          currentPeriodEndMs: expiryTimeMs,
+        },
+      });
+    } catch (error) {
+      logger.error("Error verifying subscription", error);
+      response.status(500).json({
+        error: "Internal server error",
+      });
+    }
+  }
+);

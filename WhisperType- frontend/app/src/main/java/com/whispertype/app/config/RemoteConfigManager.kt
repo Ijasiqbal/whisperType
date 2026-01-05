@@ -3,6 +3,7 @@ package com.whispertype.app.config
 import android.util.Log
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
+import com.whispertype.app.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,13 +24,38 @@ object RemoteConfigManager {
     private const val KEY_PRO_PLAN_NAME = "pro_plan_name"
     private const val KEY_PRO_MINUTES_LIMIT = "pro_minutes_limit"
     
+    // Force update keys
+    private const val KEY_FORCE_UPDATE_ENABLED = "force_update_enabled"
+    private const val KEY_FORCE_UPDATE_MIN_VERSION = "force_update_min_version_code"
+    private const val KEY_FORCE_UPDATE_BLOCKED_VERSIONS = "force_update_blocked_versions"
+    private const val KEY_FORCE_UPDATE_TITLE = "force_update_title"
+    private const val KEY_FORCE_UPDATE_MESSAGE = "force_update_message"
+    
+    // Soft update keys
+    private const val KEY_SOFT_UPDATE_ENABLED = "soft_update_enabled"
+    private const val KEY_SOFT_UPDATE_MIN_VERSION = "soft_update_min_version_code"
+    private const val KEY_SOFT_UPDATE_BLOCKED_VERSIONS = "soft_update_blocked_versions"
+    
     // Default values (fallback if Remote Config fails)
     private const val DEFAULT_PRO_PRICE_DISPLAY = "₹79/month"
     private const val DEFAULT_PRO_PLAN_NAME = "WhisperType Pro"
     private const val DEFAULT_PRO_MINUTES_LIMIT = 150
     
-    // Minimum fetch interval (1 hour for production, 0 for debug)
-    private const val FETCH_INTERVAL_SECONDS = 3600L
+    // Force update defaults
+    private const val DEFAULT_FORCE_UPDATE_ENABLED = false
+    private const val DEFAULT_FORCE_UPDATE_MIN_VERSION = 1
+    private const val DEFAULT_FORCE_UPDATE_BLOCKED_VERSIONS = ""
+    private const val DEFAULT_FORCE_UPDATE_TITLE = "Update Required"
+    private const val DEFAULT_FORCE_UPDATE_MESSAGE = "A critical security update is available. Please update to continue using WhisperType."
+    
+    // Soft update defaults
+    private const val DEFAULT_SOFT_UPDATE_ENABLED = false
+    private const val DEFAULT_SOFT_UPDATE_MIN_VERSION = 1
+    private const val DEFAULT_SOFT_UPDATE_BLOCKED_VERSIONS = ""
+    
+    // Minimum fetch interval (5 minutes for production, 0 for debug/testing)
+    private val FETCH_INTERVAL_SECONDS: Long
+        get() = if (BuildConfig.DEBUG) 0L else 300L
     
     /**
      * Data class holding all Remote Config values
@@ -40,8 +66,28 @@ object RemoteConfigManager {
         val proMinutesLimit: Int = DEFAULT_PRO_MINUTES_LIMIT
     )
     
+    /**
+     * Data class holding update/version control config
+     */
+    data class UpdateConfig(
+        // Force update (blocking)
+        val forceUpdateEnabled: Boolean = DEFAULT_FORCE_UPDATE_ENABLED,
+        val forceUpdateMinVersion: Int = DEFAULT_FORCE_UPDATE_MIN_VERSION,
+        val forceUpdateBlockedVersions: List<Int> = emptyList(),
+        val forceUpdateTitle: String = DEFAULT_FORCE_UPDATE_TITLE,
+        val forceUpdateMessage: String = DEFAULT_FORCE_UPDATE_MESSAGE,
+        
+        // Soft update (dismissible)
+        val softUpdateEnabled: Boolean = DEFAULT_SOFT_UPDATE_ENABLED,
+        val softUpdateMinVersion: Int = DEFAULT_SOFT_UPDATE_MIN_VERSION,
+        val softUpdateBlockedVersions: List<Int> = emptyList()
+    )
+    
     private val _planConfig = MutableStateFlow(PlanConfig())
     val planConfig: StateFlow<PlanConfig> = _planConfig.asStateFlow()
+    
+    private val _updateConfig = MutableStateFlow(UpdateConfig())
+    val updateConfig: StateFlow<UpdateConfig> = _updateConfig.asStateFlow()
     
     // Loading state - true until first fetch completes
     private val _isLoading = MutableStateFlow(true)
@@ -74,7 +120,19 @@ object RemoteConfigManager {
         val defaults = mapOf(
             KEY_PRO_PRICE_DISPLAY to DEFAULT_PRO_PRICE_DISPLAY,
             KEY_PRO_PLAN_NAME to DEFAULT_PRO_PLAN_NAME,
-            KEY_PRO_MINUTES_LIMIT to DEFAULT_PRO_MINUTES_LIMIT
+            KEY_PRO_MINUTES_LIMIT to DEFAULT_PRO_MINUTES_LIMIT,
+            
+            // Force update defaults
+            KEY_FORCE_UPDATE_ENABLED to DEFAULT_FORCE_UPDATE_ENABLED,
+            KEY_FORCE_UPDATE_MIN_VERSION to DEFAULT_FORCE_UPDATE_MIN_VERSION,
+            KEY_FORCE_UPDATE_BLOCKED_VERSIONS to DEFAULT_FORCE_UPDATE_BLOCKED_VERSIONS,
+            KEY_FORCE_UPDATE_TITLE to DEFAULT_FORCE_UPDATE_TITLE,
+            KEY_FORCE_UPDATE_MESSAGE to DEFAULT_FORCE_UPDATE_MESSAGE,
+            
+            // Soft update defaults
+            KEY_SOFT_UPDATE_ENABLED to DEFAULT_SOFT_UPDATE_ENABLED,
+            KEY_SOFT_UPDATE_MIN_VERSION to DEFAULT_SOFT_UPDATE_MIN_VERSION,
+            KEY_SOFT_UPDATE_BLOCKED_VERSIONS to DEFAULT_SOFT_UPDATE_BLOCKED_VERSIONS
         )
         remoteConfig.setDefaultsAsync(defaults)
         
@@ -132,5 +190,78 @@ object RemoteConfigManager {
         )
         
         Log.d(TAG, "Config updated: price=$priceDisplay, name=$planName, limit=$minutesLimit")
+        
+        // Update version control config
+        val forceUpdateEnabled = remoteConfig.getBoolean(KEY_FORCE_UPDATE_ENABLED)
+        val forceUpdateMinVersion = remoteConfig.getLong(KEY_FORCE_UPDATE_MIN_VERSION).toInt()
+        val forceUpdateBlockedVersionsString = remoteConfig.getString(KEY_FORCE_UPDATE_BLOCKED_VERSIONS)
+        Log.d(TAG, "Raw blocked versions string from Firebase: '$forceUpdateBlockedVersionsString'")
+        val forceUpdateBlockedVersions = parseVersionList(forceUpdateBlockedVersionsString)
+        Log.d(TAG, "Parsed blocked versions list: $forceUpdateBlockedVersions")
+        val forceUpdateTitle = remoteConfig.getString(KEY_FORCE_UPDATE_TITLE)
+            .takeIf { it.isNotEmpty() } ?: DEFAULT_FORCE_UPDATE_TITLE
+        val forceUpdateMessage = remoteConfig.getString(KEY_FORCE_UPDATE_MESSAGE)
+            .takeIf { it.isNotEmpty() } ?: DEFAULT_FORCE_UPDATE_MESSAGE
+        
+        val softUpdateEnabled = remoteConfig.getBoolean(KEY_SOFT_UPDATE_ENABLED)
+        val softUpdateMinVersion = remoteConfig.getLong(KEY_SOFT_UPDATE_MIN_VERSION).toInt()
+        val softUpdateBlockedVersions = parseVersionList(
+            remoteConfig.getString(KEY_SOFT_UPDATE_BLOCKED_VERSIONS)
+        )
+        
+        _updateConfig.value = UpdateConfig(
+            forceUpdateEnabled = forceUpdateEnabled,
+            forceUpdateMinVersion = forceUpdateMinVersion,
+            forceUpdateBlockedVersions = forceUpdateBlockedVersions,
+            forceUpdateTitle = forceUpdateTitle,
+            forceUpdateMessage = forceUpdateMessage,
+            softUpdateEnabled = softUpdateEnabled,
+            softUpdateMinVersion = softUpdateMinVersion,
+            softUpdateBlockedVersions = softUpdateBlockedVersions
+        )
+        
+        Log.d(TAG, "Update config: forceEnabled=$forceUpdateEnabled, minVersion=$forceUpdateMinVersion, blocked=$forceUpdateBlockedVersions")
+    }
+    
+    /**
+     * Parse comma-separated version list (e.g., "6,8,10" -> [6, 8, 10])
+     */
+    private fun parseVersionList(versionsString: String): List<Int> {
+        if (versionsString.isBlank()) return emptyList()
+        
+        return try {
+            versionsString.split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .mapNotNull { it.toIntOrNull() }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse version list: $versionsString", e)
+            emptyList()
+        }
+    }
+    
+    /**
+     * Check if force update is required for current app version.
+     * Used by services (like OverlayService) to block functionality when update is mandatory.
+     * 
+     * @return true if the app should block all functionality until updated
+     */
+    fun isForceUpdateRequired(): Boolean {
+        val config = _updateConfig.value
+        val currentVersionCode = BuildConfig.VERSION_CODE
+        
+        if (!config.forceUpdateEnabled) return false
+        
+        // Check if version is at or below minimum required
+        if (currentVersionCode <= config.forceUpdateMinVersion) {
+            return true
+        }
+        
+        // Check if version is in the blocked list
+        if (currentVersionCode in config.forceUpdateBlockedVersions) {
+            return true
+        }
+        
+        return false
     }
 }
