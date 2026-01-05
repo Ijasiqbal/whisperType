@@ -52,6 +52,7 @@ interface IBillingManager {
         onError: (String) -> Unit = {}
     )
     fun getFormattedPrice(): String?
+    fun setAuthTokenProvider(provider: () -> String?)
     fun release()
 }
 
@@ -71,6 +72,9 @@ class MockBillingWrapper : IBillingManager {
         onError: (String) -> Unit
     ) = mock.launchPurchaseFlow(activity, onSuccess, onError)
     override fun getFormattedPrice(): String = mock.getFormattedPrice()
+    override fun setAuthTokenProvider(provider: () -> String?) {
+        // Mock doesn't need auth token
+    }
     override fun release() = mock.release()
 }
 
@@ -90,5 +94,7 @@ class RealBillingWrapper(context: Context) : IBillingManager {
         onError: (String) -> Unit
     ) = real.launchPurchaseFlow(activity, onSuccess, onError)
     override fun getFormattedPrice(): String? = real.getFormattedPrice()
+    override fun setAuthTokenProvider(provider: () -> String?) = real.setAuthTokenProvider(provider)
     override fun release() = real.release()
 }
+

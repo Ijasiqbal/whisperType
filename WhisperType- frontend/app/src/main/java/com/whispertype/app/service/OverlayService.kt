@@ -33,6 +33,7 @@ import com.whispertype.app.MainActivity
 import com.whispertype.app.R
 import com.whispertype.app.Constants
 import com.whispertype.app.audio.AudioRecorder
+import com.whispertype.app.config.RemoteConfigManager
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.speech.SpeechRecognitionHelper
 import com.whispertype.app.view.CircularWaveformView
@@ -589,6 +590,18 @@ class OverlayService : Service() {
      */
     private fun startListening() {
         Log.d(TAG, "Starting speech recognition")
+        
+        // === Check force update status first ===
+        if (RemoteConfigManager.isForceUpdateRequired()) {
+            Log.w(TAG, "Force update required, blocking transcription")
+            Toast.makeText(
+                this,
+                "Please update WhisperType to continue using voice typing.",
+                Toast.LENGTH_LONG
+            ).show()
+            hideOverlay()
+            return
+        }
         
         // === ITERATION 2: Check trial status before starting ===
         val usageState = UsageDataManager.usageState.value

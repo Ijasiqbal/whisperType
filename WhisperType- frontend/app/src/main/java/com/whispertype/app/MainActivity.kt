@@ -14,6 +14,7 @@ import android.view.accessibility.AccessibilityManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -23,6 +24,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,6 +69,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import com.whispertype.app.service.WhisperTypeAccessibilityService
 import com.whispertype.app.util.MiuiHelper
+import com.whispertype.app.util.ForceUpdateChecker
+import com.whispertype.app.ui.components.ForceUpdateDialog
+import com.whispertype.app.ui.components.SoftUpdateDialog
 
 /**
  * MainActivity - Onboarding and permission setup screen
@@ -102,10 +107,16 @@ class MainActivity : ComponentActivity() {
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Enable edge-to-edge to properly handle system bars on devices with button navigation
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         
         // Initialize billing manager
         billingManager = BillingManagerFactory.create(this)
+        
+        // Wire up auth token provider for backend verification
+        billingManager.setAuthTokenProvider { authManager.getCachedIdToken() }
+        
         billingManager.initialize {
             // Billing ready - query product details
             lifecycleScope.launch {
@@ -122,46 +133,93 @@ class MainActivity : ComponentActivity() {
                     // Observe auth state
                     val authState by authManager.authState.collectAsStateWithLifecycle()
                     
-                    when (authState) {
-                        is AuthState.Loading -> {
-                            // Show loading while checking auth state
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    color = Color(0xFF6366F1)
+                    // Observe update config from Remote Config
+                    val updateConfig by RemoteConfigManager.updateConfig.collectAsStateWithLifecycle()
+                    
+                    // Check if force update is required
+                    val updateStatus = ForceUpdateChecker.checkUpdateStatus(
+                        currentVersionCode = BuildConfig.VERSION_CODE,
+                        config = updateConfig
+                    )
+                    
+                    // State for showing soft update dialog
+                    var showSoftUpdateDialog by remember { mutableStateOf(false) }
+                    
+                    // Show soft update dialog once per session if needed
+                    LaunchedEffect(updateStatus) {
+                        if (updateStatus == ForceUpdateChecker.UpdateStatus.SOFT_UPDATE && !showSoftUpdateDialog) {
+                            showSoftUpdateDialog = true
+                        }
+                    }
+                    
+                    // Handle update status
+                    when (updateStatus) {
+                        ForceUpdateChecker.UpdateStatus.FORCE_UPDATE -> {
+                            // Show blocking force update dialog
+                            ForceUpdateDialog(
+                                title = updateConfig.forceUpdateTitle,
+                                message = updateConfig.forceUpdateMessage
+                            )
+                        }
+                        ForceUpdateChecker.UpdateStatus.SOFT_UPDATE -> {
+                            // Show soft update dialog (dismissible)
+                            if (showSoftUpdateDialog) {
+                                SoftUpdateDialog(
+                                    onDismiss = { showSoftUpdateDialog = false }
                                 )
                             }
+                            // Continue showing normal app content
+                            AppContent(authState)
                         }
-                        is AuthState.Unauthenticated -> {
-                            // Show login screen
-                            LoginScreen(
-                                authManager = authManager,
-                                onAuthSuccess = { /* State will update automatically via authState flow */ }
-                            )
-                        }
-                        is AuthState.Authenticated -> {
-                            // Show main app with bottom navigation
-                            AppWithBottomNav(
-                                onEnableAccessibility = { openAccessibilitySettings() },
-                                onGrantOverlay = { openOverlaySettings() },
-                                onGrantMicrophone = { requestMicrophonePermission() },
-                                onTestOverlay = { testOverlay() },
-                                onSignOut = { authManager.signOut() },
-                                userEmail = (authState as AuthState.Authenticated).user.email,
-                                onUpgrade = { launchBillingFlow() }
-                            )
-                        }
-                        is AuthState.Error -> {
-                            // Show login screen with error state
-                            LoginScreen(
-                                authManager = authManager,
-                                onAuthSuccess = { /* State will update automatically via authState flow */ }
-                            )
+                        ForceUpdateChecker.UpdateStatus.UP_TO_DATE -> {
+                            // Show normal app content
+                            AppContent(authState)
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    @Composable
+    private fun AppContent(authState: AuthState) {
+        when (authState) {
+            is AuthState.Loading -> {
+                // Show loading while checking auth state
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF6366F1)
+                    )
+                }
+            }
+            is AuthState.Unauthenticated -> {
+                // Show login screen
+                LoginScreen(
+                    authManager = authManager,
+                    onAuthSuccess = { /* State will update automatically via authState flow */ }
+                )
+            }
+            is AuthState.Authenticated -> {
+                // Show main app with bottom navigation
+                AppWithBottomNav(
+                    onEnableAccessibility = { openAccessibilitySettings() },
+                    onGrantOverlay = { openOverlaySettings() },
+                    onGrantMicrophone = { requestMicrophonePermission() },
+                    onTestOverlay = { testOverlay() },
+                    onSignOut = { authManager.signOut() },
+                    userEmail = authState.user.email ?: "",
+                    onUpgrade = { launchBillingFlow() }
+                )
+            }
+            is AuthState.Error -> {
+                // Show login screen with error state
+                LoginScreen(
+                    authManager = authManager,
+                    onAuthSuccess = { /* State will update automatically via authState flow */ }
+                )
             }
         }
     }
@@ -1331,7 +1389,9 @@ fun AppWithBottomNav(
             NavigationBar(
                 containerColor = Color.White,
                 tonalElevation = 8.dp,
-                modifier = Modifier.height(72.dp)
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .height(72.dp)
             ) {
                 BottomNavTab.values().forEach { tab ->
                     NavigationBarItem(
