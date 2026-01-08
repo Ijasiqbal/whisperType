@@ -10,7 +10,10 @@ import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLException
 
 /**
  * WhisperApiClient - Handles communication with the WhisperType transcription API
@@ -34,10 +37,17 @@ class WhisperApiClient {
         private const val TRIAL_STATUS_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/getTrialStatus"
         private const val HEALTH_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/health"
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
-        
+
+        // Retry configuration
+        private const val MAX_RETRIES = 3
+        private const val INITIAL_BACKOFF_MS = 1000L
+        private const val MAX_BACKOFF_MS = 8000L
+        private const val BACKOFF_MULTIPLIER = 2.0
+
         /**
          * Singleton OkHttpClient for efficient connection pooling and resource reuse
          * Using lazy initialization for thread-safe singleton
+         * Includes retry interceptor for handling transient failures
          */
         private val client: OkHttpClient by lazy {
             OkHttpClient.Builder()
@@ -45,10 +55,111 @@ class WhisperApiClient {
                 .readTimeout(Constants.API_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .writeTimeout(Constants.API_WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
+                .addInterceptor(RetryInterceptor(MAX_RETRIES, INITIAL_BACKOFF_MS, BACKOFF_MULTIPLIER, MAX_BACKOFF_MS))
                 .build()
         }
-        
+
         private val gson: Gson by lazy { Gson() }
+
+        /**
+         * Check if an exception is retryable (transient network issue)
+         */
+        private fun isRetryableException(e: Exception): Boolean {
+            return when (e) {
+                is SocketTimeoutException -> true
+                is UnknownHostException -> true
+                is SSLException -> e.message?.contains("Connection reset", ignoreCase = true) == true
+                is IOException -> {
+                    val message = e.message?.lowercase() ?: ""
+                    message.contains("timeout") ||
+                    message.contains("connection reset") ||
+                    message.contains("broken pipe") ||
+                    message.contains("connection refused")
+                }
+                else -> false
+            }
+        }
+
+        /**
+         * Check if a response code is retryable (server-side transient error)
+         */
+        private fun isRetryableResponseCode(code: Int): Boolean {
+            return code == 502 || code == 503 || code == 504 || code == 408
+        }
+    }
+
+    /**
+     * OkHttp Interceptor that implements retry logic with exponential backoff
+     *
+     * Retries on:
+     * - Network failures (timeout, connection reset, etc.)
+     * - Server errors (502, 503, 504, 408)
+     *
+     * Does NOT retry on:
+     * - Client errors (4xx except 408)
+     * - Successful responses (2xx)
+     * - Non-retryable exceptions
+     */
+    private class RetryInterceptor(
+        private val maxRetries: Int,
+        private val initialBackoffMs: Long,
+        private val backoffMultiplier: Double,
+        private val maxBackoffMs: Long
+    ) : Interceptor {
+
+        override fun intercept(chain: Interceptor.Chain): Response {
+            val request = chain.request()
+            var lastException: IOException? = null
+            var lastResponse: Response? = null
+
+            for (attempt in 0..maxRetries) {
+                // Close previous response if retrying
+                lastResponse?.close()
+
+                try {
+                    val response = chain.proceed(request)
+
+                    // Check if response code is retryable
+                    if (isRetryableResponseCode(response.code) && attempt < maxRetries) {
+                        Log.w(TAG, "Retryable response code ${response.code}, attempt ${attempt + 1}/$maxRetries")
+                        response.close()
+                        waitWithBackoff(attempt)
+                        continue
+                    }
+
+                    return response
+
+                } catch (e: IOException) {
+                    lastException = e
+
+                    if (attempt < maxRetries && isRetryableException(e)) {
+                        Log.w(TAG, "Retryable exception: ${e.javaClass.simpleName}, attempt ${attempt + 1}/$maxRetries")
+                        waitWithBackoff(attempt)
+                    } else {
+                        Log.e(TAG, "Non-retryable or max retries reached: ${e.message}")
+                        throw e
+                    }
+                }
+            }
+
+            // If we've exhausted retries, throw the last exception
+            throw lastException ?: IOException("Request failed after $maxRetries retries")
+        }
+
+        private fun waitWithBackoff(attempt: Int) {
+            val backoffMs = (initialBackoffMs * Math.pow(backoffMultiplier, attempt.toDouble()))
+                .toLong()
+                .coerceAtMost(maxBackoffMs)
+
+            Log.d(TAG, "Waiting ${backoffMs}ms before retry")
+
+            try {
+                Thread.sleep(backoffMs)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw IOException("Retry interrupted", e)
+            }
+        }
     }
 
     /**
@@ -296,17 +407,23 @@ class WhisperApiClient {
             }
 
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "Network request failed", e)
-                
+                Log.e(TAG, "Network request failed after retries", e)
+
                 val errorMessage = when {
-                    e.message?.contains("timeout", ignoreCase = true) == true -> 
-                        "Request timed out. Please try again."
-                    e.message?.contains("Unable to resolve host", ignoreCase = true) == true -> 
-                        "No internet connection"
-                    else -> 
-                        "Network error. Please check your connection."
+                    e.message?.contains("timeout", ignoreCase = true) == true ->
+                        "Request timed out. Please check your connection and try again."
+                    e.message?.contains("Unable to resolve host", ignoreCase = true) == true ->
+                        "No internet connection. Please check your network."
+                    e.message?.contains("after $MAX_RETRIES retries", ignoreCase = true) == true ->
+                        "Server temporarily unavailable. Please try again later."
+                    e is SocketTimeoutException ->
+                        "Connection timed out. Please try again."
+                    e is UnknownHostException ->
+                        "No internet connection. Please check your network."
+                    else ->
+                        "Network error. Please check your connection and try again."
                 }
-                
+
                 callback.onError(errorMessage)
             }
         })
@@ -421,12 +538,17 @@ class WhisperApiClient {
             }
             
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "Trial status request failed", e)
-                onError("Network error")
+                Log.e(TAG, "Trial status request failed after retries", e)
+                val errorMessage = when (e) {
+                    is SocketTimeoutException -> "Connection timed out"
+                    is UnknownHostException -> "No internet connection"
+                    else -> "Network error. Please try again."
+                }
+                onError(errorMessage)
             }
         })
     }
-    
+
     /**
      * Verify subscription purchase with backend (Iteration 3)
      * Sends purchase token to backend for Google Play verification
@@ -509,12 +631,17 @@ class WhisperApiClient {
             }
             
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "Subscription verification request failed", e)
-                onError("Network error")
+                Log.e(TAG, "Subscription verification request failed after retries", e)
+                val errorMessage = when (e) {
+                    is SocketTimeoutException -> "Connection timed out"
+                    is UnknownHostException -> "No internet connection"
+                    else -> "Network error. Please try again."
+                }
+                onError(errorMessage)
             }
         })
     }
-    
+
     /**
      * Response for subscription verification
      */

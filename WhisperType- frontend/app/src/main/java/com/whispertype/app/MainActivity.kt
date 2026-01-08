@@ -246,7 +246,7 @@ class MainActivity : ComponentActivity() {
         billingManager.launchPurchaseFlow(
             activity = this,
             onSuccess = {
-                Toast.makeText(this, "🎉 Welcome to VoxType Pro!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Welcome to VoxType Pro!", Toast.LENGTH_LONG).show()
             },
             onError = { errorMessage ->
                 Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
@@ -937,95 +937,7 @@ fun MainScreen(
         }
         
         Spacer(modifier = Modifier.height(16.dp))
-        
-        // TODO: Model selection - temporarily commented out, may need in future
-        /*
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                Text(
-                    text = "Transcription Model",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = "Choose the model for voice transcription:",
-                    fontSize = 14.sp,
-                    color = Color(0xFF64748B)
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Model selector
-                var selectedModel by remember { 
-                    mutableStateOf(ShortcutPreferences.getWhisperModel(context)) 
-                }
-                var expanded by remember { mutableStateOf(false) }
-                
-                Box {
-                    OutlinedButton(
-                        onClick = { expanded = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF1E293B)
-                        )
-                    ) {
-                        Text(
-                            text = selectedModel.displayName,
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Start
-                        )
-                        Text("▼")
-                    }
-                    
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                        modifier = Modifier.fillMaxWidth(0.9f)
-                    ) {
-                        ShortcutPreferences.WhisperModel.values().forEach { model ->
-                            DropdownMenuItem(
-                                text = { Text(model.displayName) },
-                                onClick = {
-                                    selectedModel = model
-                                    ShortcutPreferences.setWhisperModel(context, model)
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = when (selectedModel) {
-                        ShortcutPreferences.WhisperModel.GPT4O_TRANSCRIBE ->
-                            "Standard quality, balanced speed and accuracy"
-                        ShortcutPreferences.WhisperModel.GPT4O_TRANSCRIBE_MINI ->
-                            "Faster processing, optimized for quick transcriptions"
-                    },
-                    fontSize = 12.sp,
-                    color = Color(0xFF94A3B8)
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        */
-        
-        // Test overlay button
+
         // Test overlay button
         Button(
             onClick = onTestOverlay,
