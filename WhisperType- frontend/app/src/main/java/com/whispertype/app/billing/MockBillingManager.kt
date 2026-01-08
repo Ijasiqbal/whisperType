@@ -54,7 +54,7 @@ class MockBillingManager {
         Log.d(TAG, "🧪 Querying mock product details")
         return MockProductDetails(
             productId = "whispertype_pro_monthly",
-            title = "WhisperType Pro (Mock)",
+            title = "VoxType Pro (Mock)",
             price = "₹199.00"
         )
     }

@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">WhisperType</string>
+    <string name="app_name">VoxType</string>
     
     <!-- Accessibility Service -->
-    <string name="accessibility_service_label">WhisperType Voice Input</string>
+    <string name="accessibility_service_label">VoxType Voice Input</string>
     <string name="accessibility_service_description">Provides system-wide voice input via a floating overlay. Enable this service and assign it to the accessibility shortcut to use voice typing in any app.</string>
     <string name="accessibility_service_summary">Voice input overlay for any text field</string>
     
     <!-- Main Activity -->
-    <string name="welcome_title">Welcome to WhisperType</string>
-    <string name="welcome_description">WhisperType lets you type using your voice in any app. Just focus on a text field, trigger the accessibility shortcut, and speak!</string>
+    <string name="welcome_title">Welcome to VoxType</string>
+    <string name="welcome_description">VoxType lets you type using your voice in any app. Just focus on a text field, trigger the accessibility shortcut, and speak!</string>
     
     <string name="setup_title">Setup Required</string>
     <string name="step_accessibility">1. Enable Accessibility Service</string>
-    <string name="step_accessibility_desc">Allow WhisperType to insert text into other apps</string>
+    <string name="step_accessibility_desc">Allow VoxType to insert text into other apps</string>
     <string name="step_overlay">2. Grant Overlay Permission</string>
     <string name="step_overlay_desc">Allow the floating mic button to appear</string>
     <string name="step_microphone">3. Grant Microphone Permission</string>
@@ -44,9 +44,9 @@
     <string name="btn_copy_clipboard">Copy to Clipboard</string>
     
     <!-- Notifications -->
-    <string name="notification_channel_name">WhisperType Overlay</string>
+    <string name="notification_channel_name">VoxType Overlay</string>
     <string name="notification_channel_description">Shows when voice input overlay is active</string>
-    <string name="notification_title">WhisperType Active</string>
+    <string name="notification_title">VoxType Active</string>
     <string name="notification_text">Tap to open app</string>
     
     <!-- Errors -->

@@ -5,6 +5,9 @@
 # Android Framework & Services
 # ============================================================
 
+# Keep MainActivity (launcher activity - required for app to launch)
+-keep class com.whispertype.app.MainActivity { *; }
+
 # Keep accessibility service (required for Android system)
 -keep class com.whispertype.app.service.WhisperTypeAccessibilityService { *; }
 

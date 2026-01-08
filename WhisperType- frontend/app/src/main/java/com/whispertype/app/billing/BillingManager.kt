@@ -2,10 +2,13 @@ package com.whispertype.app.billing
 
 import android.app.Activity
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.android.billingclient.api.*
 import com.android.billingclient.api.BillingClient.BillingResponseCode
 import com.whispertype.app.api.WhisperApiClient
+import com.whispertype.app.data.UsageDataManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +29,9 @@ class BillingManager(private val context: Context) {
     
     private var billingClient: BillingClient? = null
     private var productDetails: ProductDetails? = null
+    
+    // Handler to ensure callbacks run on the main thread (required for Toast, UI updates)
+    private val mainHandler = Handler(Looper.getMainLooper())
     
     // Callback to invoke on successful purchase
     private var pendingSuccessCallback: (() -> Unit)? = null
@@ -235,6 +241,7 @@ class BillingManager(private val context: Context) {
                     onSuccess = {
                         _isProUser.value = true
                         _subscriptionStatus.value = SubscriptionStatus.Active
+                        // Note: UsageDataManager is updated by WhisperApiClient.verifySubscription
                         pendingSuccessCallback?.invoke()
                         pendingSuccessCallback = null
                     },
@@ -243,6 +250,13 @@ class BillingManager(private val context: Context) {
                         // Still set Pro locally (will be verified on next app launch)
                         _isProUser.value = true
                         _subscriptionStatus.value = SubscriptionStatus.Active
+                        // IMPORTANT: Also update UsageDataManager so OverlayService recognizes Pro status
+                        UsageDataManager.updateProStatus(
+                            proSecondsUsed = 0,
+                            proSecondsRemaining = 9000,  // Default 150 minutes
+                            proSecondsLimit = 9000,
+                            proResetDateMs = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)  // ~30 days
+                        )
                         pendingSuccessCallback?.invoke()
                         pendingSuccessCallback = null
                     }
@@ -277,11 +291,17 @@ class BillingManager(private val context: Context) {
             productId = productId,
             onSuccess = { _, _, _ ->
                 Log.d(TAG, "Backend verification successful")
-                onSuccess()
+                // Post to main thread - callbacks may show Toast or update UI
+                mainHandler.post {
+                    onSuccess()
+                }
             },
             onError = { error ->
                 Log.e(TAG, "Backend verification error: $error")
-                onError(error)
+                // Post to main thread - callbacks may show Toast or update UI
+                mainHandler.post {
+                    onError(error)
+                }
             }
         )
     }

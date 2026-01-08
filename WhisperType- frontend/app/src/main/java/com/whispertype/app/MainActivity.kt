@@ -20,9 +20,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -33,6 +37,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -72,6 +79,7 @@ import com.whispertype.app.util.MiuiHelper
 import com.whispertype.app.util.ForceUpdateChecker
 import com.whispertype.app.ui.components.ForceUpdateDialog
 import com.whispertype.app.ui.components.SoftUpdateDialog
+import com.whispertype.app.ui.components.AccessibilityDisclosureDialog
 
 /**
  * MainActivity - Onboarding and permission setup screen
@@ -238,7 +246,7 @@ class MainActivity : ComponentActivity() {
         billingManager.launchPurchaseFlow(
             activity = this,
             onSuccess = {
-                Toast.makeText(this, "🎉 Welcome to WhisperType Pro!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "🎉 Welcome to VoxType Pro!", Toast.LENGTH_LONG).show()
             },
             onError = { errorMessage ->
                 Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
@@ -250,7 +258,7 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
         startActivity(intent)
-        Toast.makeText(this, "Find and enable 'WhisperType Voice Input'", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Find and enable 'VoxType Voice Input'", Toast.LENGTH_LONG).show()
     }
     
     private fun openOverlaySettings() {
@@ -372,6 +380,9 @@ fun MainScreen(
     // State for showing MIUI setup dialog
     var showMiuiSetupDialog by remember { mutableStateOf(false) }
     
+    // State for showing accessibility disclosure dialog (Google Play compliance)
+    var showAccessibilityDisclosureDialog by remember { mutableStateOf(false) }
+    
     // Check if this is a MIUI device and show prompt if needed
     val isMiuiDevice = remember { MiuiHelper.isMiuiDevice() }
     var showMiuiCard by remember { mutableStateOf(MiuiHelper.shouldShowSetupPrompt(context)) }
@@ -474,7 +485,7 @@ fun MainScreen(
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_microphone),
-                    contentDescription = "WhisperType Icon",
+                    contentDescription = "VoxType Icon",
                     tint = Color.White,
                     modifier = Modifier.size(50.dp)
                 )
@@ -493,7 +504,7 @@ fun MainScreen(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "WhisperType",
+                    text = "VoxType",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E293B)
@@ -600,11 +611,14 @@ fun MainScreen(
                     description = "Required to insert text into other apps",
                     isGranted = isAccessibilityEnabled,
                     buttonText = if (isAccessibilityEnabled) "Enabled" else "Enable",
-                    onClick = onEnableAccessibility,
+                    onClick = { 
+                        android.util.Log.d("AccessibilityDisclosure", "Enable button clicked, showing disclosure dialog")
+                        showAccessibilityDisclosureDialog = true 
+                    },
                     enabled = !isAccessibilityEnabled
                 )
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 // Step 2: Overlay Permission
                 PermissionStep(
@@ -617,7 +631,7 @@ fun MainScreen(
                     enabled = !isOverlayGranted
                 )
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 // Step 3: Microphone Permission
                 PermissionStep(
@@ -632,9 +646,50 @@ fun MainScreen(
             }
         }
         
+        // MIUI-specific setup card (only shown on Xiaomi/Redmi/POCO devices)
+        if (showMiuiCard && isMiuiDevice) {
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Text(
+                        text = "MIUI Setup Required",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1E293B)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // AutoStart permission step
+                    PermissionStep(
+                        stepNumber = 1,
+                        title = "Enable AutoStart",
+                        description = "Keeps VoxType running in the background",
+                        isGranted = false,
+                        buttonText = "Enable",
+                        onClick = { 
+                            MiuiHelper.openAutoStartSettings(context)
+                            MiuiHelper.markSetupPromptShown(context)
+                        },
+                        enabled = true
+                    )
+                }
+            }
+        }
+        
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Advanced Settings (Optional)
+        // Advanced Settings (Collapsible Accordion)
+        var isAdvancedSettingsExpanded by remember { mutableStateOf(false) }
+        
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -644,215 +699,150 @@ fun MainScreen(
             Column(
                 modifier = Modifier.padding(20.dp)
             ) {
+                // Clickable Header (Accordion Toggle)
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Advanced Settings",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1E293B)
-                    )
-                    
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFF1F5F9) // Slate-100
-                    ) {
-                        Text(
-                            text = "OPTIONAL",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF64748B), // Slate-500
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Divider(color = Color(0xFFE2E8F0))
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Foreground Service Toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isAdvancedSettingsExpanded = !isAdvancedSettingsExpanded }
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Troubleshooting",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF1E293B)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFF1F5F9) // Slate-100
+                            ) {
+                                Text(
+                                    text = "OPTIONAL",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF64748B), // Slate-500
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Keep Service Alive",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1E293B)
-                        )
-                        Text(
-                            text = "Shows a persistent notification",
+                            text = "Only if the shortcut stops responding",
                             fontSize = 12.sp,
                             color = Color(0xFF64748B)
                         )
                     }
                     
-                    Switch(
-                        checked = isForegroundServiceEnabled,
-                        onCheckedChange = { newValue ->
-                            if (newValue) {
-                                // Show explanation dialog before enabling
-                                showForegroundServiceDialog = true
-                            } else {
-                                // Disable immediately
-                                isForegroundServiceEnabled = false
-                                context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
-                                    .edit()
-                                    .putBoolean("foreground_service_enabled", false)
-                                    .apply()
-                                WhisperTypeAccessibilityService.instance?.refreshForegroundMode()
-                                Toast.makeText(context, "Foreground service disabled", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFF6366F1),
-                            checkedTrackColor = Color(0xFFE0E7FF)
-                        )
+                    Icon(
+                        imageVector = if (isAdvancedSettingsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        contentDescription = if (isAdvancedSettingsExpanded) "Collapse" else "Expand",
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(24.dp)
                     )
                 }
                 
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Battery Optimization Exemption
-                OutlinedButton(
-                    onClick = { showBatteryOptimizationDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF64748B)
-                    )
+                // Expandable Content
+                AnimatedVisibility(
+                    visible = isAdvancedSettingsExpanded,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Info,
-                            contentDescription = "Battery Optimization",
-                            tint = Color(0xFF64748B),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(
-                            horizontalAlignment = Alignment.Start,
-                            modifier = Modifier.weight(1f)
+                    Column {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Divider(color = Color(0xFFE2E8F0))
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // Foreground Service Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Disable Battery Optimization",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Prevents Android from putting the service to sleep",
-                                fontSize = 11.sp,
-                                color = Color(0xFF64748B)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Keep Service Alive",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF1E293B)
+                                )
+                                Text(
+                                    text = "Shows a persistent notification",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                            
+                            Switch(
+                                checked = isForegroundServiceEnabled,
+                                onCheckedChange = { newValue ->
+                                    if (newValue) {
+                                        // Show explanation dialog before enabling
+                                        showForegroundServiceDialog = true
+                                    } else {
+                                        // Disable immediately
+                                        isForegroundServiceEnabled = false
+                                        context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+                                            .edit()
+                                            .putBoolean("foreground_service_enabled", false)
+                                            .apply()
+                                        WhisperTypeAccessibilityService.instance?.refreshForegroundMode()
+                                        Toast.makeText(context, "Foreground service disabled", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFF6366F1),
+                                    checkedTrackColor = Color(0xFFE0E7FF)
+                                )
                             )
                         }
-                    }
-                }
-            }
-        }
-        
-        // MIUI-specific settings card (only shown on Xiaomi/Redmi/POCO devices)
-        if (showMiuiCard && isMiuiDevice) {
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)), // Orange-50
-                border = BorderStroke(1.dp, Color(0xFFFED7AA)) // Orange-200
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "⚠️",
-                            fontSize = 20.sp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "MIUI Device Detected",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFFC2410C) // Orange-700
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "Xiaomi/Redmi/POCO devices require additional setup to prevent the system from killing WhisperType in the background.",
-                        fontSize = 13.sp,
-                        color = Color(0xFF9A3412) // Orange-800
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    // AutoStart button
-                    Button(
-                        onClick = { 
-                            MiuiHelper.openAutoStartSettings(context)
-                            MiuiHelper.markSetupPromptShown(context)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFEA580C) // Orange-600
-                        )
-                    ) {
-                        Text("Enable AutoStart", fontWeight = FontWeight.Medium)
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Battery Settings button
-                    OutlinedButton(
-                        onClick = { 
-                            MiuiHelper.openBatterySettings(context)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFEA580C) // Orange-600
-                        ),
-                        border = BorderStroke(1.dp, Color(0xFFFDBA74)) // Orange-300
-                    ) {
-                        Text("Battery Settings → No Restrictions", fontWeight = FontWeight.Medium)
-                    }
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    // Dismiss option
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(
-                            onClick = {
-                                MiuiHelper.markSetupDismissed(context)
-                                showMiuiCard = false
-                            }
-                        ) {
-                            Text(
-                                "Don't show again",
-                                fontSize = 12.sp,
-                                color = Color(0xFF9A3412)
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // Battery Optimization Exemption
+                        OutlinedButton(
+                            onClick = { showBatteryOptimizationDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF64748B)
                             )
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Info,
+                                    contentDescription = "Battery Optimization",
+                                    tint = Color(0xFF64748B),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(
+                                    horizontalAlignment = Alignment.Start,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = "Disable Battery Optimization",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Prevents Android from putting the service to sleep",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF64748B)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -881,7 +871,7 @@ fun MainScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Choose how to activate WhisperType:",
+                    text = "Choose how to activate VoxType:",
                     fontSize = 14.sp,
                     color = Color(0xFF64748B)
                 )
@@ -948,7 +938,8 @@ fun MainScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Model selection
+        // TODO: Model selection - temporarily commented out, may need in future
+        /*
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -1032,6 +1023,7 @@ fun MainScreen(
         }
         
         Spacer(modifier = Modifier.height(16.dp))
+        */
         
         // Test overlay button
         // Test overlay button
@@ -1044,6 +1036,20 @@ fun MainScreen(
             )
         ) {
             Text("Test Overlay", fontSize = 16.sp)
+        }
+        
+        // Accessibility Disclosure Dialog (Google Play compliance)
+        if (showAccessibilityDisclosureDialog) {
+            android.util.Log.d("AccessibilityDisclosure", "Dialog is being rendered, showAccessibilityDisclosureDialog=true")
+            AccessibilityDisclosureDialog(
+                onContinue = {
+                    showAccessibilityDisclosureDialog = false
+                    onEnableAccessibility()
+                },
+                onDismiss = {
+                    showAccessibilityDisclosureDialog = false
+                }
+            )
         }
         
         // Foreground Service Explanation Dialog
@@ -1059,7 +1065,7 @@ fun MainScreen(
                 text = {
                     Column {
                         Text(
-                            text = "This feature keeps WhisperType running in the background by showing a persistent notification.",
+                            text = "This feature keeps VoxType running in the background by showing a persistent notification.",
                             fontSize = 14.sp,
                             color = Color(0xFF475569)
                         )
@@ -1171,7 +1177,7 @@ fun MainScreen(
                 text = {
                     Column {
                         Text(
-                            text = "This setting prevents Android from putting WhisperType to sleep to save battery.",
+                            text = "This setting prevents Android from putting VoxType to sleep to save battery.",
                             fontSize = 14.sp,
                             color = Color(0xFF475569)
                         )
@@ -1184,7 +1190,7 @@ fun MainScreen(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "• WhisperType can run in the background without restrictions",
+                            text = "• VoxType can run in the background without restrictions",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
@@ -1454,7 +1460,7 @@ fun AppWithBottomNav(
                                     context.startActivity(intent)
                                     Toast.makeText(
                                         context,
-                                        "Please allow WhisperType to run unrestricted",
+                                        "Please allow VoxType to run unrestricted",
                                         Toast.LENGTH_LONG
                                     ).show()
                                 } else {
@@ -1495,9 +1501,24 @@ fun AppWithBottomNav(
                     )
                 }
                 BottomNavTab.PROFILE -> {
+                    val context = LocalContext.current
                     ProfileScreen(
                         userEmail = userEmail,
-                        onSignOut = onSignOut
+                        onSignOut = onSignOut,
+                        onManageSubscription = {
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse(
+                                        "https://play.google.com/store/account/subscriptions" +
+                                        "?sku=whispertype_pro_monthly&package=${context.packageName}"
+                                    )
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                android.util.Log.e("MainActivity", "Failed to open subscriptions", e)
+                                Toast.makeText(context, "Could not open subscriptions", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     )
                 }
             }
@@ -1543,12 +1564,15 @@ fun PermissionStep(
             Text(
                 text = title,
                 fontSize = 14.sp,
+                lineHeight = 18.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF1E293B)
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
                 fontSize = 12.sp,
+                lineHeight = 16.sp,
                 color = Color(0xFF94A3B8)
             )
         }
@@ -1556,7 +1580,7 @@ fun PermissionStep(
         Button(
             onClick = onClick,
             enabled = enabled,
-            modifier = Modifier.height(36.dp),
+            modifier = Modifier.height(36.dp).padding(start = 8.dp),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isGranted) Color(0xFF10B981) else Color(0xFF6366F1),

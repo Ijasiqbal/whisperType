@@ -16,8 +16,8 @@ android {
         // - TYPE_PHONE window type fallback for API 24-25
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.4"
+        versionCode = 8
+        versionName = "1.0.8"
 
         vectorDrawables {
             useSupportLibrary = true

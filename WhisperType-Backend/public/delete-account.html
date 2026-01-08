@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoxType - Delete Account</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .warning-box h3 {
+            color: #856404;
+            font-size: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .warning-box ul {
+            margin-left: 20px;
+            color: #856404;
+            font-size: 14px;
+        }
+
+        .warning-box li {
+            margin-bottom: 6px;
+        }
+
+        /* Google Sign-In Button */
+        .google-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 50px;
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 300px;
+            margin-bottom: 20px;
+        }
+
+        .google-btn:hover {
+            border-color: #4285f4;
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.2);
+        }
+
+        .google-btn img {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Delete Button */
+        .delete-btn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            border: none;
+            border-radius: 50px;
+            padding: 16px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 300px;
+            display: none;
+        }
+
+        .delete-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.4);
+        }
+
+        .delete-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* User Info */
+        .user-info {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .user-info.visible {
+            display: block;
+        }
+
+        .user-email {
+            font-weight: 600;
+            color: #333;
+            word-break: break-all;
+        }
+
+        .user-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        /* Status Messages */
+        .status {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            display: none;
+            font-weight: 500;
+        }
+
+        .status.visible {
+            display: block;
+        }
+
+        .status.error {
+            background: #fee;
+            color: #c00;
+            border: 1px solid #fcc;
+        }
+
+        .status.success {
+            background: #efe;
+            color: #080;
+            border: 1px solid #cfc;
+        }
+
+        .status.loading {
+            background: #eef;
+            color: #448;
+            border: 1px solid #ccf;
+        }
+
+        /* Cancel/Signout link */
+        .signout-link {
+            color: #888;
+            font-size: 14px;
+            text-decoration: none;
+            cursor: pointer;
+            margin-top: 15px;
+            display: inline-block;
+        }
+
+        .signout-link:hover {
+            color: #667eea;
+        }
+
+        footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #999;
+            font-size: 12px;
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ccc;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="logo">🎙️</div>
+        <h1>Delete Your Account</h1>
+        <p class="subtitle">VoxType Account Deletion</p>
+
+        <!-- Warning Box -->
+        <div class="warning-box">
+            <h3>⚠️ This action is permanent</h3>
+            <ul>
+                <li>Your account will be permanently deleted</li>
+                <li>All usage data and transcription logs will be removed</li>
+                <li>Active subscriptions will be cancelled</li>
+                <li>This cannot be undone</li>
+            </ul>
+        </div>
+
+        <!-- User Info (shown after sign-in) -->
+        <div class="user-info" id="userInfo">
+            <div class="user-label">Signed in as</div>
+            <div class="user-email" id="userEmail"></div>
+        </div>
+
+        <!-- Status Messages -->
+        <div class="status" id="status"></div>
+
+        <!-- Buttons -->
+        <div id="signInSection">
+            <button class="google-btn" id="googleSignInBtn" onclick="signIn()">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                Sign in with Google
+            </button>
+            <p style="color: #888; font-size: 13px;">Sign in to verify your identity before deleting</p>
+        </div>
+
+        <div id="deleteSection" class="hidden">
+            <button class="delete-btn" id="deleteBtn" onclick="confirmDelete()">
+                Delete My Account
+            </button>
+            <br>
+            <a class="signout-link" onclick="signOut()">Cancel / Sign out</a>
+        </div>
+
+        <footer>
+            <p>&copy; 2026 VoxType</p>
+            <p><a href="mailto:support@voxtype.com">Contact Support</a></p>
+        </footer>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyACkw6sTc0UpI8TSVaY7Taxc3G7iBP5AAQ",
+            authDomain: "whispertype-1de9f.firebaseapp.com",
+            projectId: "whispertype-1de9f",
+            storageBucket: "whispertype-1de9f.firebasestorage.app",
+            messagingSenderId: "133972345346",
+            appId: "1:133972345346:android:9d55422c8dbb53ce041d1b"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // API endpoint
+        const DELETE_ENDPOINT = 'https://deleteaccount-35dvue2fxa-uc.a.run.app';
+
+        // DOM elements
+        const signInSection = document.getElementById('signInSection');
+        const deleteSection = document.getElementById('deleteSection');
+        const userInfo = document.getElementById('userInfo');
+        const userEmail = document.getElementById('userEmail');
+        const statusDiv = document.getElementById('status');
+        const deleteBtn = document.getElementById('deleteBtn');
+
+        // Listen for auth state changes
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                showDeleteSection(user);
+            } else {
+                showSignInSection();
+            }
+        });
+
+        function showSignInSection() {
+            signInSection.classList.remove('hidden');
+            deleteSection.classList.add('hidden');
+            userInfo.classList.remove('visible');
+            hideStatus();
+        }
+
+        function showDeleteSection(user) {
+            signInSection.classList.add('hidden');
+            deleteSection.classList.remove('hidden');
+            userInfo.classList.add('visible');
+            userEmail.textContent = user.email || user.uid;
+            deleteBtn.style.display = 'inline-block';
+        }
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = 'status visible ' + type;
+        }
+
+        function hideStatus() {
+            statusDiv.className = 'status';
+        }
+
+        async function signIn() {
+            const btn = document.getElementById('googleSignInBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Signing in...';
+
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                console.error('Sign-in error:', error);
+                showStatus('Sign-in failed: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">Sign in with Google';
+            }
+        }
+
+        function signOut() {
+            auth.signOut();
+            hideStatus();
+        }
+
+        function confirmDelete() {
+            const confirmed = confirm(
+                '⚠️ FINAL WARNING ⚠️\n\n' +
+                'You are about to permanently delete your VoxType account.\n\n' +
+                '• All your data will be deleted\n' +
+                '• This action CANNOT be undone\n' +
+                '• You will need to create a new account to use VoxType again\n\n' +
+                'Are you absolutely sure?'
+            );
+
+            if (confirmed) {
+                deleteAccount();
+            }
+        }
+
+        async function deleteAccount() {
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = '<span class="spinner"></span>Deleting...';
+            showStatus('Deleting your account...', 'loading');
+
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    throw new Error('Not signed in');
+                }
+
+                // Get fresh ID token
+                const idToken = await user.getIdToken(true);
+
+                // Call delete endpoint
+                const response = await fetch(DELETE_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + idToken
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showStatus('✓ Your account has been successfully deleted.', 'success');
+                    deleteSection.classList.add('hidden');
+                    userInfo.classList.remove('visible');
+
+                    // Show final message
+                    setTimeout(() => {
+                        showStatus('Your account and all data have been permanently deleted. You can close this page.', 'success');
+                    }, 2000);
+                } else {
+                    throw new Error(data.error || data.message || 'Failed to delete account');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                showStatus('Error: ' + error.message, 'error');
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = 'Delete My Account';
+            }
+        }
+    </script>
+</body>
+
+</html>
