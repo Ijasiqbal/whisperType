@@ -390,7 +390,7 @@ fun LoginScreen(
                     enabled = !isLoading
                 ) {
                     Text(
-                        text = "👤 Continue as Guest",
+                        text = "Continue as Guest",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFF64748B)

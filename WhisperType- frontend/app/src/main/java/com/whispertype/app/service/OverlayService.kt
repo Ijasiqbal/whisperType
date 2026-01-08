@@ -625,7 +625,7 @@ class OverlayService : Service() {
             UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> {
                 Toast.makeText(
                     this,
-                    "⚠️ You're almost out of free trial minutes!",
+                    "You're almost out of free trial minutes!",
                     Toast.LENGTH_SHORT
                 ).show()
             }

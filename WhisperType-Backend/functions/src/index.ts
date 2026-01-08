@@ -7,17 +7,17 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-import { setGlobalOptions } from "firebase-functions";
+import {setGlobalOptions} from "firebase-functions";
 
 import * as functions from "firebase-functions";
-import { onRequest } from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import OpenAI from "openai";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { google } from "googleapis";
+import {google} from "googleapis";
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -462,8 +462,8 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
       const inferredPlan = (userData.proSubscription?.status === "active") ?
         "pro" : "free";
       logger.info(`Fixing missing plan for ${uid}: setting to ${inferredPlan}`);
-      await userRef.update({ plan: inferredPlan });
-      return { ...userData, plan: inferredPlan };
+      await userRef.update({plan: inferredPlan});
+      return {...userData, plan: inferredPlan};
     }
 
     return userData;
@@ -736,7 +736,7 @@ async function getTotalLifetimeUsage(uid: string): Promise<number> {
 // functions should each use functions.runWith({ maxInstances: 10 }) instead.
 // In the v1 API, each function can only serve one request per container, so
 // this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+setGlobalOptions({maxInstances: 10});
 
 // export const helloWorld = onRequest((request, response) => {
 //   logger.info("Hello logs!", {structuredData: true});
@@ -764,7 +764,7 @@ export const health = onRequest((request, response) => {
  * Response: { text: string, minutesUsed: number, totalUsedThisMonth: number }
  */
 export const transcribeAudio = onRequest(
-  { secrets: ["OPENAI_API_KEY"] },
+  {secrets: ["OPENAI_API_KEY"]},
   async (request, response) => {
     const startTime = Date.now();
     let uid: string | null = null;
@@ -889,9 +889,9 @@ export const transcribeAudio = onRequest(
           } : undefined,
           proStatus: (userPlan === "pro" || hasProSubscription) &&
             user.proSubscription ? {
-            proSecondsRemaining: 0,
-            resetDateMs: user.proSubscription.currentPeriodEnd.toMillis(),
-          } : undefined,
+              proSecondsRemaining: 0,
+              resetDateMs: user.proSubscription.currentPeriodEnd.toMillis(),
+            } : undefined,
           // Include Pro plan info for upgrade flow
           proPlanEnabled: limits.proPlanEnabled,
         });
@@ -1132,7 +1132,7 @@ export const getTrialStatus = onRequest(async (request, response) => {
         freeSecondsUsed: lifetimeUsage,
       });
       // Update local user object for response
-      user = { ...user, freeSecondsUsed: lifetimeUsage };
+      user = {...user, freeSecondsUsed: lifetimeUsage};
     }
 
     // Fetch trial limits and check status
@@ -1201,7 +1201,8 @@ export const getSubscriptionStatus = onRequest(async (request, response) => {
         proSecondsRemaining: proStatus.proSecondsRemaining,
         proSecondsLimit: proStatus.proSecondsLimit,
         resetDateMs: proStatus.currentPeriodEndMs,
-        subscriptionStartDateMs: user.proSubscription?.startDate?.toMillis() ?? null,
+        subscriptionStartDateMs:
+          user.proSubscription?.startDate?.toMillis() ?? null,
         subscriptionStatus: user.proSubscription?.status ?? "active",
         // For backward compatibility
         status: proStatus.isActive ? "active" : "expired",
@@ -1248,7 +1249,7 @@ export const getSubscriptionStatus = onRequest(async (request, response) => {
  * Response: { success: boolean, plan: string, proStatus: {...} }
  */
 export const verifySubscription = onRequest(
-  { secrets: ["GOOGLE_PLAY_KEY"] },
+  {secrets: ["GOOGLE_PLAY_KEY"]},
   async (request, response) => {
     try {
       // Only allow POST requests
@@ -1272,7 +1273,7 @@ export const verifySubscription = onRequest(
       logger.info(`Verifying subscription for user: ${uid}`);
 
       // Validate request body
-      const { purchaseToken, productId } = request.body;
+      const {purchaseToken, productId} = request.body;
       if (!purchaseToken || !productId) {
         response.status(400).json({
           error: "Missing purchaseToken or productId",
@@ -1414,7 +1415,7 @@ export const verifySubscription = onRequest(
           plan: "pro",
           proSubscription: proSubscription,
         },
-        { merge: true }
+        {merge: true}
       );
 
       logger.info(
@@ -1451,8 +1452,15 @@ export const verifySubscription = onRequest(
  */
 export const deleteAccount = functions.https.onRequest(
   async (request, response) => {
-    // CORS Headers
-    response.set("Access-Control-Allow-Origin", "*");
+    // CORS Headers - restrict to app requests only
+    const allowedOrigins = [
+      "https://whispertype-1de9f.web.app",
+      "https://whispertype-1de9f.firebaseapp.com",
+    ];
+    const origin = request.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+      response.set("Access-Control-Allow-Origin", origin);
+    }
     response.set("Access-Control-Allow-Methods", "POST, OPTIONS");
     response.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 

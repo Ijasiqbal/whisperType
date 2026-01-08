@@ -366,7 +366,6 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
                     lastVolumeUpTime = 0
                     lastVolumeDownTime = 0
                     Log.d(TAG, "BOTH_MODE: TRIGGERING OVERLAY!")
-                    Toast.makeText(this, "Both buttons detected!", Toast.LENGTH_SHORT).show()
                     toggleOverlay()
                     return true
                 } else {
