@@ -96,7 +96,8 @@ object UsageDataManager {
         val proSecondsUsed: Int = 0,
         val proSecondsRemaining: Int = 9000,    // 150 minutes default
         val proSecondsLimit: Int = 9000,
-        val proResetDateMs: Long = 0            // Next monthly reset date
+        val proResetDateMs: Long = 0,           // Next monthly reset date
+        val proSubscriptionStartDateMs: Long = 0 // When user first subscribed (for "Member since")
     ) {
         /**
          * Whether user is on Pro plan
@@ -268,7 +269,8 @@ object UsageDataManager {
         proSecondsUsed: Int,
         proSecondsRemaining: Int,
         proSecondsLimit: Int,
-        proResetDateMs: Long
+        proResetDateMs: Long,
+        proSubscriptionStartDateMs: Long? = null
     ) {
         _usageState.value = _usageState.value.copy(
             isLoading = false,
@@ -277,6 +279,7 @@ object UsageDataManager {
             proSecondsRemaining = proSecondsRemaining,
             proSecondsLimit = proSecondsLimit,
             proResetDateMs = proResetDateMs,
+            proSubscriptionStartDateMs = proSubscriptionStartDateMs ?: _usageState.value.proSubscriptionStartDateMs,
             lastUpdated = System.currentTimeMillis()
         )
     }
@@ -296,7 +299,8 @@ object UsageDataManager {
         // Pro-specific
         proSecondsUsed: Int? = null,
         proSecondsLimit: Int? = null,
-        resetDateMs: Long? = null
+        resetDateMs: Long? = null,
+        subscriptionStartDateMs: Long? = null
     ) {
         val currentPlan = Plan.fromString(plan)
         
@@ -314,6 +318,7 @@ object UsageDataManager {
             proSecondsRemaining = if (currentPlan == Plan.PRO) secondsRemaining else _usageState.value.proSecondsRemaining,
             proSecondsLimit = proSecondsLimit ?: _usageState.value.proSecondsLimit,
             proResetDateMs = resetDateMs ?: _usageState.value.proResetDateMs,
+            proSubscriptionStartDateMs = subscriptionStartDateMs ?: _usageState.value.proSubscriptionStartDateMs,
             lastUpdated = System.currentTimeMillis()
         )
     }

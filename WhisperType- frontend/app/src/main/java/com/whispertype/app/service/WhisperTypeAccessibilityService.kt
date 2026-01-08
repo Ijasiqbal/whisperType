@@ -401,7 +401,7 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
             Log.w(TAG, "Overlay permission not granted")
             Toast.makeText(
                 this, 
-                "Overlay permission required. Open WhisperType app to grant it.",
+                "Overlay permission required. Open VoxType app to grant it.",
                 Toast.LENGTH_LONG
             ).show()
             return
@@ -609,10 +609,10 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "WhisperType Service",
+                "VoxType Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Keeps WhisperType accessibility service running"
+                description = "Keeps VoxType accessibility service running"
                 setShowBadge(false)
             }
             
@@ -633,7 +633,7 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         )
         
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("WhisperType is active")
+            .setContentTitle("VoxType is active")
             .setContentText("Ready for voice input shortcuts")
             .setSmallIcon(R.drawable.ic_microphone)
             .setContentIntent(pendingIntent)

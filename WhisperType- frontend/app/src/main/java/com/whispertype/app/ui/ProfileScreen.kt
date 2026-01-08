@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,12 +39,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * ProfileScreen - Displays user profile, usage statistics, and trial info
+ * ProfileScreen - Displays user profile, usage statistics, and trial/pro info
  */
 @Composable
 fun ProfileScreen(
     userEmail: String?,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    onManageSubscription: () -> Unit = {}
 ) {
     val usageState by UsageDataManager.usageState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
@@ -114,7 +117,7 @@ fun ProfileScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Animated User email
+        // Animated User email and PRO badge
         AnimatedVisibility(
             visible = isVisible,
             enter = fadeIn(animationSpec = tween(150, delayMillis = 30)) + slideInHorizontally(
@@ -122,13 +125,48 @@ fun ProfileScreen(
                 initialOffsetX = { -25 }
             )
         ) {
-            if (userEmail != null) {
-                Text(
-                    text = userEmail,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF1E293B)
-                )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (userEmail != null) {
+                    Text(
+                        text = userEmail,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1E293B)
+                    )
+                }
+                
+                // PRO Member badge (only for PRO users)
+                if (usageState.isProUser) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        Color(0xFF6366F1),
+                                        Color(0xFF8B5CF6)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = "PRO",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "PRO Member",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                    }
+                }
             }
         }
         
@@ -143,8 +181,12 @@ fun ProfileScreen(
             )
         ) {
             Column {
-                // Trial Status Card
-                TrialStatusCard(usageState)
+                // Show Pro Status Card for PRO users, Trial Status Card for free users
+                if (usageState.isProUser) {
+                    ProStatusCard(usageState, onManageSubscription)
+                } else {
+                    TrialStatusCard(usageState)
+                }
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -497,5 +539,202 @@ private fun formatTimestamp(timestamp: Long): String {
  */
 private fun formatTrialExpiry(timestampMs: Long): String {
     val formatter = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    return formatter.format(Date(timestampMs))
+}
+
+/**
+ * PRO Status Card - Shows PRO subscription info with premium styling
+ */
+@Composable
+private fun ProStatusCard(
+    usageState: UsageDataManager.UsageState,
+    onManageSubscription: () -> Unit
+) {
+    val proMinutesUsed = usageState.proSecondsUsed / 60
+    val proMinutesLimit = usageState.proSecondsLimit / 60
+    val proMinutesRemaining = usageState.proSecondsRemaining / 60
+    val usagePercentage = if (usageState.proSecondsLimit > 0) {
+        (usageState.proSecondsUsed.toFloat() / usageState.proSecondsLimit.toFloat())
+    } else 0f
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF6366F1),
+                            Color(0xFF8B5CF6)
+                        )
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "PRO Subscription",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.9f)
+                    )
+                    
+                    // Active badge
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = Color(0xFF10B981).copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "Active",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF10B981)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Usage progress bar
+                @Suppress("DEPRECATION")
+                LinearProgressIndicator(
+                    progress = usagePercentage.coerceIn(0f, 1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = Color.White,
+                    trackColor = Color.White.copy(alpha = 0.3f)
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Usage text
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "$proMinutesUsed / $proMinutesLimit min used",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "$proMinutesRemaining min left",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Divider(color = Color.White.copy(alpha = 0.2f))
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Reset date countdown
+                if (usageState.proResetDateMs > 0) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DateRange,
+                            contentDescription = "Reset date",
+                            tint = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = getResetCountdown(usageState.proResetDateMs),
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                    }
+                }
+                
+                // Member since
+                if (usageState.proSubscriptionStartDateMs > 0) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = "Member since",
+                            tint = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Member since ${formatMemberSince(usageState.proSubscriptionStartDateMs)}",
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Manage subscription button
+                OutlinedButton(
+                    onClick = onManageSubscription,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.White
+                    ),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.5f), Color.White.copy(alpha = 0.5f)))
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = "Manage",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Manage Subscription",
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Calculate reset countdown text
+ */
+private fun getResetCountdown(resetDateMs: Long): String {
+    val now = System.currentTimeMillis()
+    val daysRemaining = ((resetDateMs - now) / (24 * 60 * 60 * 1000)).toInt()
+    return when {
+        daysRemaining <= 0 -> "Resets today"
+        daysRemaining == 1 -> "Resets tomorrow"
+        else -> "Resets in $daysRemaining days"
+    }
+}
+
+/**
+ * Format member since date
+ */
+private fun formatMemberSince(timestampMs: Long): String {
+    val formatter = SimpleDateFormat("MMM yyyy", Locale.getDefault())
     return formatter.format(Date(timestampMs))
 }

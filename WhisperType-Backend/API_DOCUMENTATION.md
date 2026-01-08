@@ -333,6 +333,128 @@ All requests are logged to the `transcriptions` collection with:
 
 ---
 
+### 3. Delete Account
+
+Delete user account and all associated data.
+
+**Endpoint:** `POST /deleteAccount`
+
+**URL:**
+```
+https://us-central1-whispertype-1de9f.cloudfunctions.net/deleteAccount
+```
+
+#### Request
+
+**Method:** `POST`
+
+**Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <firebase_id_token>
+```
+
+**Body:** None required
+
+#### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Account and all associated data have been deleted"
+}
+```
+
+**Error Responses:**
+
+**401 Unauthorized** - Invalid or missing authentication token:
+```json
+{
+  "error": "Unauthorized: Invalid or missing authentication token"
+}
+```
+
+**405 Method Not Allowed** - Wrong HTTP method:
+```
+Method Not Allowed
+```
+
+**500 Internal Server Error** - Failed to delete account:
+```json
+{
+  "error": "Failed to delete account",
+  "message": "An error occurred while deleting your account"
+}
+```
+
+#### What Gets Deleted
+
+When you delete your account, the following data is permanently removed:
+- User document in Firestore (`users` collection)
+- All usage logs (`usage_logs` collection)
+- All transcription request logs (`transcription_requests` collection)
+- Firebase Authentication account
+
+#### Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Success - Account deleted |
+| 401 | Unauthorized - Invalid or missing authentication token |
+| 405 | Method Not Allowed - Request method is not POST |
+| 500 | Internal Server Error - Deletion failed |
+
+#### Example
+
+**Android (Kotlin):**
+```kotlin
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import com.google.firebase.auth.FirebaseAuth
+
+suspend fun deleteAccount() {
+    // Get current user's ID token
+    val user = FirebaseAuth.getInstance().currentUser
+    val idToken = user?.getIdToken(false)?.await()?.token ?: return
+    
+    val client = OkHttpClient()
+    val url = "https://us-central1-whispertype-1de9f.cloudfunctions.net/deleteAccount"
+    
+    val request = Request.Builder()
+        .url(url)
+        .post("{}".toRequestBody("application/json".toMediaType()))
+        .addHeader("Authorization", "Bearer $idToken")
+        .build()
+    
+    client.newCall(request).enqueue(object : Callback {
+        override fun onResponse(call: Call, response: Response) {
+            if (response.isSuccessful) {
+                // Account deleted successfully
+                println("Account deleted")
+            } else {
+                println("Error: ${response.code}")
+            }
+        }
+        
+        override fun onFailure(call: Call, e: IOException) {
+            println("Request failed: ${e.message}")
+        }
+    })
+}
+```
+
+**cURL:**
+```bash
+# Get your Firebase ID token first, then:
+curl -X POST https://us-central1-whispertype-1de9f.cloudfunctions.net/deleteAccount \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <YOUR_FIREBASE_ID_TOKEN>"
+```
+
+---
+
 ## Rate Limits
 
 Currently no rate limits enforced. OpenAI Whisper API has its own rate limits based on your OpenAI account tier.

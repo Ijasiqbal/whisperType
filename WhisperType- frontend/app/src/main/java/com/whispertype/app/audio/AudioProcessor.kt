@@ -341,7 +341,7 @@ class AudioProcessor(private val context: Context) {
                     if (segments.isNotEmpty() && 
                         currentTimeUs - lastSpeechEnd < Constants.MIN_SILENCE_DURATION_MS * 1000) {
                         // Merge: extend previous segment instead of starting new
-                        speechStart = segments.removeLast().startUs
+                        speechStart = segments.removeAt(segments.lastIndex).startUs
                     } else {
                         // Start new segment
                         speechStart = currentTimeUs

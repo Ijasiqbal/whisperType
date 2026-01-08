@@ -596,24 +596,26 @@ class OverlayService : Service() {
             Log.w(TAG, "Force update required, blocking transcription")
             Toast.makeText(
                 this,
-                "Please update WhisperType to continue using voice typing.",
+                "Please update VoxType to continue using voice typing.",
                 Toast.LENGTH_LONG
             ).show()
             hideOverlay()
             return
         }
         
-        // === ITERATION 2: Check trial status before starting ===
+        // === ITERATION 2: Check quota status before starting ===
+        // Works for both trial users AND Pro users
         val usageState = UsageDataManager.usageState.value
-        Log.d(TAG, "Trial check: status=${usageState.trialStatus}, isTrialValid=${usageState.isTrialValid}")
+        Log.d(TAG, "Quota check: isProUser=${usageState.isProUser}, isQuotaValid=${usageState.isQuotaValid}")
         
-        if (!usageState.isTrialValid) {
-            Log.w(TAG, "Trial expired, blocking transcription")
-            Toast.makeText(
-                this,
-                "Your free trial has ended. Open WhisperType to learn more.",
-                Toast.LENGTH_LONG
-            ).show()
+        if (!usageState.isQuotaValid) {
+            Log.w(TAG, "No quota remaining, blocking transcription")
+            val message = if (usageState.isProUser) {
+                "You've used all your Pro minutes this month. Open VoxType to learn more."
+            } else {
+                "Your free trial has ended. Open VoxType to learn more."
+            }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             hideOverlay()
             return
         }
@@ -652,7 +654,7 @@ class OverlayService : Service() {
         if (!speechHelper!!.hasPermission()) {
             Toast.makeText(
                 this,
-                "Microphone permission required. Open WhisperType to grant it.",
+                "Microphone permission required. Open VoxType to grant it.",
                 Toast.LENGTH_LONG
             ).show()
             return
