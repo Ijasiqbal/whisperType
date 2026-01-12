@@ -37,11 +37,18 @@ class AudioRecorder(private val context: Context) {
 
     companion object {
         private const val TAG = "AudioRecorder"
+
+        /**
+         * Check if device supports Opus encoding (Android 10+)
+         * Opus is more efficient for speech: 24kbps vs 64kbps AAC with same quality
+         */
+        fun supportsOpus(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
     }
 
     private var mediaRecorder: MediaRecorder? = null
     private var outputFile: File? = null
     private var isRecording = false
+    private var currentAudioFormat: String = "m4a"  // Track current format for API
     
     // Wake lock to prevent device from sleeping during recording
     private var wakeLock: PowerManager.WakeLock? = null
@@ -138,9 +145,14 @@ class AudioRecorder(private val context: Context) {
         }
 
         return try {
-            // Create output file in cache directory
-            outputFile = File(context.cacheDir, Constants.AUDIO_FILE_NAME)
-            
+            // Use Opus on Android 10+ (more efficient), fallback to AAC on older devices
+            val useOpus = supportsOpus()
+
+            // Create output file with appropriate extension
+            val fileName = if (useOpus) Constants.AUDIO_FILE_NAME_OGG else Constants.AUDIO_FILE_NAME_M4A
+            currentAudioFormat = if (useOpus) "ogg" else "m4a"
+            outputFile = File(context.cacheDir, fileName)
+
             // Delete existing file if any
             outputFile?.let { file ->
                 if (file.exists()) {
@@ -151,13 +163,25 @@ class AudioRecorder(private val context: Context) {
             // Create and configure MediaRecorder
             mediaRecorder = createMediaRecorder().apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+
+                if (useOpus) {
+                    // Opus encoding (Android 10+) - 60% smaller files, same quality
+                    setOutputFormat(MediaRecorder.OutputFormat.OGG)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.OPUS)
+                    setAudioEncodingBitRate(Constants.AUDIO_BIT_RATE_OPUS)
+                    Log.d(TAG, "Using Opus codec (Android 10+) at ${Constants.AUDIO_BIT_RATE_OPUS}bps")
+                } else {
+                    // AAC encoding (Android 7-9 fallback)
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                    setAudioEncodingBitRate(Constants.AUDIO_BIT_RATE_AAC)
+                    Log.d(TAG, "Using AAC codec (fallback) at ${Constants.AUDIO_BIT_RATE_AAC}bps")
+                }
+
                 setAudioSamplingRate(Constants.AUDIO_SAMPLE_RATE)
-                setAudioEncodingBitRate(Constants.AUDIO_BIT_RATE)
                 setAudioChannels(Constants.AUDIO_CHANNELS)
                 setOutputFile(outputFile?.absolutePath)
-                
+
                 prepare()
                 start()
             }
@@ -347,6 +371,12 @@ class AudioRecorder(private val context: Context) {
      * Get the path to the output file for audio processing
      */
     fun getOutputFilePath(): String? = outputFile?.absolutePath
+
+    /**
+     * Get the current audio format (for API calls)
+     * Returns "ogg" for Opus (Android 10+) or "m4a" for AAC (older devices)
+     */
+    fun getAudioFormat(): String = currentAudioFormat
 
     /**
      * Clean up resources

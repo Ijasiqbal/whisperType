@@ -210,21 +210,24 @@ class SpeechRecognitionHelper(
                     return
                 }
                 
-                // Get the output file path for processing
+                // Get the output file path and format for processing
                 val outputFilePath = audioRecorder.getOutputFilePath()
+                val audioFormat = audioRecorder.getAudioFormat()
                 if (outputFilePath == null) {
                     Log.w(TAG, "No output file available, sending original audio")
-                    // Estimate duration: 1 second minimum
-                    val estimatedDurationMs = (audioBytes.size.toLong() * 8 / 64).coerceAtLeast(1000)
-                    transcribeAudio(audioBytes, "m4a", estimatedDurationMs)
+                    // Estimate duration based on format bitrate
+                    val bitrate = if (audioFormat == "ogg") 24 else 64  // kbps
+                    val estimatedDurationMs = (audioBytes.size.toLong() * 8 / bitrate).coerceAtLeast(1000)
+                    transcribeAudio(audioBytes, audioFormat, estimatedDurationMs)
                     return
                 }
-                
+
                 // Process audio to remove silence (async on IO dispatcher for file operations)
+                // AudioProcessor supports both M4A and OGG/Opus formats
                 processingScope.launch {
                     try {
                         val inputFile = File(outputFilePath)
-                        val processedResult = audioProcessor.trimSilence(inputFile)
+                        val processedResult = audioProcessor.trimSilence(inputFile, audioFormat)
                         
                         // Read processed audio bytes
                         val processedBytes = processedResult.file.readBytes()
@@ -249,9 +252,10 @@ class SpeechRecognitionHelper(
                         
                     } catch (e: Exception) {
                         Log.e(TAG, "Error processing audio, sending original", e)
-                        // Fallback: send original audio (M4A format) with estimated duration
-                        val estimatedDurationMs = (audioBytes.size.toLong() * 8 / 64).coerceAtLeast(1000)
-                        transcribeAudio(audioBytes, "m4a", estimatedDurationMs)
+                        // Fallback: send original audio with estimated duration
+                        val bitrate = if (audioFormat == "ogg") 24 else 64  // kbps
+                        val estimatedDurationMs = (audioBytes.size.toLong() * 8 / bitrate).coerceAtLeast(1000)
+                        transcribeAudio(audioBytes, audioFormat, estimatedDurationMs)
                     }
                 }
             }

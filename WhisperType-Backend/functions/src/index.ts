@@ -764,13 +764,25 @@ export const health = onRequest((request, response) => {
  * Response: { text: string, minutesUsed: number, totalUsedThisMonth: number }
  */
 export const transcribeAudio = onRequest(
-  {secrets: ["OPENAI_API_KEY"]},
+  {
+    secrets: ["OPENAI_API_KEY"],
+    memory: "512MiB", // Increased for faster processing
+  },
   async (request, response) => {
     const startTime = Date.now();
     let uid: string | null = null;
 
     try {
-      // Only allow POST requests
+      // Handle warmup requests (GET or POST with warmup flag)
+      // This warms up the Cloud Run instance without processing audio
+      if (request.method === "GET" ||
+          (request.method === "POST" && request.body?.warmup === true)) {
+        logger.info("Warmup request received");
+        response.status(200).json({warmed: true, timestamp: Date.now()});
+        return;
+      }
+
+      // Only allow POST requests for actual transcription
       if (request.method !== "POST") {
         response.status(405).send("Method Not Allowed");
         return;
@@ -807,7 +819,9 @@ export const transcribeAudio = onRequest(
       }
 
       // Validate audio format - use validated format or default to m4a
-      const validFormats = ["wav", "m4a", "mp3", "webm", "mp4", "mpeg", "mpga"];
+      const validFormats = [
+        "wav", "m4a", "mp3", "webm", "mp4", "mpeg", "mpga", "ogg",
+      ];
       const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
 
       // Validate and set model - default to gpt-4o-mini-transcribe
