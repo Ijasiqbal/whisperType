@@ -16,17 +16,17 @@ import kotlin.math.min
 
 /**
  * AudioProcessor - Processes audio to remove silent portions
- * 
+ *
  * This class:
- * 1. Decodes M4A/AAC audio to raw PCM samples
+ * 1. Decodes M4A/AAC or OGG/Opus audio to raw PCM samples
  * 2. Detects speech segments using RMS amplitude analysis
- * 3. Outputs only the speech portions as a WAV file (simpler and more reliable than re-encoding AAC)
- * 
+ * 3. Outputs only the speech portions as a WAV file (simpler and more reliable than re-encoding)
+ *
  * Purpose: Reduce audio duration to lower OpenAI Whisper API costs
- * (OpenAI charges per minute of audio)
- * 
- * Output format: WAV (16-bit PCM, mono, 16kHz) - supported by OpenAI Whisper
- * 
+ * (OpenAI charges $0.003 per minute of audio)
+ *
+ * Supported formats: M4A (AAC), OGG (Opus) → processes to → WAV (16-bit PCM, mono, 16kHz)
+ *
  * MEMORY SAFETY:
  * - Properly releases MediaCodec and MediaExtractor resources
  * - Uses try-finally blocks for cleanup
@@ -65,11 +65,12 @@ class AudioProcessor(private val context: Context) {
 
     /**
      * Process audio file to remove silence
-     * 
-     * @param inputFile The original M4A audio file
+     *
+     * @param inputFile The original audio file (M4A or OGG)
+     * @param inputFormat The format of input file ("m4a" or "ogg")
      * @return ProcessedAudio containing the file and its format
      */
-    suspend fun trimSilence(inputFile: File): ProcessedAudio = withContext(Dispatchers.Default) {
+    suspend fun trimSilence(inputFile: File, inputFormat: String = "m4a"): ProcessedAudio = withContext(Dispatchers.Default) {
         try {
             Log.d(TAG, "Starting silence trimming for: ${inputFile.absolutePath}")
             Log.d(TAG, "Original file size: ${inputFile.length()} bytes")
@@ -78,9 +79,10 @@ class AudioProcessor(private val context: Context) {
             val decodedAudio = decodeAudioToSamples(inputFile)
             if (decodedAudio == null || decodedAudio.samples.isEmpty()) {
                 Log.w(TAG, "Failed to decode audio, returning original")
-                // Estimate duration from file size (rough estimate for m4a at ~64kbps)
-                val estimatedDurationMs = (inputFile.length() * 8 / 64).coerceAtLeast(1000)
-                return@withContext ProcessedAudio(inputFile, "m4a", estimatedDurationMs, estimatedDurationMs)
+                // Estimate duration from file size based on format
+                val bitrate = if (inputFormat == "ogg") 24 else 64  // kbps
+                val estimatedDurationMs = (inputFile.length() * 8 / bitrate).coerceAtLeast(1000)
+                return@withContext ProcessedAudio(inputFile, inputFormat, estimatedDurationMs, estimatedDurationMs)
             }
             Log.d(TAG, "Decoded ${decodedAudio.samples.size} samples, " +
                     "rate: ${decodedAudio.sampleRate}Hz, " +
@@ -95,7 +97,7 @@ class AudioProcessor(private val context: Context) {
             if (speechSegments.isEmpty()) {
                 Log.w(TAG, "No speech detected, returning original")
                 val originalMs = decodedAudio.durationUs / 1000
-                return@withContext ProcessedAudio(inputFile, "m4a", originalMs, originalMs)
+                return@withContext ProcessedAudio(inputFile, inputFormat, originalMs, originalMs)
             }
             Log.d(TAG, "Found ${speechSegments.size} speech segments")
             
@@ -110,7 +112,7 @@ class AudioProcessor(private val context: Context) {
             if (savingsPercent < Constants.MIN_SAVINGS_PERCENT) {
                 Log.d(TAG, "Minimal savings ($savingsPercent%), skipping processing")
                 val originalMs = decodedAudio.durationUs / 1000
-                return@withContext ProcessedAudio(inputFile, "m4a", originalMs, originalMs)
+                return@withContext ProcessedAudio(inputFile, inputFormat, originalMs, originalMs)
             }
             
             // Step 4: Extract speech samples and write to WAV
@@ -123,7 +125,7 @@ class AudioProcessor(private val context: Context) {
             if (speechSamples.isEmpty()) {
                 Log.w(TAG, "No speech samples extracted, returning original")
                 val originalMs = decodedAudio.durationUs / 1000
-                return@withContext ProcessedAudio(inputFile, "m4a", originalMs, originalMs)
+                return@withContext ProcessedAudio(inputFile, inputFormat, originalMs, originalMs)
             }
             
             Log.d(TAG, "Extracted ${speechSamples.size} speech samples")
@@ -141,19 +143,21 @@ class AudioProcessor(private val context: Context) {
             } else {
                 Log.w(TAG, "WAV write failed, returning original")
                 val originalMs = decodedAudio.durationUs / 1000
-                return@withContext ProcessedAudio(inputFile, "m4a", originalMs, originalMs)
+                return@withContext ProcessedAudio(inputFile, inputFormat, originalMs, originalMs)
             }
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Error processing audio", e)
-            // Estimate duration from file size (rough estimate for m4a at ~64kbps)
-            val estimatedDurationMs = (inputFile.length() * 8 / 64).coerceAtLeast(1000)
-            return@withContext ProcessedAudio(inputFile, "m4a", estimatedDurationMs, estimatedDurationMs)
+            // Estimate duration from file size based on format
+            val bitrate = if (inputFormat == "ogg") 24 else 64  // kbps
+            val estimatedDurationMs = (inputFile.length() * 8 / bitrate).coerceAtLeast(1000)
+            return@withContext ProcessedAudio(inputFile, inputFormat, estimatedDurationMs, estimatedDurationMs)
         }
     }
 
     /**
-     * Decode M4A/AAC audio file to raw PCM samples
+     * Decode audio file to raw PCM samples
+     * Supports M4A/AAC and OGG/Opus formats via MediaExtractor
      * Properly manages MediaCodec and MediaExtractor lifecycle
      */
     private fun decodeAudioToSamples(file: File): DecodedAudio? {

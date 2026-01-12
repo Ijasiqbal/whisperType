@@ -431,23 +431,39 @@ class WhisperApiClient {
 
     /**
      * Warm up the Firebase Function by pinging the health endpoint
-     * This helps avoid cold start latency on the actual transcription request
-     * Fire-and-forget: doesn't block or return result
+     * @deprecated Use warmTranscribeFunction() instead - health endpoint is a different Cloud Run instance
      */
+    @Deprecated("Use warmTranscribeFunction() instead", ReplaceWith("warmTranscribeFunction()"))
     fun warmHealth() {
+        warmTranscribeFunction()
+    }
+
+    /**
+     * Warm up the transcribeAudio Firebase Function
+     *
+     * IMPORTANT: Each Firebase Function (Gen 2) runs in a separate Cloud Run instance.
+     * Warming up the 'health' function does NOT warm up 'transcribeAudio'.
+     * This method directly warms up the transcribeAudio function by sending a GET request.
+     *
+     * Fire-and-forget: doesn't block or return result
+     * Call this when recording starts so the function is warm when recording stops.
+     */
+    fun warmTranscribeFunction() {
+        Log.d(TAG, "Warming up transcribeAudio function")
+
         val request = Request.Builder()
-            .url(HEALTH_URL)
-            .get()
+            .url(API_URL)  // Use the actual transcribeAudio endpoint
+            .get()         // GET request triggers warmup mode in the function
             .build()
-        
+
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
-                Log.d(TAG, "Health warmup: ${response.code}")
+                Log.d(TAG, "TranscribeAudio warmup: ${response.code}")
                 response.close()
             }
-            
+
             override fun onFailure(call: Call, e: IOException) {
-                Log.d(TAG, "Health warmup failed (non-critical): ${e.message}")
+                Log.d(TAG, "TranscribeAudio warmup failed (non-critical): ${e.message}")
             }
         })
     }
