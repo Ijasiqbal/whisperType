@@ -685,4 +685,135 @@ class WhisperApiClient {
         @SerializedName("currentPeriodEndMs")
         val currentPeriodEndMs: Long?
     )
+    
+    /**
+     * Response from getSubscriptionStatus endpoint - handles both Free and Pro users
+     */
+    private data class SubscriptionStatusResponse(
+        @SerializedName("plan")
+        val plan: String?,  // "free" or "pro"
+        @SerializedName("isActive")
+        val isActive: Boolean?,
+        @SerializedName("status")
+        val status: String?,  // "active", "expired_time", "expired_usage"
+        @SerializedName("warningLevel")
+        val warningLevel: String?,
+        // Free trial fields
+        @SerializedName("freeSecondsUsed")
+        val freeSecondsUsed: Int?,
+        @SerializedName("freeSecondsRemaining")
+        val freeSecondsRemaining: Int?,
+        @SerializedName("trialExpiryDateMs")
+        val trialExpiryDateMs: Long?,
+        @SerializedName("totalSecondsThisMonth")
+        val totalSecondsThisMonth: Int?,
+        // Pro fields
+        @SerializedName("proSecondsUsed")
+        val proSecondsUsed: Int?,
+        @SerializedName("proSecondsRemaining")
+        val proSecondsRemaining: Int?,
+        @SerializedName("proSecondsLimit")
+        val proSecondsLimit: Int?,
+        @SerializedName("resetDateMs")
+        val resetDateMs: Long?,
+        @SerializedName("subscriptionStartDateMs")
+        val subscriptionStartDateMs: Long?
+    )
+    
+    /**
+     * Get unified subscription status from backend (Iteration 3)
+     * This endpoint returns correct status for both Free trial and Pro users.
+     * Call this on app launch to get the user's actual subscription status.
+     *
+     * @param authToken Firebase Auth ID token for authentication
+     * @param onSuccess Callback with subscription data
+     * @param onError Callback for errors
+     */
+    fun getSubscriptionStatus(
+        authToken: String,
+        onSuccess: (plan: String, isActive: Boolean, status: String, warningLevel: String) -> Unit,
+        onError: (error: String) -> Unit
+    ) {
+        Log.d(TAG, "Fetching subscription status")
+        
+        val request = Request.Builder()
+            .url("https://us-central1-whispertype-1de9f.cloudfunctions.net/getSubscriptionStatus")
+            .addHeader("Authorization", "Bearer $authToken")
+            .get()
+            .build()
+        
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string()
+                Log.d(TAG, "Subscription status response code: ${response.code}")
+                
+                when (response.code) {
+                    200 -> {
+                        try {
+                            val statusResponse = gson.fromJson(responseBody, SubscriptionStatusResponse::class.java)
+                            val plan = statusResponse.plan ?: "free"
+                            val status = statusResponse.status ?: "active"
+                            val warningLevel = statusResponse.warningLevel ?: "none"
+                            val isActive = statusResponse.isActive ?: true
+                            
+                            Log.d(TAG, "Subscription: plan=$plan, status=$status, isActive=$isActive")
+                            
+                            // Update UsageDataManager with the unified endpoint response
+                            if (plan == "pro") {
+                                // Pro user - calculate remaining from used and limit
+                                val proSecondsUsed = statusResponse.proSecondsUsed ?: 0
+                                val proSecondsLimit = statusResponse.proSecondsLimit ?: 9000
+                                val proSecondsRemaining = statusResponse.proSecondsRemaining 
+                                    ?: (proSecondsLimit - proSecondsUsed)
+                                
+                                UsageDataManager.updateSubscriptionStatus(
+                                    plan = plan,
+                                    status = status,
+                                    secondsRemaining = proSecondsRemaining,
+                                    warningLevel = warningLevel,
+                                    proSecondsUsed = proSecondsUsed,
+                                    proSecondsLimit = proSecondsLimit,
+                                    resetDateMs = statusResponse.resetDateMs,
+                                    subscriptionStartDateMs = statusResponse.subscriptionStartDateMs
+                                )
+                            } else {
+                                // Free trial user
+                                UsageDataManager.updateSubscriptionStatus(
+                                    plan = plan,
+                                    status = status,
+                                    secondsRemaining = statusResponse.freeSecondsRemaining ?: 1200,
+                                    warningLevel = warningLevel,
+                                    freeSecondsUsed = statusResponse.freeSecondsUsed,
+                                    trialExpiryDateMs = statusResponse.trialExpiryDateMs
+                                )
+                            }
+                            
+                            onSuccess(plan, isActive, status, warningLevel)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to parse subscription status response", e)
+                            onError("Failed to parse subscription status")
+                        }
+                    }
+                    401 -> {
+                        Log.e(TAG, "Unauthorized: Authentication failed")
+                        onError("Authentication failed")
+                    }
+                    else -> {
+                        Log.e(TAG, "Unexpected response: ${response.code}")
+                        onError("Failed to get subscription status")
+                    }
+                }
+            }
+            
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "Subscription status request failed after retries", e)
+                val errorMessage = when (e) {
+                    is SocketTimeoutException -> "Connection timed out"
+                    is UnknownHostException -> "No internet connection"
+                    else -> "Network error. Please try again."
+                }
+                onError(errorMessage)
+            }
+        })
+    }
 }

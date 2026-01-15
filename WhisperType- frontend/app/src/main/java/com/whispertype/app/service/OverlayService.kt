@@ -347,25 +347,37 @@ class OverlayService : Service() {
         // Set up button clicks
         setupButtonHandlers()
         
-        // Add view to window
+        // Add view to window with enter animation
         try {
+            // Set initial state for fade-in animation
+            view.alpha = 0f
+            
             windowManager?.addView(view, layoutParams)
             isOverlayVisible = true
-            updateUI(State.IDLE)
             
-            // Auto-start recording when overlay is shown
-            view.post {
-                startListening()
-            }
+            // Animate in: fade-only to prevent clipping issues
+            view.animate()
+                .alpha(1f)
+                .setDuration(120L)
+                .setInterpolator(AccelerateDecelerateInterpolator())
+                .withEndAction {
+                    updateUI(State.IDLE)
+                    // Auto-start recording when overlay is shown
+                    startListening()
+                }
+                .start()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add overlay view", e)
             Toast.makeText(this, "Failed to show overlay", Toast.LENGTH_SHORT).show()
             cleanupViewReferences()
         }
     }
+
+
     
     /**
      * Hide the overlay from screen and clean up resources
+     * Animates out smoothly before removing the view
      */
     fun hideOverlay() {
         if (!isOverlayVisible) {
@@ -373,6 +385,9 @@ class OverlayService : Service() {
         }
         
         Log.d(TAG, "Hiding overlay")
+        
+        // Mark as not visible immediately to prevent double-hide
+        isOverlayVisible = false
         
         // Stop any ongoing speech recognition
         if (isListening) {
@@ -388,28 +403,48 @@ class OverlayService : Service() {
         stopPulseAnimation()
         stopRecordingPulseAnimation()
         
-        // Remove view from window manager
-        overlayView?.let { view ->
+        // Animate out, then remove view
+        val viewToRemove = overlayView
+        if (viewToRemove != null) {
+            // Use fade-only animation to prevent clipping issues
+            // Scale animations can cause clipping in WindowManager overlays
+            viewToRemove.animate()
+                .alpha(0f)
+                .setDuration(120L)
+                .setInterpolator(AccelerateDecelerateInterpolator())
+                .withEndAction {
+                    // Remove view after animation completes
+                    try {
+                        windowManager?.removeView(viewToRemove)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error removing overlay view", e)
+                    }
+                    
+                    // Clean up all view references
+                    cleanupViewReferences()
+                    
+                    // Stop the service when overlay is hidden
+                    try {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error stopping service", e)
+                    }
+                }
+                .start()
+
+        } else {
+            // No view to animate, just clean up
+            cleanupViewReferences()
             try {
-                windowManager?.removeView(view)
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
             } catch (e: Exception) {
-                Log.e(TAG, "Error removing overlay view", e)
+                Log.e(TAG, "Error stopping service", e)
             }
         }
-        
-        // Clean up all view references
-        cleanupViewReferences()
-        
-        isOverlayVisible = false
-        
-        // Stop the service when overlay is hidden
-        try {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error stopping service", e)
-        }
     }
+
     
     private fun cleanupViewReferences() {
         overlayViewRef = null
