@@ -1264,27 +1264,33 @@ fun AppWithBottomNav(
         }
     }
     
-    // Fetch subscription status on first composition (when user is authenticated)
-    // Uses unified endpoint that returns correct status for both Pro and Free trial users
+    // Fetch trial status on first composition (when user is authenticated)
     LaunchedEffect(Unit) {
-        // Get current user's auth token and fetch subscription status
+        // Get current user's auth token and fetch trial status
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         currentUser?.getIdToken(false)?.addOnSuccessListener { result ->
             val token = result.token
             if (token != null) {
-                com.whispertype.app.api.WhisperApiClient().getSubscriptionStatus(
+                com.whispertype.app.api.WhisperApiClient().getTrialStatus(
                     authToken = token,
-                    onSuccess = { plan, isActive, status, warningLevel ->
-                        android.util.Log.d("MainActivity", "Subscription status fetched: plan=$plan, status=$status, isActive=$isActive")
+                    onSuccess = { status, freeSecondsUsed, freeSecondsRemaining, trialExpiryDateMs, warningLevel ->
+                        android.util.Log.d("MainActivity", "Trial status fetched: $status, $freeSecondsRemaining seconds remaining")
+                        // Update UsageDataManager with the fetched status
+                        UsageDataManager.updateTrialStatus(
+                            status = status,
+                            freeSecondsUsed = freeSecondsUsed,
+                            freeSecondsRemaining = freeSecondsRemaining,
+                            trialExpiryDateMs = trialExpiryDateMs,
+                            warningLevel = warningLevel
+                        )
                     },
                     onError = { error ->
-                        android.util.Log.e("MainActivity", "Failed to fetch subscription status: $error")
+                        android.util.Log.e("MainActivity", "Failed to fetch trial status: $error")
                     }
                 )
             }
         }
     }
-
     
     // Auto-redirect to Plan tab when trial expires (soft redirect, not blocking)
     val isTrialExpired = !usageState.isTrialValid && usageState.currentPlan == UsageDataManager.Plan.FREE

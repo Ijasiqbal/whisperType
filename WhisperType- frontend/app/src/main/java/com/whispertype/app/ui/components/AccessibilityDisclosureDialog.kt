@@ -2,8 +2,9 @@ package com.whispertype.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -55,10 +56,30 @@ fun AccessibilityDisclosureDialog(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Icon
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(
+                            color = Color(0xFFEEF2FF), // Indigo-50
+                            shape = RoundedCornerShape(32.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = "Accessibility Information",
+                        tint = Color(0xFF6366F1), // Indigo-500
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
                 // Title
                 Text(
-                    text = "Enable Accessibility",
-                    fontSize = 18.sp,
+                    text = "Accessibility Access Required",
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E293B),
                     textAlign = TextAlign.Center
@@ -66,50 +87,100 @@ fun AccessibilityDisclosureDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Steps section
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    StepItem(number = "1", text = "Find \"VoxType Voice Input\" (may be under \"Downloaded apps\")")
-                    StepItem(number = "2", text = "Tap on it")
-                    StepItem(number = "3", text = "Turn ON the toggle switch")
-                }
+                // Why we need it
+                Text(
+                    text = "Why VoxType needs this permission:",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "• Detect active text input fields across all apps",
+                    fontSize = 13.sp,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "• Insert your voice transcriptions into text fields",
+                    fontSize = 13.sp,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "• Respond to volume button shortcuts",
+                    fontSize = 13.sp,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.fillMaxWidth()
+                )
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Privacy note
-                Text(
-                    text = "🔒 We don't collect or share your data",
-                    fontSize = 12.sp,
-                    color = Color(0xFF64748B),
-                    textAlign = TextAlign.Center
-                )
+                // Privacy section with highlight
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFF0FDF4) // Green-50
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = "🔒",
+                            fontSize = 16.sp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Your Privacy is Protected",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF166534) // Green-800
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "VoxType does NOT collect, store, or share any personal data from other applications. We only access text fields to insert your transcriptions.",
+                                fontSize = 12.sp,
+                                color = Color(0xFF15803D), // Green-700
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
                 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
                 
                 // Continue button
                 Button(
                     onClick = onContinue,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(50.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6366F1)
+                        containerColor = Color(0xFF6366F1) // Indigo-500
                     )
                 ) {
                     Text(
-                        text = "Open Settings",
-                        fontSize = 15.sp,
+                        text = "Continue to Settings",
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 
                 // Cancel button
-                TextButton(onClick = onDismiss) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(
                         text = "Cancel",
                         fontSize = 14.sp,
@@ -118,39 +189,5 @@ fun AccessibilityDisclosureDialog(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun StepItem(number: String, text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        // Number badge
-        Box(
-            modifier = Modifier
-                .size(24.dp)
-                .background(
-                    color = Color(0xFFEEF2FF),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = number,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF6366F1)
-            )
-        }
-        
-        Spacer(modifier = Modifier.width(12.dp))
-        
-        Text(
-            text = text,
-            fontSize = 14.sp,
-            color = Color(0xFF1E293B)
-        )
     }
 }
