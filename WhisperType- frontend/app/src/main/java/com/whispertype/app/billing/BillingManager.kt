@@ -183,7 +183,16 @@ class BillingManager(private val context: Context) {
                     Log.d(TAG, "Active Pro subscription found")
                     _isProUser.value = true
                     _subscriptionStatus.value = SubscriptionStatus.Active
-                    
+
+                    // IMPORTANT: Also update UsageDataManager so OverlayService recognizes Pro status
+                    // This ensures the quota check uses Pro limits instead of free trial
+                    UsageDataManager.updateProStatus(
+                        proSecondsUsed = UsageDataManager.usageState.value.proSecondsUsed,
+                        proSecondsRemaining = UsageDataManager.usageState.value.proSecondsRemaining,
+                        proSecondsLimit = UsageDataManager.usageState.value.proSecondsLimit,
+                        proResetDateMs = UsageDataManager.usageState.value.proResetDateMs
+                    )
+
                     // Acknowledge if not yet acknowledged
                     if (!activePurchase.isAcknowledged) {
                         acknowledgePurchase(activePurchase)

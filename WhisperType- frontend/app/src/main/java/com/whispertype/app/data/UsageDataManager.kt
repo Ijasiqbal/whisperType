@@ -225,6 +225,7 @@ object UsageDataManager {
     
     /**
      * Full update including both legacy and new trial fields
+     * Uses copy() to preserve Pro status and other fields not being updated
      */
     fun updateFull(
         secondsUsed: Int,
@@ -236,7 +237,7 @@ object UsageDataManager {
         warningLevel: String,
         totalTrialSeconds: Int = freeSecondsUsed + freeSecondsRemaining
     ) {
-        _usageState.value = UsageState(
+        _usageState.value = _usageState.value.copy(
             isLoading = false,
             lastSecondsUsed = secondsUsed,
             totalSecondsThisMonth = totalSecondsThisMonth,
