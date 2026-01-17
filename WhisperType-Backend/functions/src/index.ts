@@ -776,7 +776,7 @@ export const transcribeAudio = onRequest(
       // Handle warmup requests (GET or POST with warmup flag)
       // This warms up the Cloud Run instance without processing audio
       if (request.method === "GET" ||
-          (request.method === "POST" && request.body?.warmup === true)) {
+        (request.method === "POST" && request.body?.warmup === true)) {
         logger.info("Warmup request received");
         response.status(200).json({warmed: true, timestamp: Date.now()});
         return;
@@ -1067,6 +1067,15 @@ export const transcribeAudio = onRequest(
             trialExpiryDateMs: user.trialExpiryDate.toMillis(),
             warningLevel: responseStatus.warningLevel,
           } : undefined,
+          // Pro status for Pro users (Iteration 3)
+          proStatus: responseStatus.plan === "pro" ? {
+            isActive: responseStatus.status === "active",
+            proSecondsUsed:
+              limits.proSecondsLimit - responseStatus.secondsRemaining,
+            proSecondsRemaining: responseStatus.secondsRemaining,
+            proSecondsLimit: limits.proSecondsLimit,
+            currentPeriodEndMs: responseStatus.resetDateMs,
+          } : undefined,
         });
       } catch (error) {
         // Clean up temporary file if it exists
@@ -1318,6 +1327,11 @@ export const verifySubscription = onRequest(
       }
 
       // Initialize Google Auth client
+      // DEBUG: Log the service account email being used
+      if (credentials.client_email) {
+        logger.info(`Using service account: ${credentials.client_email}`);
+      }
+
       const auth = new google.auth.GoogleAuth({
         credentials: credentials,
         scopes: ["https://www.googleapis.com/auth/androidpublisher"],

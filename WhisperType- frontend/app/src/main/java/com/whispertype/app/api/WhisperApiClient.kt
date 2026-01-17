@@ -188,7 +188,12 @@ class WhisperApiClient {
         val totalSecondsThisMonth: Int?,
         // Iteration 2: Trial status fields
         @SerializedName("trialStatus")
-        val trialStatus: TrialStatusResponse?
+        val trialStatus: TrialStatusResponse?,
+        // Iteration 3: Pro status fields
+        @SerializedName("proStatus")
+        val proStatus: ProStatusResponse?,
+        @SerializedName("plan")
+        val plan: String?  // "free" or "pro"
     )
     
     /**
@@ -210,15 +215,29 @@ class WhisperApiClient {
     )
     
     /**
-     * Trial expired error response
+     * Quota exceeded response (403) - handles both trial and Pro
      */
-    private data class TrialExpiredResponse(
+    private data class QuotaExceededResponse(
         @SerializedName("error")
-        val error: String?,
+        val error: String?,  // "TRIAL_EXPIRED" or "PRO_LIMIT_REACHED"
         @SerializedName("message")
         val message: String?,
+        @SerializedName("plan")
+        val plan: String?,  // "free" or "pro"
         @SerializedName("trialStatus")
-        val trialStatus: TrialStatusResponse?
+        val trialStatus: TrialStatusResponse?,
+        @SerializedName("proStatus")
+        val proStatus: ProQuotaStatus?
+    )
+
+    /**
+     * Pro quota status in 403 response
+     */
+    private data class ProQuotaStatus(
+        @SerializedName("proSecondsRemaining")
+        val proSecondsRemaining: Int?,
+        @SerializedName("resetDateMs")
+        val resetDateMs: Long?
     )
 
     /**
@@ -300,22 +319,39 @@ class WhisperApiClient {
                                 val totalSecondsThisMonth = transcribeResponse.totalSecondsThisMonth ?: 0
                                 Log.d(TAG, "Usage: ${secondsUsed}s used, ${totalSecondsThisMonth}s total this month")
                                 
-                                // Update trial status if present (Iteration 2)
-                                val trial = transcribeResponse.trialStatus
-                                if (trial != null) {
-                                    Log.d(TAG, "Trial: ${trial.status}, ${trial.freeSecondsRemaining}s remaining")
-                                    UsageDataManager.updateFull(
-                                        secondsUsed = secondsUsed,
-                                        totalSecondsThisMonth = totalSecondsThisMonth,
-                                        status = trial.status ?: "active",
-                                        freeSecondsUsed = trial.freeSecondsUsed ?: 0,
-                                        freeSecondsRemaining = trial.freeSecondsRemaining ?: 1200,
-                                        trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
-                                        warningLevel = trial.warningLevel ?: "none"
+                                // Check if Pro user (Iteration 3)
+                                val proStatus = transcribeResponse.proStatus
+                                val isPro = transcribeResponse.plan == "pro" || proStatus != null
+                                
+                                if (isPro && proStatus != null) {
+                                    // Pro user - update Pro status
+                                    Log.d(TAG, "Pro: ${proStatus.proSecondsUsed}s used, ${proStatus.proSecondsRemaining}s remaining")
+                                    UsageDataManager.updateProStatus(
+                                        proSecondsUsed = proStatus.proSecondsUsed ?: 0,
+                                        proSecondsRemaining = proStatus.proSecondsRemaining ?: 9000,
+                                        proSecondsLimit = proStatus.proSecondsLimit ?: 9000,
+                                        proResetDateMs = proStatus.currentPeriodEndMs ?: 0
                                     )
-                                } else {
-                                    // Legacy response (pre-Iteration 2)
+                                    // Also update legacy fields for compatibility
                                     UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                } else {
+                                    // Update trial status if present (Iteration 2)
+                                    val trial = transcribeResponse.trialStatus
+                                    if (trial != null) {
+                                        Log.d(TAG, "Trial: ${trial.status}, ${trial.freeSecondsRemaining}s remaining")
+                                        UsageDataManager.updateFull(
+                                            secondsUsed = secondsUsed,
+                                            totalSecondsThisMonth = totalSecondsThisMonth,
+                                            status = trial.status ?: "active",
+                                            freeSecondsUsed = trial.freeSecondsUsed ?: 0,
+                                            freeSecondsRemaining = trial.freeSecondsRemaining ?: 1200,
+                                            trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
+                                            warningLevel = trial.warningLevel ?: "none"
+                                        )
+                                    } else {
+                                        // Legacy response (pre-Iteration 2)
+                                        UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                    }
                                 }
                                 
                                 // Log raw text for debugging
@@ -341,36 +377,49 @@ class WhisperApiClient {
                             callback.onError("Failed to parse transcription response")
                         }
                     }
-                    // Iteration 2: Trial expired
+                    // Quota exceeded - handles both trial and Pro users
                     403 -> {
-                        Log.w(TAG, "Trial expired (403)")
+                        Log.w(TAG, "Quota exceeded (403)")
                         try {
-                            val errorResponse = gson.fromJson(responseBody, TrialExpiredResponse::class.java)
-                            val message = errorResponse?.message ?: "Your free trial has ended"
-                            
-                            // Update trial status in UsageDataManager
-                            val trial = errorResponse?.trialStatus
-                            if (trial != null) {
-                                UsageDataManager.updateTrialStatus(
-                                    status = trial.status ?: "expired_usage",
-                                    freeSecondsUsed = trial.freeSecondsUsed ?: 1200,
-                                    freeSecondsRemaining = 0,
-                                    trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
-                                    warningLevel = "none"
+                            val errorResponse = gson.fromJson(responseBody, QuotaExceededResponse::class.java)
+                            val message = errorResponse?.message ?: "You have used all your quota"
+                            val isPro = errorResponse?.error == "PRO_LIMIT_REACHED" || errorResponse?.plan == "pro"
+
+                            if (isPro) {
+                                // Pro user ran out of quota - update Pro status
+                                Log.d(TAG, "Pro quota exceeded")
+                                val proStatus = errorResponse?.proStatus
+                                UsageDataManager.updateProStatus(
+                                    proSecondsUsed = 9000,  // Limit reached
+                                    proSecondsRemaining = 0,
+                                    proSecondsLimit = 9000,
+                                    proResetDateMs = proStatus?.resetDateMs ?: (System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)
                                 )
                             } else {
-                                UsageDataManager.markTrialExpired(
-                                    UsageDataManager.TrialStatus.EXPIRED_USAGE
-                                )
+                                // Trial user - update trial status
+                                val trial = errorResponse?.trialStatus
+                                if (trial != null) {
+                                    UsageDataManager.updateTrialStatus(
+                                        status = trial.status ?: "expired_usage",
+                                        freeSecondsUsed = trial.freeSecondsUsed ?: 1200,
+                                        freeSecondsRemaining = 0,
+                                        trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
+                                        warningLevel = "none"
+                                    )
+                                } else {
+                                    UsageDataManager.markTrialExpired(
+                                        UsageDataManager.TrialStatus.EXPIRED_USAGE
+                                    )
+                                }
                             }
-                            
+
                             callback.onTrialExpired(message)
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to parse 403 response", e)
                             UsageDataManager.markTrialExpired(
                                 UsageDataManager.TrialStatus.EXPIRED_USAGE
                             )
-                            callback.onTrialExpired("Your free trial has ended")
+                            callback.onTrialExpired("You have used all your quota")
                         }
                     }
                     400 -> {

@@ -603,23 +603,11 @@ class OverlayService : Service() {
             return
         }
         
-        // === ITERATION 2: Check quota status before starting ===
-        // Works for both trial users AND Pro users
+        // Quota validation is handled by the backend - it will return 403 if no quota
+        // This ensures the backend is the source of truth for subscription status
         val usageState = UsageDataManager.usageState.value
-        Log.d(TAG, "Quota check: isProUser=${usageState.isProUser}, isQuotaValid=${usageState.isQuotaValid}")
-        
-        if (!usageState.isQuotaValid) {
-            Log.w(TAG, "No quota remaining, blocking transcription")
-            val message = if (usageState.isProUser) {
-                "You've used all your Pro minutes this month. Open VoxType to learn more."
-            } else {
-                "Your free trial has ended. Open VoxType to learn more."
-            }
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-            hideOverlay()
-            return
-        }
-        
+        Log.d(TAG, "Starting transcription: isProUser=${usageState.isProUser}")
+
         // Show warning toast if at warning threshold (but still allow transcription)
         when (usageState.warningLevel) {
             UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> {

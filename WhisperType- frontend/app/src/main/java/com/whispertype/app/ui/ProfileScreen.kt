@@ -550,9 +550,10 @@ private fun ProStatusCard(
     usageState: UsageDataManager.UsageState,
     onManageSubscription: () -> Unit
 ) {
-    val proMinutesUsed = usageState.proSecondsUsed / 60
-    val proMinutesLimit = usageState.proSecondsLimit / 60
-    val proMinutesRemaining = usageState.proSecondsRemaining / 60
+    // Format seconds as M:SS
+    val formattedProUsed = formatSecondsToMinutes(usageState.proSecondsUsed)
+    val formattedProLimit = formatSecondsToMinutes(usageState.proSecondsLimit)
+    val formattedProRemaining = formatSecondsToMinutes(usageState.proSecondsRemaining)
     val usagePercentage = if (usageState.proSecondsLimit > 0) {
         (usageState.proSecondsUsed.toFloat() / usageState.proSecondsLimit.toFloat())
     } else 0f
@@ -629,13 +630,13 @@ private fun ProStatusCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "$proMinutesUsed / $proMinutesLimit min used",
+                        text = "$formattedProUsed / $formattedProLimit used",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
                     Text(
-                        text = "$proMinutesRemaining min left",
+                        text = "$formattedProRemaining left",
                         fontSize = 14.sp,
                         color = Color.White.copy(alpha = 0.8f)
                     )
@@ -737,4 +738,13 @@ private fun getResetCountdown(resetDateMs: Long): String {
 private fun formatMemberSince(timestampMs: Long): String {
     val formatter = SimpleDateFormat("MMM yyyy", Locale.getDefault())
     return formatter.format(Date(timestampMs))
+}
+
+/**
+ * Format seconds to M:SS format (e.g., 167 seconds -> "2:47")
+ */
+private fun formatSecondsToMinutes(totalSeconds: Int): String {
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format("%d:%02d", minutes, seconds)
 }
