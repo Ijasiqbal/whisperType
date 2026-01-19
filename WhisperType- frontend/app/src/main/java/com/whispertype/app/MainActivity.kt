@@ -61,6 +61,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.whispertype.app.auth.AuthState
 import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.service.OverlayService
@@ -71,7 +73,9 @@ import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.config.RemoteConfigManager
 import com.whispertype.app.billing.BillingManagerFactory
 import com.whispertype.app.billing.IBillingManager
+import com.whispertype.app.ui.viewmodel.MainViewModel
 import androidx.lifecycle.lifecycleScope
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import com.whispertype.app.service.WhisperTypeAccessibilityService
@@ -95,6 +99,7 @@ import com.whispertype.app.ui.components.AccessibilityDisclosureDialog
  * - Overlay Permission: To display the floating mic button
  * - Microphone Permission: For speech recognition
  */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     
     // Firebase Auth Manager
@@ -138,8 +143,22 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Observe auth state
-                    val authState by authManager.authState.collectAsStateWithLifecycle()
+                    // Use MainViewModel instead of direct manager access
+                    val mainViewModel: MainViewModel = hiltViewModel()
+                    val lifecycleOwner = LocalLifecycleOwner.current
+                    
+                    // Observe auth state from ViewModel
+                    val authState by mainViewModel.authState.collectAsStateWithLifecycle()
+                    
+                    // Proactive refresh on app resume - fixes "data not updating" issue
+                    LaunchedEffect(lifecycleOwner, authState) {
+                        // Only refresh when authenticated
+                        if (authState is AuthState.Authenticated) {
+                            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                                mainViewModel.refreshUserStatus()
+                            }
+                        }
+                    }
                     
                     // Observe update config from Remote Config
                     val updateConfig by RemoteConfigManager.updateConfig.collectAsStateWithLifecycle()

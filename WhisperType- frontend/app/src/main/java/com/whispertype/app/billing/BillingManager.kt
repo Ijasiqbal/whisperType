@@ -183,19 +183,45 @@ class BillingManager(private val context: Context) {
                     Log.d(TAG, "Active Pro subscription found")
                     _isProUser.value = true
                     _subscriptionStatus.value = SubscriptionStatus.Active
-
-                    // IMPORTANT: Also update UsageDataManager so OverlayService recognizes Pro status
-                    // This ensures the quota check uses Pro limits instead of free trial
-                    UsageDataManager.updateProStatus(
-                        proSecondsUsed = UsageDataManager.usageState.value.proSecondsUsed,
-                        proSecondsRemaining = UsageDataManager.usageState.value.proSecondsRemaining,
-                        proSecondsLimit = UsageDataManager.usageState.value.proSecondsLimit,
-                        proResetDateMs = UsageDataManager.usageState.value.proResetDateMs
-                    )
-
+                    
                     // Acknowledge if not yet acknowledged
                     if (!activePurchase.isAcknowledged) {
                         acknowledgePurchase(activePurchase)
+                    }
+
+                    // CRITICAL FIX: Verify with backend to get actual Pro quota values
+                    // This ensures correct minutes remaining are displayed on login
+                    val authToken = authTokenProvider?.invoke()
+                    if (authToken != null) {
+                        Log.d(TAG, "Verifying subscription with backend to get Pro quota")
+                        apiClient.verifySubscription(
+                            authToken = authToken,
+                            purchaseToken = activePurchase.purchaseToken,
+                            productId = PRO_MONTHLY_PRODUCT_ID,
+                            onSuccess = { proSecondsRemaining, proSecondsLimit, resetDateMs ->
+                                Log.d(TAG, "Backend verification success: ${proSecondsRemaining}s remaining")
+                                // UsageDataManager is updated inside verifySubscription callback
+                            },
+                            onError = { error ->
+                                Log.w(TAG, "Backend verification failed: $error, using defaults")
+                                // Fallback: Set Pro status with default values
+                                UsageDataManager.updateProStatus(
+                                    proSecondsUsed = 0,
+                                    proSecondsRemaining = 9000, // 150 min default
+                                    proSecondsLimit = 9000,
+                                    proResetDateMs = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
+                                )
+                            }
+                        )
+                    } else {
+                        Log.w(TAG, "No auth token available, using default Pro values")
+                        // No auth token - set default Pro values
+                        UsageDataManager.updateProStatus(
+                            proSecondsUsed = 0,
+                            proSecondsRemaining = 9000,
+                            proSecondsLimit = 9000,
+                            proResetDateMs = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
+                        )
                     }
                 } else {
                     Log.d(TAG, "No active Pro subscription")
