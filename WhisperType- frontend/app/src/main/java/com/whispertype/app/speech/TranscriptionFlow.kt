@@ -53,18 +53,25 @@ enum class TranscriptionFlow(
         private const val TAG = "TranscriptionFlow"
         private const val PREFS_NAME = "transcription_flow_prefs"
         private const val KEY_SELECTED_FLOW = "selected_flow"
-        
+
+        /**
+         * The default transcription flow used when no preference is set.
+         * Change this to switch the default flow for the entire app.
+         * Available options: CLOUD_API, GROQ_WHISPER, FLOW_3, FLOW_4
+         */
+        val DEFAULT_FLOW = CLOUD_API
+
         /**
          * Get the currently selected transcription flow
          */
         fun getSelectedFlow(context: Context): TranscriptionFlow {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val flowName = prefs.getString(KEY_SELECTED_FLOW, CLOUD_API.name) ?: CLOUD_API.name
+            val flowName = prefs.getString(KEY_SELECTED_FLOW, DEFAULT_FLOW.name) ?: DEFAULT_FLOW.name
             return try {
                 valueOf(flowName)
             } catch (e: IllegalArgumentException) {
-                Log.w(TAG, "Invalid flow name: $flowName, defaulting to CLOUD_API")
-                CLOUD_API
+                Log.w(TAG, "Invalid flow name: $flowName, defaulting to ${DEFAULT_FLOW.name}")
+                DEFAULT_FLOW
             }
         }
         

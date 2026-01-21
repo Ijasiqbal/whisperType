@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.whispertype.app.R
-import com.whispertype.app.BuildConfig
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.ui.components.SkeletonText
 import kotlinx.coroutines.delay
@@ -46,8 +45,7 @@ import java.util.*
 fun ProfileScreen(
     userEmail: String?,
     onSignOut: () -> Unit,
-    onManageSubscription: () -> Unit = {},
-    onOpenFlowComparison: () -> Unit = {}
+    onManageSubscription: () -> Unit = {}
 ) {
     val usageState by UsageDataManager.usageState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
@@ -314,25 +312,6 @@ fun ProfileScreen(
             )
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Debug-only: Flow Comparison button
-        if (BuildConfig.DEBUG) {
-            OutlinedButton(
-                onClick = onOpenFlowComparison,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFEA580C)
-                )
-            ) {
-                Text(
-                    text = "🧪 Flow Comparison (Debug)",
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-        }
             }
         }
         }
