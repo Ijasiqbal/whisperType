@@ -68,6 +68,7 @@ import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.service.OverlayService
 import com.whispertype.app.ui.LoginScreen
 import com.whispertype.app.ui.ProfileScreen
+import com.whispertype.app.ui.FlowComparisonScreen
 import com.whispertype.app.ui.PlanScreen
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.config.RemoteConfigManager
@@ -84,6 +85,7 @@ import com.whispertype.app.util.ForceUpdateChecker
 import com.whispertype.app.ui.components.ForceUpdateDialog
 import com.whispertype.app.ui.components.SoftUpdateDialog
 import com.whispertype.app.ui.components.AccessibilityDisclosureDialog
+import com.whispertype.app.ui.components.TranscriptionFlowSelector
 
 /**
  * MainActivity - Onboarding and permission setup screen
@@ -601,6 +603,12 @@ fun MainScreen(
                 }
             }
         }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Debug-only: Transcription Flow Selector
+        // This component is only visible in debug builds (returns early if not DEBUG)
+        TranscriptionFlowSelector()
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -1433,24 +1441,34 @@ fun AppWithBottomNav(
                 }
                 BottomNavTab.PROFILE -> {
                     val context = LocalContext.current
-                    ProfileScreen(
-                        userEmail = userEmail,
-                        onSignOut = onSignOut,
-                        onManageSubscription = {
-                            try {
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                    data = android.net.Uri.parse(
-                                        "https://play.google.com/store/account/subscriptions" +
-                                        "?sku=whispertype_pro_monthly&package=${context.packageName}"
-                                    )
+                    // State for showing FlowComparisonScreen (debug only)
+                    var showFlowComparison by remember { mutableStateOf(false) }
+                    
+                    if (showFlowComparison) {
+                        FlowComparisonScreen(
+                            onBack = { showFlowComparison = false }
+                        )
+                    } else {
+                        ProfileScreen(
+                            userEmail = userEmail,
+                            onSignOut = onSignOut,
+                            onManageSubscription = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                        data = android.net.Uri.parse(
+                                            "https://play.google.com/store/account/subscriptions" +
+                                            "?sku=whispertype_pro_monthly&package=${context.packageName}"
+                                        )
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MainActivity", "Failed to open subscriptions", e)
+                                    Toast.makeText(context, "Could not open subscriptions", Toast.LENGTH_SHORT).show()
                                 }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                android.util.Log.e("MainActivity", "Failed to open subscriptions", e)
-                                Toast.makeText(context, "Could not open subscriptions", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    )
+                            },
+                            onOpenFlowComparison = { showFlowComparison = true }
+                        )
+                    }
                 }
             }
         }
