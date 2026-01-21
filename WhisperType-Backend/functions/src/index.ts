@@ -1727,65 +1727,68 @@ export const transcribeAudioGroq = onRequest(
  *     "eighty_percent" | "ninety_five_percent"
  * }
  */
-export const getTrialStatus = onRequest(async (request, response) => {
-  try {
-    // Verify Firebase Auth token
-    const authHeader = request.headers.authorization;
-    const decodedToken = await verifyAuthToken(authHeader);
+export const getTrialStatus = onRequest(
+  {region: ["us-central1", "asia-south1", "europe-west1"]},
+  async (request, response) => {
+    try {
+      // Verify Firebase Auth token
+      const authHeader = request.headers.authorization;
+      const decodedToken = await verifyAuthToken(authHeader);
 
-    if (!decodedToken) {
-      response.status(401).json({
-        error: "Unauthorized: Invalid or missing authentication token",
+      if (!decodedToken) {
+        response.status(401).json({
+          error: "Unauthorized: Invalid or missing authentication token",
+        });
+        return;
+      }
+
+      const uid = decodedToken.uid;
+      logger.info(`Getting trial status for user: ${uid}`);
+
+      // Get or create user document
+      let user = await getOrCreateUser(uid);
+
+      // Get lifetime usage from logs to check for sync issues
+      const lifetimeUsage = await getTotalLifetimeUsage(uid);
+
+      // Sync freeSecondsUsed if there's a mismatch
+      // (e.g., from legacy data or missed updates)
+      if (lifetimeUsage > 0 && user.freeSecondsUsed !== lifetimeUsage) {
+        logger.info(
+          `Syncing freeSecondsUsed for ${uid}: ` +
+          `stored=${user.freeSecondsUsed}, actual=${lifetimeUsage}`
+        );
+        // Update user document with correct lifetime usage
+        await db.collection("users").doc(uid).update({
+          freeSecondsUsed: lifetimeUsage,
+        });
+        // Update local user object for response
+        user = {...user, freeSecondsUsed: lifetimeUsage};
+      }
+
+      // Fetch trial limits and check status
+      const trialLimits = await getTrialLimits();
+      const trialStatus = checkTrialStatus(user, trialLimits.freeTrialSeconds);
+
+      // Get total usage this billing period for the "Usage This Month" display
+      const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
+
+      response.status(200).json({
+        status: trialStatus.status,
+        freeSecondsUsed: trialStatus.freeSecondsUsed,
+        freeSecondsRemaining: trialStatus.freeSecondsRemaining,
+        trialExpiryDateMs: trialStatus.trialExpiryDateMs,
+        warningLevel: trialStatus.warningLevel,
+        totalSecondsThisMonth: totalSecondsThisMonth,
       });
-      return;
-    }
-
-    const uid = decodedToken.uid;
-    logger.info(`Getting trial status for user: ${uid}`);
-
-    // Get or create user document
-    let user = await getOrCreateUser(uid);
-
-    // Get lifetime usage from logs to check for sync issues
-    const lifetimeUsage = await getTotalLifetimeUsage(uid);
-
-    // Sync freeSecondsUsed if there's a mismatch
-    // (e.g., from legacy data or missed updates)
-    if (lifetimeUsage > 0 && user.freeSecondsUsed !== lifetimeUsage) {
-      logger.info(
-        `Syncing freeSecondsUsed for ${uid}: ` +
-        `stored=${user.freeSecondsUsed}, actual=${lifetimeUsage}`
-      );
-      // Update user document with correct lifetime usage
-      await db.collection("users").doc(uid).update({
-        freeSecondsUsed: lifetimeUsage,
+    } catch (error) {
+      logger.error("Error getting trial status", error);
+      response.status(500).json({
+        error: "Internal server error",
       });
-      // Update local user object for response
-      user = {...user, freeSecondsUsed: lifetimeUsage};
     }
-
-    // Fetch trial limits and check status
-    const trialLimits = await getTrialLimits();
-    const trialStatus = checkTrialStatus(user, trialLimits.freeTrialSeconds);
-
-    // Get total usage this billing period for the "Usage This Month" display
-    const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
-
-    response.status(200).json({
-      status: trialStatus.status,
-      freeSecondsUsed: trialStatus.freeSecondsUsed,
-      freeSecondsRemaining: trialStatus.freeSecondsRemaining,
-      trialExpiryDateMs: trialStatus.trialExpiryDateMs,
-      warningLevel: trialStatus.warningLevel,
-      totalSecondsThisMonth: totalSecondsThisMonth,
-    });
-  } catch (error) {
-    logger.error("Error getting trial status", error);
-    response.status(500).json({
-      error: "Internal server error",
-    });
   }
-});
+);
 
 /**
  * Get subscription status for the current user (Iteration 3)

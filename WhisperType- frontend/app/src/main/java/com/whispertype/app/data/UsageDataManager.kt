@@ -325,6 +325,13 @@ object UsageDataManager {
     }
     
     /**
+     * Mark loading as complete (e.g., when API call fails but we want to show default data)
+     */
+    fun markLoadingComplete() {
+        _usageState.value = _usageState.value.copy(isLoading = false)
+    }
+
+    /**
      * Clear usage data (e.g., on sign out)
      */
     fun clear() {

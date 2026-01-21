@@ -1287,28 +1287,43 @@ fun AppWithBottomNav(
     LaunchedEffect(Unit) {
         // Get current user's auth token and fetch trial status
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-        currentUser?.getIdToken(false)?.addOnSuccessListener { result ->
-            val token = result.token
-            if (token != null) {
-                com.whispertype.app.api.WhisperApiClient().getTrialStatus(
-                    authToken = token,
-                    onSuccess = { status, freeSecondsUsed, freeSecondsRemaining, trialExpiryDateMs, warningLevel ->
-                        android.util.Log.d("MainActivity", "Trial status fetched: $status, $freeSecondsRemaining seconds remaining")
-                        // Update UsageDataManager with the fetched status
-                        UsageDataManager.updateTrialStatus(
-                            status = status,
-                            freeSecondsUsed = freeSecondsUsed,
-                            freeSecondsRemaining = freeSecondsRemaining,
-                            trialExpiryDateMs = trialExpiryDateMs,
-                            warningLevel = warningLevel
-                        )
-                    },
-                    onError = { error ->
-                        android.util.Log.e("MainActivity", "Failed to fetch trial status: $error")
-                    }
-                )
-            }
+        if (currentUser == null) {
+            android.util.Log.w("MainActivity", "No current user, marking loading complete")
+            UsageDataManager.markLoadingComplete()
+            return@LaunchedEffect
         }
+
+        currentUser.getIdToken(false)
+            .addOnSuccessListener { result ->
+                val token = result.token
+                if (token != null) {
+                    com.whispertype.app.api.WhisperApiClient().getTrialStatus(
+                        authToken = token,
+                        onSuccess = { status, freeSecondsUsed, freeSecondsRemaining, trialExpiryDateMs, warningLevel ->
+                            android.util.Log.d("MainActivity", "Trial status fetched: $status, $freeSecondsRemaining seconds remaining")
+                            // Update UsageDataManager with the fetched status
+                            UsageDataManager.updateTrialStatus(
+                                status = status,
+                                freeSecondsUsed = freeSecondsUsed,
+                                freeSecondsRemaining = freeSecondsRemaining,
+                                trialExpiryDateMs = trialExpiryDateMs,
+                                warningLevel = warningLevel
+                            )
+                        },
+                        onError = { error ->
+                            android.util.Log.e("MainActivity", "Failed to fetch trial status: $error")
+                            UsageDataManager.markLoadingComplete()
+                        }
+                    )
+                } else {
+                    android.util.Log.w("MainActivity", "Token is null, marking loading complete")
+                    UsageDataManager.markLoadingComplete()
+                }
+            }
+            .addOnFailureListener { e ->
+                android.util.Log.e("MainActivity", "Failed to get ID token: ${e.message}")
+                UsageDataManager.markLoadingComplete()
+            }
     }
     
     // Auto-redirect to Plan tab when trial expires (soft redirect, not blocking)
