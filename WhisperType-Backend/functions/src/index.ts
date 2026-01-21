@@ -337,10 +337,13 @@ interface ProStatusResult {
   proSecondsLimit: number;
   currentPeriodEndMs: number; // Reset date
   hasMinutesRemaining: boolean;
+  needsReVerification?: boolean; // True if period expired but sub exists
 }
 
 /**
  * Check Pro subscription status for a user
+ * Verifies both status AND expiration time to prevent expired subscriptions
+ * from being treated as active.
  * @param {UserDocument} user - The user document
  * @param {number} proSecondsLimit - Pro limit in seconds from Remote Config
  * @return {ProStatusResult} The Pro status
@@ -350,6 +353,7 @@ function checkProStatus(
   proSecondsLimit: number
 ): ProStatusResult {
   const sub = user.proSubscription;
+  const now = Date.now();
 
   // Not a Pro user or no active subscription
   if (!sub || sub.status !== "active") {
@@ -363,15 +367,197 @@ function checkProStatus(
     };
   }
 
+  // Check if subscription period has expired
+  // This catches cases where Firestore status is "active" but the
+  // subscription has actually expired in Google Play and not been renewed
+  const periodEndMs = sub.currentPeriodEnd.toMillis();
+  if (now > periodEndMs) {
+    logger.warn(
+      `Pro subscription expired: currentPeriodEnd=${periodEndMs}, now=${now}`
+    );
+    // Flag that this subscription might have been renewed in Google Play
+    // but Firestore hasn't been updated yet - caller should re-verify
+    return {
+      isActive: false,
+      proSecondsUsed: sub.proSecondsUsed,
+      proSecondsRemaining: 0,
+      proSecondsLimit: proSecondsLimit,
+      currentPeriodEndMs: periodEndMs,
+      hasMinutesRemaining: false,
+      needsReVerification: true, // Signal to re-verify with Google Play
+    };
+  }
+
   const remaining = proSecondsLimit - sub.proSecondsUsed;
   return {
     isActive: true,
     proSecondsUsed: sub.proSecondsUsed,
     proSecondsRemaining: Math.max(0, remaining),
     proSecondsLimit: proSecondsLimit,
-    currentPeriodEndMs: sub.currentPeriodEnd.toMillis(),
+    currentPeriodEndMs: periodEndMs,
     hasMinutesRemaining: remaining > 0,
   };
+}
+
+/**
+ * Re-verify Pro subscription with Google Play API
+ * Called when local subscription data shows expired but subscription might
+ * have been auto-renewed in Google Play
+ * @param {string} uid - User ID
+ * @param {UserDocument} user - User document with proSubscription
+ * @param {number} proSecondsLimit - Pro limit in seconds from Remote Config
+ * @return {Promise<Object>} Result with renewed, proStatus, updatedUser
+ */
+async function reVerifyProSubscriptionWithGooglePlay(
+  uid: string,
+  user: UserDocument,
+  proSecondsLimit: number
+): Promise<{
+  renewed: boolean;
+  proStatus: ProStatusResult;
+  updatedUser?: UserDocument;
+}> {
+  const sub = user.proSubscription;
+  if (!sub || !sub.purchaseToken || !sub.productId) {
+    logger.warn(`Cannot re-verify: no subscription data for ${uid}`);
+    return {
+      renewed: false,
+      proStatus: checkProStatus(user, proSecondsLimit),
+    };
+  }
+
+  // Get the service account key from secret
+  const keyJson = process.env.GOOGLE_PLAY_KEY;
+  if (!keyJson) {
+    logger.error("GOOGLE_PLAY_KEY not available for re-verification");
+    return {
+      renewed: false,
+      proStatus: checkProStatus(user, proSecondsLimit),
+    };
+  }
+
+  try {
+    // Parse the service account key
+    const credentials = JSON.parse(keyJson);
+
+    // Initialize Google Auth client
+    const auth = new google.auth.GoogleAuth({
+      credentials: credentials,
+      scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+    });
+
+    const androidpublisher = google.androidpublisher({
+      version: "v3",
+      auth: auth,
+    });
+
+    // Verify the subscription with Google Play
+    logger.info(`Re-verifying subscription for ${uid} with Google Play`);
+    const result = await androidpublisher.purchases.subscriptions.get({
+      packageName: "com.whispertype.app",
+      subscriptionId: sub.productId,
+      token: sub.purchaseToken,
+    });
+
+    const subscriptionData = result.data;
+    const paymentState = subscriptionData.paymentState;
+    const expiryTimeMs = parseInt(
+      subscriptionData.expiryTimeMillis || "0",
+      10
+    );
+    const now = Date.now();
+
+    logger.info(
+      `Re-verify result for ${uid}: paymentState=${paymentState}, ` +
+      `expiryTimeMillis=${expiryTimeMs}, now=${now}`
+    );
+
+    // Check if subscription is still active (renewed)
+    const isActive = (
+      (paymentState === 1 || paymentState === 2) &&
+      expiryTimeMs > now
+    );
+
+    if (!isActive) {
+      // Subscription truly expired - update Firestore to reflect this
+      logger.info(`Subscription confirmed expired for ${uid}`);
+      const userRef = db.collection("users").doc(uid);
+      await userRef.update({
+        "proSubscription.status": "expired",
+      });
+
+      return {
+        renewed: false,
+        proStatus: {
+          isActive: false,
+          proSecondsUsed: sub.proSecondsUsed,
+          proSecondsRemaining: 0,
+          proSecondsLimit: proSecondsLimit,
+          currentPeriodEndMs: sub.currentPeriodEnd.toMillis(),
+          hasMinutesRemaining: false,
+        },
+      };
+    }
+
+    // Subscription was renewed! Update Firestore with new expiry date
+    const expiryDateStr = new Date(expiryTimeMs).toISOString();
+    logger.info(
+      `Subscription RENEWED for ${uid}! New expiry: ${expiryDateStr}`
+    );
+
+    const userRef = db.collection("users").doc(uid);
+    const nowTimestamp = admin.firestore.Timestamp.now();
+    const expiryTimestamp = admin.firestore.Timestamp.fromMillis(expiryTimeMs);
+
+    // Check if this is a new billing period (reset usage)
+    const oldPeriodEnd = sub.currentPeriodEnd.toMillis();
+    let proSecondsUsed = sub.proSecondsUsed;
+    if (now > oldPeriodEnd) {
+      // New period - reset usage
+      proSecondsUsed = 0;
+      logger.info(`New billing period for ${uid}, resetting usage to 0`);
+    }
+
+    // Update subscription in Firestore
+    const updatedSub: ProSubscription = {
+      ...sub,
+      status: "active",
+      currentPeriodStart: nowTimestamp,
+      currentPeriodEnd: expiryTimestamp,
+      proSecondsUsed: proSecondsUsed,
+    };
+
+    await userRef.update({
+      plan: "pro",
+      proSubscription: updatedSub,
+    });
+
+    const updatedUser: UserDocument = {
+      ...user,
+      plan: "pro",
+      proSubscription: updatedSub,
+    };
+
+    const remaining = proSecondsLimit - proSecondsUsed;
+    return {
+      renewed: true,
+      proStatus: {
+        isActive: true,
+        proSecondsUsed: proSecondsUsed,
+        proSecondsRemaining: Math.max(0, remaining),
+        proSecondsLimit: proSecondsLimit,
+        currentPeriodEndMs: expiryTimeMs,
+        hasMinutesRemaining: remaining > 0,
+      },
+      updatedUser: updatedUser,
+    };
+  } catch (error) {
+    logger.error(`Failed to re-verify subscription for ${uid}`, error);
+    return {
+      renewed: false,
+      proStatus: checkProStatus(user, proSecondsLimit),
+    };
+  }
 }
 
 /**
@@ -765,8 +951,9 @@ export const health = onRequest((request, response) => {
  */
 export const transcribeAudio = onRequest(
   {
-    secrets: ["OPENAI_API_KEY"],
-    memory: "512MiB", // Increased for faster processing
+    region: ["us-central1", "asia-south1", "europe-west1"],
+    secrets: ["OPENAI_API_KEY", "GOOGLE_PLAY_KEY"],
+    memory: "512MiB",
   },
   async (request, response) => {
     const startTime = Date.now();
@@ -863,8 +1050,32 @@ export const transcribeAudio = onRequest(
       // Check if user is Pro OR has active proSubscription
       // (fallback for missing plan)
       const hasProSubscription = user.proSubscription?.status === "active";
+      let currentUser = user; // Track potentially updated user
       if (!canProceed && (userPlan === "pro" || hasProSubscription)) {
-        const proStatus = checkProStatus(user, limits.proSecondsLimit);
+        let proStatus = checkProStatus(user, limits.proSecondsLimit);
+
+        // If subscription appears expired, try re-verifying with Google Play
+        // The subscription might have been auto-renewed
+        if (!proStatus.isActive && proStatus.needsReVerification) {
+          logger.info(
+            `Pro subscription expired for ${uid}, attempting re-verification`
+          );
+          const reVerifyResult = await reVerifyProSubscriptionWithGooglePlay(
+            uid,
+            user,
+            limits.proSecondsLimit
+          );
+          if (reVerifyResult.renewed) {
+            proStatus = reVerifyResult.proStatus;
+            if (reVerifyResult.updatedUser) {
+              currentUser = reVerifyResult.updatedUser;
+            }
+            logger.info(
+              `Subscription re-verified for ${uid}: renewed=true`
+            );
+          }
+        }
+
         if (proStatus.isActive && proStatus.hasMinutesRemaining) {
           canProceed = true;
           usageSource = "pro";
@@ -876,23 +1087,47 @@ export const transcribeAudio = onRequest(
 
       // Priority 3: Block if no valid quota
       if (!canProceed) {
-        const trialStatus = checkTrialStatus(user, limits.freeTrialSeconds);
+        const trialStatus = checkTrialStatus(
+          currentUser, limits.freeTrialSeconds
+        );
+        const proStatus = checkProStatus(
+          currentUser, limits.proSecondsLimit
+        );
         logger.warn(
           `No valid quota for user ${uid}: plan=${userPlan}`
         );
         await logTranscriptionRequest(uid, false, Date.now() - startTime);
 
-        // Return appropriate error message
-        // User is Pro if plan is 'pro' OR has active proSubscription
-        const isProWithNoMinutes = userPlan === "pro" || hasProSubscription;
+        // Check if Pro subscription expired by time (not by usage)
+        const isProUser = userPlan === "pro" || hasProSubscription;
+        const proExpiredByTime = isProUser &&
+          currentUser.proSubscription &&
+          Date.now() > currentUser.proSubscription.currentPeriodEnd.toMillis();
+        const proExpiredByUsage = isProUser && !proStatus.hasMinutesRemaining &&
+          !proExpiredByTime;
+
+        // Determine error type and message
+        let errorCode: string;
+        let errorMessage: string;
+
+        if (proExpiredByTime) {
+          errorCode = "PRO_EXPIRED";
+          errorMessage =
+            "Your Pro subscription has expired. Please renew to continue.";
+        } else if (proExpiredByUsage) {
+          errorCode = "PRO_LIMIT_REACHED";
+          errorMessage = "You have used all your Pro minutes for this month";
+        } else if (trialStatus.status === "expired_time") {
+          errorCode = "TRIAL_EXPIRED";
+          errorMessage = "Your free trial period has ended";
+        } else {
+          errorCode = "TRIAL_EXPIRED";
+          errorMessage = "You have used all your free trial minutes";
+        }
 
         response.status(403).json({
-          error: isProWithNoMinutes ? "PRO_LIMIT_REACHED" : "TRIAL_EXPIRED",
-          message: isProWithNoMinutes ?
-            "You have used all your Pro minutes for this month" :
-            (trialStatus.status === "expired_time" ?
-              "Your free trial period has ended" :
-              "You have used all your free trial minutes"),
+          error: errorCode,
+          message: errorMessage,
           plan: userPlan,
           trialStatus: userPlan === "free" && !hasProSubscription ? {
             status: trialStatus.status,
@@ -901,11 +1136,14 @@ export const transcribeAudio = onRequest(
             trialExpiryDateMs: trialStatus.trialExpiryDateMs,
             warningLevel: "none",
           } : undefined,
-          proStatus: (userPlan === "pro" || hasProSubscription) &&
-            user.proSubscription ? {
-              proSecondsRemaining: 0,
-              resetDateMs: user.proSubscription.currentPeriodEnd.toMillis(),
-            } : undefined,
+          proStatus: isProUser && currentUser.proSubscription ? {
+            proSecondsUsed: currentUser.proSubscription.proSecondsUsed,
+            proSecondsRemaining: 0,
+            proSecondsLimit: limits.proSecondsLimit,
+            resetDateMs:
+              currentUser.proSubscription.currentPeriodEnd.toMillis(),
+            expired: proExpiredByTime,
+          } : undefined,
           // Include Pro plan info for upgrade flow
           proPlanEnabled: limits.proPlanEnabled,
         });
@@ -1064,7 +1302,7 @@ export const transcribeAudio = onRequest(
             freeSecondsUsed:
               limits.freeTrialSeconds - responseStatus.secondsRemaining,
             freeSecondsRemaining: responseStatus.secondsRemaining,
-            trialExpiryDateMs: user.trialExpiryDate.toMillis(),
+            trialExpiryDateMs: currentUser.trialExpiryDate.toMillis(),
             warningLevel: responseStatus.warningLevel,
           } : undefined,
           // Pro status for Pro users (Iteration 3)
@@ -1098,6 +1336,374 @@ export const transcribeAudio = onRequest(
       logger.error("Unexpected error in transcribeAudio", error);
 
       // Log failed request if we have a uid
+      if (uid) {
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
+      }
+
+      response.status(500).json({
+        error: "Internal server error",
+      });
+    }
+  });
+
+/**
+ * Transcribe audio using Groq Whisper API
+ * POST /transcribeAudioGroq
+ * Body: {
+ *   audioBase64: string,
+ *   audioFormat?: string,
+ *   model?: string,
+ *   audioDurationMs?: number
+ * }
+ * audioFormat: "wav" | "m4a" | "mp3" | "webm" | "mp4" |
+ *             "mpeg" | "mpga" | "ogg" (default: "m4a")
+ * model: "whisper-large-v3" | "whisper-large-v3-turbo"
+ *        (default: "whisper-large-v3")
+ * audioDurationMs: Duration of audio in milliseconds (for usage tracking)
+ * Response: { text: string, secondsUsed: number, ... }
+ *
+ * This endpoint uses Groq's ultra-fast Whisper implementation.
+ * Groq provides OpenAI-compatible API, so we use the OpenAI SDK
+ * with Groq's base URL.
+ */
+export const transcribeAudioGroq = onRequest(
+  {
+    region: ["us-central1", "asia-south1", "europe-west1"],
+    secrets: ["GROQ_API_KEY", "GOOGLE_PLAY_KEY"],
+    memory: "512MiB",
+  },
+  async (request, response) => {
+    const startTime = Date.now();
+    let uid: string | null = null;
+
+    try {
+      // Handle warmup requests (GET or POST with warmup flag)
+      if (request.method === "GET" ||
+        (request.method === "POST" && request.body?.warmup === true)) {
+        logger.info("Groq warmup request received");
+        response.status(200).json({warmed: true, timestamp: Date.now()});
+        return;
+      }
+
+      // Only allow POST requests for actual transcription
+      if (request.method !== "POST") {
+        response.status(405).send("Method Not Allowed");
+        return;
+      }
+
+      // Verify Firebase Auth token
+      const authHeader = request.headers.authorization;
+      const decodedToken = await verifyAuthToken(authHeader);
+
+      if (!decodedToken) {
+        response.status(401).json({
+          error: "Unauthorized: Invalid or missing authentication token",
+        });
+        return;
+      }
+
+      uid = decodedToken.uid;
+      logger.info(`[Groq] Authenticated request from user: ${uid}`);
+
+      // Validate request body
+      const {
+        audioBase64,
+        audioFormat = "m4a",
+        model,
+        audioDurationMs,
+      } = request.body;
+      if (!audioBase64 || typeof audioBase64 !== "string") {
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
+        response.status(400).json({
+          error: "Missing or invalid audioBase64 field in request body",
+        });
+        return;
+      }
+
+      // Validate audio format
+      const validFormats = [
+        "wav", "m4a", "mp3", "webm", "mp4", "mpeg", "mpga", "ogg",
+      ];
+      const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
+
+      // Validate and set Groq model - default to whisper-large-v3
+      const validGroqModels = [
+        "whisper-large-v3",
+        "whisper-large-v3-turbo",
+      ];
+      const selectedModel = model && validGroqModels.includes(model) ?
+        model : "whisper-large-v3";
+
+      logger.info(
+        `[Groq] Processing request - format: ${format}, model: ${selectedModel}`
+      );
+
+      // === Check validity with priority: Trial → Pro → Block ===
+      const user = await getOrCreateUser(uid);
+      const limits = await getPlanLimits();
+
+      let canProceed = false;
+      let usageSource: "free" | "pro" = "free";
+      const userPlan = user.plan ?? "free";
+
+      // Priority 1: Check free trial (if user is on free plan)
+      if (userPlan === "free") {
+        const trialStatus = checkTrialStatus(user, limits.freeTrialSeconds);
+        if (trialStatus.isValid) {
+          canProceed = true;
+          usageSource = "free";
+          logger.info(
+            `[Groq] Trial valid for ${uid}: ` +
+            `${trialStatus.freeSecondsRemaining}s remaining`
+          );
+        }
+      }
+
+      // Priority 2: Check Pro subscription
+      const hasProSubscription = user.proSubscription?.status === "active";
+      let currentUser = user; // Track potentially updated user
+      if (!canProceed && (userPlan === "pro" || hasProSubscription)) {
+        let proStatus = checkProStatus(user, limits.proSecondsLimit);
+
+        // If subscription appears expired, try re-verifying with Google Play
+        // The subscription might have been auto-renewed
+        if (!proStatus.isActive && proStatus.needsReVerification) {
+          logger.info(
+            `[Groq] Pro expired for ${uid}, re-verifying with Google Play`
+          );
+          const reVerifyResult = await reVerifyProSubscriptionWithGooglePlay(
+            uid,
+            user,
+            limits.proSecondsLimit
+          );
+          if (reVerifyResult.renewed) {
+            proStatus = reVerifyResult.proStatus;
+            if (reVerifyResult.updatedUser) {
+              currentUser = reVerifyResult.updatedUser;
+            }
+            logger.info(
+              `[Groq] Subscription re-verified for ${uid}: renewed=true`
+            );
+          }
+        }
+
+        if (proStatus.isActive && proStatus.hasMinutesRemaining) {
+          canProceed = true;
+          usageSource = "pro";
+          logger.info(
+            `[Groq] Pro valid for ${uid}: ` +
+            `${proStatus.proSecondsRemaining}s remaining`
+          );
+        }
+      }
+
+      // Priority 3: Block if no valid quota
+      if (!canProceed) {
+        const trialStatus = checkTrialStatus(
+          currentUser, limits.freeTrialSeconds
+        );
+        const proStatus = checkProStatus(
+          currentUser, limits.proSecondsLimit
+        );
+        logger.warn(
+          `[Groq] No valid quota for user ${uid}: plan=${userPlan}`
+        );
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
+
+        const isProUser = userPlan === "pro" || hasProSubscription;
+        const proExpiredByTime = isProUser &&
+          currentUser.proSubscription &&
+          Date.now() > currentUser.proSubscription.currentPeriodEnd.toMillis();
+        const proExpiredByUsage = isProUser && !proStatus.hasMinutesRemaining &&
+          !proExpiredByTime;
+
+        let errorCode: string;
+        let errorMessage: string;
+
+        if (proExpiredByTime) {
+          errorCode = "PRO_EXPIRED";
+          errorMessage =
+            "Your Pro subscription has expired. Please renew to continue.";
+        } else if (proExpiredByUsage) {
+          errorCode = "PRO_LIMIT_REACHED";
+          errorMessage = "You have used all your Pro minutes for this month";
+        } else if (trialStatus.status === "expired_time") {
+          errorCode = "TRIAL_EXPIRED";
+          errorMessage = "Your free trial period has ended";
+        } else {
+          errorCode = "TRIAL_EXPIRED";
+          errorMessage = "You have used all your free trial minutes";
+        }
+
+        response.status(403).json({
+          error: errorCode,
+          message: errorMessage,
+          plan: userPlan,
+        });
+        return;
+      }
+
+      logger.info(
+        `[Groq] Proceeding with transcription using ${usageSource} quota`
+      );
+
+      // Check for Groq API key
+      const groqApiKey = process.env.GROQ_API_KEY;
+      if (!groqApiKey) {
+        logger.error("GROQ_API_KEY environment variable is not set");
+        response.status(500).json({
+          error: "Server configuration error",
+        });
+        return;
+      }
+
+      // Decode base64 to buffer
+      let audioBuffer: Buffer;
+      try {
+        audioBuffer = Buffer.from(audioBase64, "base64");
+      } catch (error) {
+        logger.error("[Groq] Failed to decode base64 audio", error);
+        response.status(400).json({
+          error: "Invalid base64 audio data",
+        });
+        return;
+      }
+
+      // Create temporary file
+      const tempDir = os.tmpdir();
+      const tempFilePath = path.join(
+        tempDir,
+        `audio-groq-${Date.now()}.${format}`
+      );
+
+      try {
+        // Write buffer to temporary file
+        fs.writeFileSync(tempFilePath, audioBuffer);
+
+        // Initialize Groq client using OpenAI SDK with Groq's base URL
+        const groq = new OpenAI({
+          apiKey: groqApiKey,
+          baseURL: "https://api.groq.com/openai/v1",
+        });
+
+        // Call Groq Whisper API
+        logger.info(
+          `[Groq] Calling Whisper API (format: ${format}, ` +
+          `model: ${selectedModel})`
+        );
+        const transcription = await groq.audio.transcriptions.create({
+          file: fs.createReadStream(tempFilePath),
+          model: selectedModel,
+        });
+
+        // Clean up temporary file
+        fs.unlinkSync(tempFilePath);
+
+        // Calculate duration for usage deduction
+        const isValidDuration =
+          typeof audioDurationMs === "number" &&
+          !isNaN(audioDurationMs) &&
+          audioDurationMs >= 0;
+
+        let durationMs: number;
+        if (isValidDuration) {
+          durationMs = Math.max(audioDurationMs as number, 1000);
+          logger.info(
+            `[Groq] Using provided audio duration: ${audioDurationMs}ms ` +
+            `(billing: ${durationMs}ms)`
+          );
+        } else {
+          durationMs = 60000;
+          logger.warn(
+            "[Groq] No valid audioDurationMs provided, defaulting to 60 seconds"
+          );
+        }
+
+        // Deduct usage from correct quota
+        let responseStatus: {
+          plan: string;
+          status: string;
+          secondsRemaining: number;
+          resetDateMs?: number;
+          warningLevel: string;
+        };
+
+        if (usageSource === "pro") {
+          const proStatus = await deductProUsage(uid, durationMs);
+          responseStatus = {
+            plan: "pro",
+            status: proStatus.isActive ? "active" : "expired",
+            secondsRemaining: proStatus.proSecondsRemaining,
+            resetDateMs: proStatus.currentPeriodEndMs,
+            warningLevel:
+              proStatus.proSecondsRemaining < limits.proSecondsLimit * 0.1 ?
+                "ninety_percent" : "none",
+          };
+        } else {
+          const trialStatus = await deductTrialUsage(uid, durationMs);
+          responseStatus = {
+            plan: "free",
+            status: trialStatus.status,
+            secondsRemaining: trialStatus.freeSecondsRemaining,
+            warningLevel: trialStatus.warningLevel,
+          };
+        }
+        await logTranscriptionRequest(uid, true, Date.now() - startTime);
+
+        const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
+        const secondsDeducted = Math.ceil(durationMs / 1000);
+
+        logger.info(
+          `[Groq] Transcription success: deducted ${secondsDeducted}s ` +
+          `from ${usageSource}, remaining: ${responseStatus.secondsRemaining}s`
+        );
+
+        // Return transcription with status
+        response.status(200).json({
+          text: transcription.text,
+          secondsUsed: secondsDeducted,
+          totalSecondsThisMonth: totalSecondsThisMonth,
+          plan: responseStatus.plan,
+          subscriptionStatus: {
+            status: responseStatus.status,
+            secondsRemaining: responseStatus.secondsRemaining,
+            resetDateMs: responseStatus.resetDateMs,
+            warningLevel: responseStatus.warningLevel,
+          },
+          // Backward compatibility
+          trialStatus: responseStatus.plan === "free" ? {
+            status: responseStatus.status,
+            freeSecondsUsed:
+              limits.freeTrialSeconds - responseStatus.secondsRemaining,
+            freeSecondsRemaining: responseStatus.secondsRemaining,
+            trialExpiryDateMs: currentUser.trialExpiryDate.toMillis(),
+            warningLevel: responseStatus.warningLevel,
+          } : undefined,
+          proStatus: responseStatus.plan === "pro" ? {
+            isActive: responseStatus.status === "active",
+            proSecondsUsed:
+              limits.proSecondsLimit - responseStatus.secondsRemaining,
+            proSecondsRemaining: responseStatus.secondsRemaining,
+            proSecondsLimit: limits.proSecondsLimit,
+            currentPeriodEndMs: responseStatus.resetDateMs,
+          } : undefined,
+        });
+      } catch (error) {
+        // Clean up temporary file if it exists
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+
+        logger.error("[Groq] Error processing audio transcription", error);
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
+
+        response.status(500).json({
+          error: "Failed to transcribe audio with Groq",
+        });
+      }
+    } catch (error) {
+      logger.error("[Groq] Unexpected error in transcribeAudioGroq", error);
+
       if (uid) {
         await logTranscriptionRequest(uid, false, Date.now() - startTime);
       }
@@ -1187,80 +1793,104 @@ export const getTrialStatus = onRequest(async (request, response) => {
  * GET or POST /getSubscriptionStatus
  * Headers: Authorization: Bearer <firebase_id_token>
  */
-export const getSubscriptionStatus = onRequest(async (request, response) => {
-  try {
-    // Verify Firebase Auth token
-    const authHeader = request.headers.authorization;
-    const decodedToken = await verifyAuthToken(authHeader);
+export const getSubscriptionStatus = onRequest(
+  {secrets: ["GOOGLE_PLAY_KEY"]},
+  async (request, response) => {
+    try {
+      // Verify Firebase Auth token
+      const authHeader = request.headers.authorization;
+      const decodedToken = await verifyAuthToken(authHeader);
 
-    if (!decodedToken) {
-      response.status(401).json({
-        error: "Unauthorized: Invalid or missing authentication token",
+      if (!decodedToken) {
+        response.status(401).json({
+          error: "Unauthorized: Invalid or missing authentication token",
+        });
+        return;
+      }
+
+      const uid = decodedToken.uid;
+      logger.info(`Getting subscription status for user: ${uid}`);
+
+      let user = await getOrCreateUser(uid);
+      const limits = await getPlanLimits();
+
+      // Normalize plan field (default to 'free' if undefined)
+      const userPlan = user.plan ?? "free";
+      // Also check for active proSubscription as fallback
+      const hasProSubscription = user.proSubscription?.status === "active";
+
+      // Build response based on user's current plan
+      if (userPlan === "pro" || hasProSubscription) {
+        // Pro user response
+        let proStatus = checkProStatus(user, limits.proSecondsLimit);
+
+        // If subscription appears expired, try re-verifying with Google Play
+        // The subscription might have been auto-renewed
+        if (!proStatus.isActive && proStatus.needsReVerification) {
+          logger.info(
+            `Pro subscription expired for ${uid}, attempting re-verification`
+          );
+          const reVerifyResult = await reVerifyProSubscriptionWithGooglePlay(
+            uid,
+            user,
+            limits.proSecondsLimit
+          );
+          if (reVerifyResult.renewed) {
+            proStatus = reVerifyResult.proStatus;
+            if (reVerifyResult.updatedUser) {
+              user = reVerifyResult.updatedUser;
+            }
+            logger.info(
+              `Subscription re-verified for ${uid}: renewed=true`
+            );
+          }
+        }
+
+        response.status(200).json({
+          plan: "pro",
+          isActive: proStatus.isActive,
+          // Pro-specific fields
+          proSecondsUsed: proStatus.proSecondsUsed,
+          proSecondsRemaining: proStatus.proSecondsRemaining,
+          proSecondsLimit: proStatus.proSecondsLimit,
+          resetDateMs: proStatus.currentPeriodEndMs,
+          subscriptionStartDateMs:
+            user.proSubscription?.startDate?.toMillis() ?? null,
+          subscriptionStatus: user.proSubscription?.status ?? "active",
+          // For backward compatibility
+          status: proStatus.isActive ? "active" : "expired",
+          warningLevel:
+            proStatus.proSecondsRemaining < limits.proSecondsLimit * 0.1 ?
+              "ninety_percent" : "none",
+        });
+      } else {
+        // Free trial user response
+        const trialStatus = checkTrialStatus(user, limits.freeTrialSeconds);
+        const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
+
+        response.status(200).json({
+          plan: "free",
+          isActive: trialStatus.isValid,
+          // Trial-specific fields
+          freeSecondsUsed: trialStatus.freeSecondsUsed,
+          freeSecondsRemaining: trialStatus.freeSecondsRemaining,
+          trialExpiryDateMs: trialStatus.trialExpiryDateMs,
+          totalSecondsThisMonth: totalSecondsThisMonth,
+          // Common fields
+          status: trialStatus.status,
+          warningLevel: trialStatus.warningLevel,
+          // Pro plan info for upgrade UI
+          proPlanEnabled: limits.proPlanEnabled,
+          proSecondsLimit: limits.proSecondsLimit,
+        });
+      }
+    } catch (error) {
+      logger.error("Error getting subscription status", error);
+      response.status(500).json({
+        error: "Internal server error",
       });
-      return;
     }
-
-    const uid = decodedToken.uid;
-    logger.info(`Getting subscription status for user: ${uid}`);
-
-    const user = await getOrCreateUser(uid);
-    const limits = await getPlanLimits();
-
-    // Normalize plan field (default to 'free' if undefined)
-    const userPlan = user.plan ?? "free";
-    // Also check for active proSubscription as fallback
-    const hasProSubscription = user.proSubscription?.status === "active";
-
-    // Build response based on user's current plan
-    if (userPlan === "pro" || hasProSubscription) {
-      // Pro user response
-      const proStatus = checkProStatus(user, limits.proSecondsLimit);
-
-      response.status(200).json({
-        plan: "pro",
-        isActive: proStatus.isActive,
-        // Pro-specific fields
-        proSecondsUsed: proStatus.proSecondsUsed,
-        proSecondsRemaining: proStatus.proSecondsRemaining,
-        proSecondsLimit: proStatus.proSecondsLimit,
-        resetDateMs: proStatus.currentPeriodEndMs,
-        subscriptionStartDateMs:
-          user.proSubscription?.startDate?.toMillis() ?? null,
-        subscriptionStatus: user.proSubscription?.status ?? "active",
-        // For backward compatibility
-        status: proStatus.isActive ? "active" : "expired",
-        warningLevel:
-          proStatus.proSecondsRemaining < limits.proSecondsLimit * 0.1 ?
-            "ninety_percent" : "none",
-      });
-    } else {
-      // Free trial user response
-      const trialStatus = checkTrialStatus(user, limits.freeTrialSeconds);
-      const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
-
-      response.status(200).json({
-        plan: "free",
-        isActive: trialStatus.isValid,
-        // Trial-specific fields
-        freeSecondsUsed: trialStatus.freeSecondsUsed,
-        freeSecondsRemaining: trialStatus.freeSecondsRemaining,
-        trialExpiryDateMs: trialStatus.trialExpiryDateMs,
-        totalSecondsThisMonth: totalSecondsThisMonth,
-        // Common fields
-        status: trialStatus.status,
-        warningLevel: trialStatus.warningLevel,
-        // Pro plan info for upgrade UI
-        proPlanEnabled: limits.proPlanEnabled,
-        proSecondsLimit: limits.proSecondsLimit,
-      });
-    }
-  } catch (error) {
-    logger.error("Error getting subscription status", error);
-    response.status(500).json({
-      error: "Internal server error",
-    });
-  }
-});
+  });
 
 /**
  * Verify Google Play subscription purchase

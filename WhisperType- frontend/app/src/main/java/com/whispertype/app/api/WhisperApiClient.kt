@@ -33,9 +33,50 @@ class WhisperApiClient {
 
     companion object {
         private const val TAG = "WhisperApiClient"
-        private const val API_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio"
-        private const val TRIAL_STATUS_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/getTrialStatus"
-        private const val HEALTH_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net/health"
+        
+        // Base URL pattern for Firebase Functions
+        private const val BASE_URL_PATTERN = "https://%s-whispertype-1de9f.cloudfunctions.net"
+        
+        // Available regions
+        private const val REGION_US = "us-central1"
+        private const val REGION_ASIA = "asia-south1"
+        private const val REGION_EUROPE = "europe-west1"
+        
+        /**
+         * Get the best region based on user's timezone
+         * This provides lower latency by routing to the nearest server
+         */
+        private fun getBestRegion(): String {
+            val timezone = java.util.TimeZone.getDefault().id
+            return when {
+                // Asia/Pacific timezones -> Mumbai
+                timezone.startsWith("Asia/") || 
+                timezone.startsWith("Australia/") ||
+                timezone.startsWith("Pacific/") -> REGION_ASIA
+                
+                // European/African/Middle East timezones -> Belgium
+                timezone.startsWith("Europe/") ||
+                timezone.startsWith("Africa/") ||
+                timezone.startsWith("Atlantic/") -> REGION_EUROPE
+                
+                // Americas and default -> US Central
+                else -> REGION_US
+            }
+        }
+        
+        // Dynamically selected URLs based on region
+        private val API_URL: String
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeAudio"
+        
+        private val GROQ_API_URL: String
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeAudioGroq"
+        
+        private val TRIAL_STATUS_URL: String
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/getTrialStatus"
+        
+        private val HEALTH_URL: String
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/health"
+        
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 
         // Retry configuration
@@ -219,7 +260,7 @@ class WhisperApiClient {
      */
     private data class QuotaExceededResponse(
         @SerializedName("error")
-        val error: String?,  // "TRIAL_EXPIRED" or "PRO_LIMIT_REACHED"
+        val error: String?,  // "TRIAL_EXPIRED", "PRO_LIMIT_REACHED", or "PRO_EXPIRED"
         @SerializedName("message")
         val message: String?,
         @SerializedName("plan")
@@ -234,10 +275,16 @@ class WhisperApiClient {
      * Pro quota status in 403 response
      */
     private data class ProQuotaStatus(
+        @SerializedName("proSecondsUsed")
+        val proSecondsUsed: Int?,
         @SerializedName("proSecondsRemaining")
         val proSecondsRemaining: Int?,
+        @SerializedName("proSecondsLimit")
+        val proSecondsLimit: Int?,
         @SerializedName("resetDateMs")
-        val resetDateMs: Long?
+        val resetDateMs: Long?,
+        @SerializedName("expired")
+        val expired: Boolean?
     )
 
     /**
@@ -383,16 +430,21 @@ class WhisperApiClient {
                         try {
                             val errorResponse = gson.fromJson(responseBody, QuotaExceededResponse::class.java)
                             val message = errorResponse?.message ?: "You have used all your quota"
-                            val isPro = errorResponse?.error == "PRO_LIMIT_REACHED" || errorResponse?.plan == "pro"
+                            val isPro = errorResponse?.error == "PRO_LIMIT_REACHED" || 
+                                        errorResponse?.error == "PRO_EXPIRED" || 
+                                        errorResponse?.plan == "pro"
 
                             if (isPro) {
-                                // Pro user ran out of quota - update Pro status
-                                Log.d(TAG, "Pro quota exceeded")
+                                // Pro user - quota exceeded or subscription expired
                                 val proStatus = errorResponse?.proStatus
+                                val isExpired = proStatus?.expired == true || errorResponse?.error == "PRO_EXPIRED"
+                                Log.d(TAG, "Pro blocked: expired=$isExpired, used=${proStatus?.proSecondsUsed}")
+                                
+                                // Use actual values from backend, not hardcoded
                                 UsageDataManager.updateProStatus(
-                                    proSecondsUsed = 9000,  // Limit reached
-                                    proSecondsRemaining = 0,
-                                    proSecondsLimit = 9000,
+                                    proSecondsUsed = proStatus?.proSecondsUsed ?: 0,
+                                    proSecondsRemaining = proStatus?.proSecondsRemaining ?: 0,
+                                    proSecondsLimit = proStatus?.proSecondsLimit ?: 9000,
                                     proResetDateMs = proStatus?.resetDateMs ?: (System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)
                                 )
                             } else {
@@ -479,6 +531,149 @@ class WhisperApiClient {
     }
 
     /**
+     * Transcribe audio bytes using Groq's ultra-fast Whisper API
+     *
+     * This method calls the separate transcribeAudioGroq backend endpoint.
+     * It's designed for faster transcription without client-side silence trimming.
+     *
+     * @param audioBytes Raw audio bytes (M4A, WAV, OGG, etc.)
+     * @param authToken Firebase Auth ID token for authentication
+     * @param audioFormat File format extension ("m4a", "wav", "ogg", etc.)
+     * @param audioDurationMs Duration of audio in milliseconds (for usage tracking)
+     * @param model Optional Groq model to use (default: "whisper-large-v3", also supports "whisper-large-v3-turbo")
+     * @param callback Callback for success/error results
+     */
+    fun transcribeWithGroq(
+        audioBytes: ByteArray,
+        authToken: String,
+        audioFormat: String = "m4a",
+        audioDurationMs: Long? = null,
+        model: String? = null,
+        callback: TranscriptionCallback
+    ) {
+        val modelName = model ?: "whisper-large-v3"
+        Log.d(TAG, "[Groq] Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, model: $modelName")
+
+        // Encode audio to base64 (NO_WRAP to avoid line breaks)
+        val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
+        Log.d(TAG, "[Groq] Base64 encoded, length: ${audioBase64.length}")
+
+        // Create request body with model parameter
+        val requestBody = TranscribeRequest(audioBase64, audioFormat, model, audioDurationMs)
+        val jsonBody = gson.toJson(requestBody)
+
+        val request = Request.Builder()
+            .url(GROQ_API_URL)
+            .addHeader("Authorization", "Bearer $authToken")
+            .post(jsonBody.toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+
+        // Execute request asynchronously
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string()
+                Log.d(TAG, "[Groq] Response code: ${response.code}")
+
+                when (response.code) {
+                    200 -> {
+                        try {
+                            val transcribeResponse = gson.fromJson(responseBody, TranscribeResponse::class.java)
+                            val text = transcribeResponse.text
+                            
+                            if (text.isNullOrBlank()) {
+                                Log.w(TAG, "[Groq] Empty transcription result")
+                                callback.onError("No speech detected")
+                            } else {
+                                // Log usage info
+                                val secondsUsed = transcribeResponse.secondsUsed ?: 0
+                                val totalSecondsThisMonth = transcribeResponse.totalSecondsThisMonth ?: 0
+                                Log.d(TAG, "[Groq] Usage: ${secondsUsed}s used, ${totalSecondsThisMonth}s total this month")
+                                
+                                // Update usage data (same as regular transcribe)
+                                val proStatus = transcribeResponse.proStatus
+                                val isPro = transcribeResponse.plan == "pro" || proStatus != null
+                                
+                                if (isPro && proStatus != null) {
+                                    UsageDataManager.updateProStatus(
+                                        proSecondsUsed = proStatus.proSecondsUsed ?: 0,
+                                        proSecondsRemaining = proStatus.proSecondsRemaining ?: 9000,
+                                        proSecondsLimit = proStatus.proSecondsLimit ?: 9000,
+                                        proResetDateMs = proStatus.currentPeriodEndMs ?: 0
+                                    )
+                                    UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                } else {
+                                    val trial = transcribeResponse.trialStatus
+                                    if (trial != null) {
+                                        UsageDataManager.updateFull(
+                                            secondsUsed = secondsUsed,
+                                            totalSecondsThisMonth = totalSecondsThisMonth,
+                                            status = trial.status ?: "active",
+                                            freeSecondsUsed = trial.freeSecondsUsed ?: 0,
+                                            freeSecondsRemaining = trial.freeSecondsRemaining ?: 1200,
+                                            trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
+                                            warningLevel = trial.warningLevel ?: "none"
+                                        )
+                                    } else {
+                                        UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                    }
+                                }
+                                
+                                // Clean text (same as regular transcribe)
+                                val cleanedText = text.trim().let { t ->
+                                    val messagePattern = Regex("^[Mm][Ee][Ss][Ss][Aa][Gg][Ee][:\\s]*", RegexOption.IGNORE_CASE)
+                                    messagePattern.replaceFirst(t, "").trim().ifEmpty { t }
+                                }
+                                Log.d(TAG, "[Groq] Final transcription: ${cleanedText.take(50)}...")
+                                callback.onSuccess(cleanedText)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "[Groq] Failed to parse response", e)
+                            callback.onError("Failed to parse transcription response")
+                        }
+                    }
+                    403 -> {
+                        Log.w(TAG, "[Groq] Quota exceeded (403)")
+                        try {
+                            val errorResponse = gson.fromJson(responseBody, QuotaExceededResponse::class.java)
+                            val message = errorResponse?.message ?: "You have used all your quota"
+                            callback.onTrialExpired(message)
+                        } catch (e: Exception) {
+                            callback.onTrialExpired("You have used all your quota")
+                        }
+                    }
+                    400 -> {
+                        val errorResponse = try {
+                            gson.fromJson(responseBody, ErrorResponse::class.java)
+                        } catch (e: Exception) { null }
+                        callback.onError(errorResponse?.error ?: "Invalid audio data")
+                    }
+                    401 -> {
+                        callback.onError("Authentication failed. Please restart the app.")
+                    }
+                    500 -> {
+                        callback.onError("Transcription failed. Please try again.")
+                    }
+                    else -> {
+                        callback.onError("Unexpected error (${response.code})")
+                    }
+                }
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "[Groq] Network request failed", e)
+                val errorMessage = when {
+                    e.message?.contains("timeout", ignoreCase = true) == true ->
+                        "Request timed out. Please try again."
+                    e is SocketTimeoutException -> "Connection timed out. Please try again."
+                    e is UnknownHostException -> "No internet connection."
+                    else -> "Network error. Please try again."
+                }
+                callback.onError(errorMessage)
+            }
+        })
+    }
+
+    /**
      * Warm up the Firebase Function by pinging the health endpoint
      * @deprecated Use warmTranscribeFunction() instead - health endpoint is a different Cloud Run instance
      */
@@ -498,7 +693,7 @@ class WhisperApiClient {
      * Call this when recording starts so the function is warm when recording stops.
      */
     fun warmTranscribeFunction() {
-        Log.d(TAG, "Warming up transcribeAudio function")
+        Log.d(TAG, "Warming up transcribeAudio function (region: ${getBestRegion()})")
 
         val request = Request.Builder()
             .url(API_URL)  // Use the actual transcribeAudio endpoint
@@ -515,6 +710,54 @@ class WhisperApiClient {
                 Log.d(TAG, "TranscribeAudio warmup failed (non-critical): ${e.message}")
             }
         })
+    }
+    
+    /**
+     * Warm up the Groq transcription Firebase Function
+     * Call this when using Flow 2 (Groq Whisper) to avoid cold starts.
+     */
+    fun warmGroqFunction() {
+        Log.d(TAG, "Warming up transcribeAudioGroq function (region: ${getBestRegion()})")
+
+        val request = Request.Builder()
+            .url(GROQ_API_URL)  // Use the Groq endpoint
+            .get()             // GET request triggers warmup mode
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                Log.d(TAG, "Groq warmup: ${response.code}")
+                response.close()
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                Log.d(TAG, "Groq warmup failed (non-critical): ${e.message}")
+            }
+        })
+    }
+    
+    /**
+     * Warm up the appropriate function based on selected transcription flow
+     * Call this when recording starts for optimal latency.
+     * 
+     * @param context Android context to read the selected flow
+     */
+    fun warmForFlow(context: android.content.Context) {
+        val selectedFlow = com.whispertype.app.speech.TranscriptionFlow.getSelectedFlow(context)
+        Log.d(TAG, "Warming up for flow: ${selectedFlow.name}")
+
+        when (selectedFlow) {
+            com.whispertype.app.speech.TranscriptionFlow.CLOUD_API -> warmTranscribeFunction()
+            com.whispertype.app.speech.TranscriptionFlow.GROQ_WHISPER -> warmGroqFunction()
+            com.whispertype.app.speech.TranscriptionFlow.FLOW_3 -> {
+                // Flow 3 uses Groq Turbo (whisper-large-v3-turbo), same endpoint as regular Groq
+                warmGroqFunction()
+            }
+            com.whispertype.app.speech.TranscriptionFlow.FLOW_4 -> {
+                // Flow 4 uses OpenAI gpt-4o-mini-transcribe, same endpoint as CLOUD_API
+                warmTranscribeFunction()
+            }
+        }
     }
     
     /**

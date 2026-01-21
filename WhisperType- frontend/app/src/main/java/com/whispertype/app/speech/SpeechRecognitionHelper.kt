@@ -142,7 +142,7 @@ class SpeechRecognitionHelper(
                 Log.d(TAG, "Auth warmup failed (non-critical): ${e.message}")
             }
         }
-        whisperApiClient.warmHealth()  // Fire-and-forget health ping
+        whisperApiClient.warmForFlow(context)  // Warm the correct endpoint for selected flow
 
         val started = audioRecorder.startRecording(object : AudioRecorder.RecordingCallback {
             override fun onRecordingStarted() {
@@ -213,6 +213,21 @@ class SpeechRecognitionHelper(
                 // Get the output file path and format for processing
                 val outputFilePath = audioRecorder.getOutputFilePath()
                 val audioFormat = audioRecorder.getAudioFormat()
+                
+                // Check which flow is selected
+                val selectedFlow = TranscriptionFlow.getSelectedFlow(context)
+                
+                // For flows that skip silence trimming: GROQ_WHISPER, FLOW_3, and FLOW_4
+                if (selectedFlow == TranscriptionFlow.GROQ_WHISPER || selectedFlow == TranscriptionFlow.FLOW_3 || selectedFlow == TranscriptionFlow.FLOW_4) {
+                    Log.d(TAG, "${selectedFlow.name} flow: skipping silence trimming, sending raw audio")
+                    // Estimate duration based on format bitrate
+                    val bitrate = if (audioFormat == "ogg") 24 else 64  // kbps
+                    val estimatedDurationMs = (audioBytes.size.toLong() * 8 / bitrate).coerceAtLeast(1000)
+                    transcribeAudio(audioBytes, audioFormat, estimatedDurationMs)
+                    return
+                }
+                
+                // For other flows: apply silence trimming
                 if (outputFilePath == null) {
                     Log.w(TAG, "No output file available, sending original audio")
                     // Estimate duration based on format bitrate
@@ -277,9 +292,38 @@ class SpeechRecognitionHelper(
     private fun transcribeAudio(audioBytes: ByteArray, audioFormat: String = "m4a", durationMs: Long) {
         if (isDestroyed) return
         
-        Log.d(TAG, "Sending audio to WhisperType API, format: $audioFormat")
-
-        // Get auth token asynchronously, then make API call
+        // Check which transcription flow is selected
+        val selectedFlow = TranscriptionFlow.getSelectedFlow(context)
+        Log.d(TAG, "Using transcription flow: ${selectedFlow.name}")
+        
+        when (selectedFlow) {
+            TranscriptionFlow.CLOUD_API -> {
+                // Default flow - proceed with OpenAI cloud API
+                Log.d(TAG, "CLOUD_API flow: sending audio to WhisperType API, format: $audioFormat")
+                transcribeWithCloudApi(audioBytes, audioFormat, durationMs)
+            }
+            TranscriptionFlow.GROQ_WHISPER -> {
+                // Groq Whisper flow - use Groq's ultra-fast whisper-large-v3
+                Log.d(TAG, "GROQ_WHISPER flow: sending audio to Groq API, format: $audioFormat")
+                transcribeWithGroqApi(audioBytes, audioFormat, durationMs)
+            }
+            TranscriptionFlow.FLOW_3 -> {
+                // Flow 3 - Groq Turbo (whisper-large-v3-turbo) - fastest transcription
+                Log.d(TAG, "FLOW_3 (Groq Turbo): sending audio to Groq API with whisper-large-v3-turbo, format: $audioFormat")
+                transcribeWithGroqTurboApi(audioBytes, audioFormat, durationMs)
+            }
+            TranscriptionFlow.FLOW_4 -> {
+                // Flow 4 - OpenAI GPT-4o-mini-transcribe without silence trimming
+                Log.d(TAG, "FLOW_4 (OpenAI Mini No Trim): sending raw audio to Cloud API with gpt-4o-mini-transcribe, format: $audioFormat")
+                transcribeWithCloudApiNoTrim(audioBytes, audioFormat, durationMs)
+            }
+        }
+    }
+    
+    /**
+     * Transcribe using Cloud API (OpenAI Whisper via WhisperType backend)
+     */
+    private fun transcribeWithCloudApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
         processingScope.launch {
             if (isDestroyed) return@launch
             
@@ -324,6 +368,170 @@ class SpeechRecognitionHelper(
 
                 override fun onError(error: String) {
                     Log.e(TAG, "Transcription error: $error")
+                    mainHandler.post {
+                        callback.onError(error)
+                    }
+                }
+        })
+        }
+    }
+    
+    /**
+     * Transcribe using Cloud API without silence trimming (GPT-4o-mini-transcribe)
+     * This uses OpenAI's gpt-4o-mini-transcribe model directly without pre-processing
+     */
+    private fun transcribeWithCloudApiNoTrim(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
+        processingScope.launch {
+            if (isDestroyed) return@launch
+
+            // Ensure signed in
+            val user = authManager.ensureSignedIn()
+            if (user == null) {
+                mainHandler.post {
+                    callback.onError("Authentication failed. Please restart the app.")
+                }
+                return@launch
+            }
+
+            // Get ID token
+            val token = authManager.getIdToken()
+            if (token == null) {
+                mainHandler.post {
+                    callback.onError("Failed to get authentication token.")
+                }
+                return@launch
+            }
+
+            // Force use of gpt-4o-mini-transcribe model for this flow
+            val modelId = "gpt-4o-mini-transcribe"
+            Log.d(TAG, "[OpenAI No Trim] Using model: $modelId, format: $audioFormat, duration: ${durationMs}ms")
+
+            // Notify UI that transcription is starting
+            mainHandler.post {
+                if (!isDestroyed) {
+                    callback.onTranscribing()
+                }
+            }
+
+            // Make API call with auth token and gpt-4o-mini-transcribe model
+            whisperApiClient.transcribe(audioBytes, token, audioFormat, modelId, durationMs, object : WhisperApiClient.TranscriptionCallback {
+                override fun onSuccess(text: String) {
+                    Log.d(TAG, "[OpenAI No Trim] Transcription successful: ${text.take(50)}...")
+                    mainHandler.post {
+                        callback.onResults(text)
+                    }
+                }
+
+                override fun onError(error: String) {
+                    Log.e(TAG, "[OpenAI No Trim] Transcription error: $error")
+                    mainHandler.post {
+                        callback.onError(error)
+                    }
+                }
+            })
+        }
+    }
+
+    /**
+     * Transcribe using Groq API (whisper-large-v3)
+     * This method skips silence trimming and uses Groq's ultra-fast transcription
+     */
+    private fun transcribeWithGroqApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
+        processingScope.launch {
+            if (isDestroyed) return@launch
+            
+            // Ensure signed in
+            val user = authManager.ensureSignedIn()
+            if (user == null) {
+                mainHandler.post {
+                    callback.onError("Authentication failed. Please restart the app.")
+                }
+                return@launch
+            }
+
+            // Get ID token
+            val token = authManager.getIdToken()
+            if (token == null) {
+                mainHandler.post {
+                    callback.onError("Failed to get authentication token.")
+                }
+                return@launch
+            }
+
+            Log.d(TAG, "Calling Groq API with format: $audioFormat, duration: ${durationMs}ms")
+
+            // Notify UI that transcription is starting
+            mainHandler.post {
+                if (!isDestroyed) {
+                    callback.onTranscribing()
+                }
+            }
+
+            // Make Groq API call
+            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, null, object : WhisperApiClient.TranscriptionCallback {
+                override fun onSuccess(text: String) {
+                    Log.d(TAG, "[Groq] Transcription successful: ${text.take(50)}...")
+                    mainHandler.post {
+                        callback.onResults(text)
+                    }
+                }
+
+                override fun onError(error: String) {
+                    Log.e(TAG, "[Groq] Transcription error: $error")
+                    mainHandler.post {
+                        callback.onError(error)
+                    }
+                }
+            })
+        }
+    }
+
+    /**
+     * Transcribe using Groq Turbo API (whisper-large-v3-turbo)
+     * This is the fastest transcription option with slightly lower accuracy
+     */
+    private fun transcribeWithGroqTurboApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
+        processingScope.launch {
+            if (isDestroyed) return@launch
+
+            // Ensure signed in
+            val user = authManager.ensureSignedIn()
+            if (user == null) {
+                mainHandler.post {
+                    callback.onError("Authentication failed. Please restart the app.")
+                }
+                return@launch
+            }
+
+            // Get ID token
+            val token = authManager.getIdToken()
+            if (token == null) {
+                mainHandler.post {
+                    callback.onError("Failed to get authentication token.")
+                }
+                return@launch
+            }
+
+            Log.d(TAG, "[Groq Turbo] Calling Groq API with whisper-large-v3-turbo, format: $audioFormat, duration: ${durationMs}ms")
+
+            // Notify UI that transcription is starting
+            mainHandler.post {
+                if (!isDestroyed) {
+                    callback.onTranscribing()
+                }
+            }
+
+            // Make Groq API call with whisper-large-v3-turbo model
+            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, "whisper-large-v3-turbo", object : WhisperApiClient.TranscriptionCallback {
+                override fun onSuccess(text: String) {
+                    Log.d(TAG, "[Groq Turbo] Transcription successful: ${text.take(50)}...")
+                    mainHandler.post {
+                        callback.onResults(text)
+                    }
+                }
+
+                override fun onError(error: String) {
+                    Log.e(TAG, "[Groq Turbo] Transcription error: $error")
                     mainHandler.post {
                         callback.onError(error)
                     }
