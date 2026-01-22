@@ -38,10 +38,12 @@ import androidx.compose.ui.unit.sp
 import com.whispertype.app.BuildConfig
 import com.whispertype.app.R
 import com.whispertype.app.api.WhisperApiClient
+import com.whispertype.app.audio.AudioProcessor
 import com.whispertype.app.audio.AudioRecorder
 import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.speech.TranscriptionFlow
 import kotlinx.coroutines.*
+import java.io.File
 import java.util.Collections
 
 private const val TAG = "FlowComparison"
@@ -264,12 +266,15 @@ fun FlowComparisonScreen(
                 onStopRecording = {
                     isRecording = false
                     isProcessing = true
-                    
+
+                    // Capture start time when recording stops - this is when user expects timing to begin
+                    val recordingStopTime = System.currentTimeMillis()
+
                     // Update all flows to transcribing state
                     flowResults = flowResults.map {
                         it.copy(status = FlowStatus.TRANSCRIBING)
                     }.toMutableList()
-                    
+
                     audioRecorder.stopRecording(object : AudioRecorder.RecordingCallback {
                         override fun onRecordingStarted() {}
                         override fun onRecordingStopped(audioBytes: ByteArray) {
@@ -287,6 +292,7 @@ fun FlowComparisonScreen(
                                     apiClient = apiClient,
                                     authManager = authManager,
                                     flowResults = flowResults,
+                                    recordingStopTime = recordingStopTime,
                                     onFlowComplete = { flow, text, timeMs ->
                                         finishCounter++
                                         flowResults = flowResults.map {
@@ -644,6 +650,7 @@ private suspend fun transcribeAllFlows(
     apiClient: WhisperApiClient,
     authManager: FirebaseAuthManager,
     flowResults: List<FlowResult>,
+    recordingStopTime: Long,
     onFlowComplete: (TranscriptionFlow, String, Long) -> Unit,
     onFlowError: (TranscriptionFlow, String) -> Unit
 ) {
@@ -663,13 +670,48 @@ private suspend fun transcribeAllFlows(
     Log.d(TAG, "Starting parallel transcription for ${flowResults.size} flows")
     
     // Launch all flows in parallel
+    // Note: All flows use the same recordingStopTime to measure total time from recording stop to result
     coroutineScope {
         flowResults.forEach { result ->
             launch(Dispatchers.IO) {
-                val startTime = System.currentTimeMillis()
-                
-                // Use suspendCancellableCoroutine to convert callback to suspend
                 try {
+                    // For CLOUD_API, do silence trimming BEFORE the API call (like real usage)
+                    // This must be done outside suspendCancellableCoroutine since trimSilence is a suspend function
+                    val finalAudioBytes: ByteArray
+                    val finalAudioFormat: String
+                    val finalDurationMs: Long
+
+                    if (result.flow == TranscriptionFlow.CLOUD_API) {
+                        Log.d(TAG, "CLOUD_API: Starting silence trimming")
+
+                        // Write audio to temp file for processing
+                        val tempFile = File(context.cacheDir, "flow_comparison_cloud_api.${audioFormat}")
+                        tempFile.writeBytes(audioBytes)
+
+                        // Process audio to remove silence
+                        val audioProcessor = AudioProcessor(context)
+                        val processedResult = audioProcessor.trimSilence(tempFile, audioFormat)
+                        finalAudioBytes = processedResult.file.readBytes()
+                        finalAudioFormat = processedResult.format  // "wav" after processing
+                        finalDurationMs = processedResult.originalDurationMs
+
+                        val savedPercent = if (audioBytes.isNotEmpty()) {
+                            ((audioBytes.size - finalAudioBytes.size) * 100 / audioBytes.size)
+                        } else 0
+                        Log.d(TAG, "CLOUD_API: Audio trimmed ${audioBytes.size} -> ${finalAudioBytes.size} bytes ($savedPercent% saved)")
+
+                        // Clean up temp file (but not the processed file which may be different)
+                        if (tempFile.exists() && tempFile != processedResult.file) {
+                            tempFile.delete()
+                        }
+                    } else {
+                        // Other flows use raw audio without trimming
+                        finalAudioBytes = audioBytes
+                        finalAudioFormat = audioFormat
+                        finalDurationMs = durationMs
+                    }
+
+                    // Use suspendCancellableCoroutine to convert callback to suspend
                     val text = suspendCancellableCoroutine<String> { continuation ->
                         val callback = object : WhisperApiClient.TranscriptionCallback {
                             override fun onSuccess(text: String) {
@@ -688,37 +730,37 @@ private suspend fun transcribeAllFlows(
                                 }
                             }
                         }
-                        
+
                         when (result.flow) {
                             TranscriptionFlow.CLOUD_API -> {
-                                Log.d(TAG, "Starting CLOUD_API transcription")
+                                Log.d(TAG, "CLOUD_API: Sending trimmed audio to API")
                                 apiClient.transcribe(
-                                    audioBytes = audioBytes,
+                                    audioBytes = finalAudioBytes,
                                     authToken = token,
-                                    audioFormat = audioFormat,
+                                    audioFormat = finalAudioFormat,
                                     model = null,
-                                    audioDurationMs = durationMs,
+                                    audioDurationMs = finalDurationMs,
                                     callback = callback
                                 )
                             }
                             TranscriptionFlow.GROQ_WHISPER -> {
-                                Log.d(TAG, "Starting GROQ_WHISPER transcription")
+                                Log.d(TAG, "Starting GROQ_WHISPER transcription (no trim)")
                                 apiClient.transcribeWithGroq(
-                                    audioBytes = audioBytes,
+                                    audioBytes = finalAudioBytes,
                                     authToken = token,
-                                    audioFormat = audioFormat,
-                                    audioDurationMs = durationMs,
+                                    audioFormat = finalAudioFormat,
+                                    audioDurationMs = finalDurationMs,
                                     model = null,  // Default: whisper-large-v3
                                     callback = callback
                                 )
                             }
                             TranscriptionFlow.FLOW_3 -> {
-                                Log.d(TAG, "Starting FLOW_3 (Groq Turbo) transcription")
+                                Log.d(TAG, "Starting FLOW_3 (Groq Turbo) transcription (no trim)")
                                 apiClient.transcribeWithGroq(
-                                    audioBytes = audioBytes,
+                                    audioBytes = finalAudioBytes,
                                     authToken = token,
-                                    audioFormat = audioFormat,
-                                    audioDurationMs = durationMs,
+                                    audioFormat = finalAudioFormat,
+                                    audioDurationMs = finalDurationMs,
                                     model = "whisper-large-v3-turbo",
                                     callback = callback
                                 )
@@ -726,19 +768,20 @@ private suspend fun transcribeAllFlows(
                             TranscriptionFlow.FLOW_4 -> {
                                 Log.d(TAG, "Starting FLOW_4 (OpenAI Mini No Trim) transcription")
                                 apiClient.transcribe(
-                                    audioBytes = audioBytes,
+                                    audioBytes = finalAudioBytes,
                                     authToken = token,
-                                    audioFormat = audioFormat,
+                                    audioFormat = finalAudioFormat,
                                     model = "gpt-4o-mini-transcribe",
-                                    audioDurationMs = durationMs,
+                                    audioDurationMs = finalDurationMs,
                                     callback = callback
                                 )
                             }
                         }
                     }
                     
-                    val elapsedMs = System.currentTimeMillis() - startTime
-                    Log.d(TAG, "${result.flow.name} completed in ${elapsedMs}ms")
+                    // Calculate elapsed time from when recording stopped (includes audio processing + API call)
+                    val elapsedMs = System.currentTimeMillis() - recordingStopTime
+                    Log.d(TAG, "${result.flow.name} completed in ${elapsedMs}ms (from recording stop)")
                     
                     withContext(Dispatchers.Main) {
                         onFlowComplete(result.flow, text, elapsedMs)
