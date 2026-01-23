@@ -40,15 +40,49 @@ import com.whispertype.app.R
 import com.whispertype.app.api.WhisperApiClient
 import com.whispertype.app.audio.AudioProcessor
 import com.whispertype.app.audio.AudioRecorder
+import com.whispertype.app.audio.RealtimeRmsRecorder
 import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.speech.TranscriptionFlow
 import kotlinx.coroutines.*
+import kotlinx.coroutines.delay
 import java.io.File
 import java.util.Collections
 
 private const val TAG = "FlowComparison"
 private const val PREFS_NAME = "flow_comparison_prefs"
 private const val KEY_FLOW_ORDER = "flow_order"
+private const val KEY_ENABLED_FLOWS = "enabled_flows"
+
+/**
+ * Save enabled flows to SharedPreferences
+ */
+private fun saveEnabledFlows(context: Context, enabledFlows: Set<TranscriptionFlow>) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val enabledString = enabledFlows.joinToString(",") { it.name }
+    prefs.edit().putString(KEY_ENABLED_FLOWS, enabledString).apply()
+    Log.d(TAG, "Saved enabled flows: $enabledString")
+}
+
+/**
+ * Load enabled flows from SharedPreferences
+ */
+private fun loadEnabledFlows(context: Context): Set<TranscriptionFlow> {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val enabledString = prefs.getString(KEY_ENABLED_FLOWS, null)
+
+    return if (enabledString != null) {
+        enabledString.split(",").mapNotNull { name ->
+            try {
+                TranscriptionFlow.valueOf(name)
+            } catch (e: IllegalArgumentException) {
+                null
+            }
+        }.toSet()
+    } else {
+        // Default: enable all flows except CLOUD_API
+        TranscriptionFlow.entries.filter { it != TranscriptionFlow.CLOUD_API }.toSet()
+    }
+}
 
 /**
  * Save the flow order to SharedPreferences
@@ -135,28 +169,65 @@ fun FlowComparisonScreen(
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    
-    // Flow results state - load saved order from SharedPreferences
+
+    // All available flows (exclude CLOUD_API)
+    val allFlows = remember {
+        TranscriptionFlow.entries.filter { it != TranscriptionFlow.CLOUD_API }
+    }
+
+    // MediaRecorder flows (non-ARAMUS flows)
+    val mediaRecorderFlows = remember {
+        allFlows.filter { !it.name.startsWith("ARAMUS") }
+    }
+
+    // AudioRecord flows (ARAMUS flows)
+    val audioRecordFlows = remember {
+        allFlows.filter { it.name.startsWith("ARAMUS") }
+    }
+
+    // Enabled flows state
+    var enabledFlows by remember {
+        mutableStateOf(loadEnabledFlows(context))
+    }
+
+    // Show flow selector
+    var showFlowSelector by remember { mutableStateOf(false) }
+
+    // Flow results state for MediaRecorder flows
     var flowResults by remember {
         val savedOrder = loadFlowOrder(context)
-        val orderedFlows = savedOrder ?: TranscriptionFlow.entries.toList()
+        val orderedFlows = (savedOrder ?: allFlows)
+            .filter { it in mediaRecorderFlows }
         mutableStateOf(
             orderedFlows.map { FlowResult(it) }.toMutableList()
         )
     }
-    
+
+    // Aramus flow results (AudioRecord-based)
+    var aramusResults by remember {
+        mutableStateOf(
+            audioRecordFlows.map { FlowResult(it) }.toMutableList()
+        )
+    }
+
     // Recording state
     var isRecording by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
-    
-    // Audio recorder
-    val audioRecorder = remember { AudioRecorder(context) }
+
+    // Audio recorders - dual recorder setup
+    val audioRecorder = remember { AudioRecorder(context) }  // MediaRecorder for standard flows
+    val realtimeRmsRecorder = remember { RealtimeRmsRecorder(context) }  // AudioRecord for Aramus
+    val audioProcessor = remember { AudioProcessor(context) }  // For OGG encoding
     val apiClient = remember { WhisperApiClient() }
     val authManager = remember { FirebaseAuthManager() }
-    
-    // Track finish order
-    var finishCounter by remember { mutableIntStateOf(0) }
-    
+
+    // Track finish order (separate counters for each column)
+    var mediaRecorderFinishCounter by remember { mutableIntStateOf(0) }
+    var audioRecordFinishCounter by remember { mutableIntStateOf(0) }
+
+    // Store Aramus audio bytes from callback (since file is deleted after processing)
+    var aramusTrimmedAudioBytes by remember { mutableStateOf<ByteArray?>(null) }
+
     // Cleanup on dispose
     DisposableEffect(Unit) {
         onDispose {
@@ -207,59 +278,167 @@ fun FlowComparisonScreen(
                 .background(Color(0xFFFFF7ED))
                 .padding(16.dp)
         ) {
-            // Instructions
-            Text(
-                text = "Record audio and compare all flows simultaneously. Drag to reorder.",
-                fontSize = 14.sp,
-                color = Color(0xFF64748B),
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            
+            // Flow selector row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${enabledFlows.size} flows selected",
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B)
+                )
+                TextButton(onClick = { showFlowSelector = !showFlowSelector }) {
+                    Text(
+                        text = if (showFlowSelector) "Hide Selector" else "Select Flows",
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            // Flow selector (expandable)
+            AnimatedVisibility(visible = showFlowSelector) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Select flows to compare:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1E293B)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        allFlows.forEach { flow ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val newEnabled = if (flow in enabledFlows) {
+                                            enabledFlows - flow
+                                        } else {
+                                            enabledFlows + flow
+                                        }
+                                        enabledFlows = newEnabled
+                                        saveEnabledFlows(context, newEnabled)
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = flow in enabledFlows,
+                                    onCheckedChange = { checked ->
+                                        val newEnabled = if (checked) {
+                                            enabledFlows + flow
+                                        } else {
+                                            enabledFlows - flow
+                                        }
+                                        enabledFlows = newEnabled
+                                        saveEnabledFlows(context, newEnabled)
+                                    },
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = flow.displayName,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF1E293B)
+                                    )
+                                    Text(
+                                        text = if (flow.name.startsWith("ARAMUS")) "AudioRecord" else "MediaRecorder",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF64748B)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Record button
             RecordButton(
                 isRecording = isRecording,
                 isProcessing = isProcessing,
                 onStartRecording = {
                     // Reset all results
-                    finishCounter = 0
-                    flowResults = flowResults.map { 
-                        it.copy(
-                            status = FlowStatus.RECORDING,
-                            text = null,
-                            timeMs = null,
-                            error = null,
-                            finishOrder = 0
-                        )
+                    mediaRecorderFinishCounter = 0
+                    audioRecordFinishCounter = 0
+                    aramusTrimmedAudioBytes = null
+
+                    // Filter flows based on enabled selection
+                    val enabledMediaFlows = flowResults.filter { it.flow in enabledFlows }
+                    val enabledAramusFlows = aramusResults.filter { it.flow in enabledFlows }
+
+                    flowResults = flowResults.map {
+                        if (it.flow in enabledFlows) {
+                            it.copy(status = FlowStatus.RECORDING, text = null, timeMs = null, error = null, finishOrder = 0)
+                        } else {
+                            it.copy(status = FlowStatus.IDLE, text = null, timeMs = null, error = null, finishOrder = 0)
+                        }
                     }.toMutableList()
-                    
-                    val started = audioRecorder.startRecording(object : AudioRecorder.RecordingCallback {
-                        override fun onRecordingStarted() {
-                            Log.d(TAG, "Recording started")
+
+                    aramusResults = aramusResults.map {
+                        if (it.flow in enabledFlows) {
+                            it.copy(status = FlowStatus.RECORDING, text = null, timeMs = null, error = null, finishOrder = 0)
+                        } else {
+                            it.copy(status = FlowStatus.IDLE, text = null, timeMs = null, error = null, finishOrder = 0)
                         }
-                        override fun onRecordingStopped(audioBytes: ByteArray) {
-                            // Handled in stop
-                        }
-                        override fun onRecordingError(error: String) {
-                            Log.e(TAG, "Recording error: $error")
-                            isRecording = false
-                            // Reset flow states to IDLE on error
-                            flowResults = flowResults.map {
-                                it.copy(status = FlowStatus.IDLE)
-                            }.toMutableList()
-                            Toast.makeText(context, "Recording failed: $error", Toast.LENGTH_SHORT).show()
-                        }
-                    })
-                    
-                    // Only set recording state if actually started
-                    if (started) {
+                    }.toMutableList()
+
+                    // Check if we need each recorder type
+                    val needMediaRecorder = enabledMediaFlows.isNotEmpty()
+                    val needAudioRecord = enabledAramusFlows.isNotEmpty()
+
+                    var mediaRecorderStarted = !needMediaRecorder  // true if not needed
+                    var audioRecordStarted = !needAudioRecord
+
+                    // Start MediaRecorder if needed
+                    if (needMediaRecorder) {
+                        mediaRecorderStarted = audioRecorder.startRecording(object : AudioRecorder.RecordingCallback {
+                            override fun onRecordingStarted() {
+                                Log.d(TAG, "MediaRecorder started")
+                            }
+                            override fun onRecordingStopped(audioBytes: ByteArray) {}
+                            override fun onRecordingError(error: String) {
+                                Log.e(TAG, "MediaRecorder error: $error")
+                            }
+                        })
+                    }
+
+                    // Start AudioRecord if needed
+                    if (needAudioRecord) {
+                        realtimeRmsRecorder.startRecording(object : RealtimeRmsRecorder.RecordingCallback {
+                            override fun onRecordingStarted() {
+                                Log.d(TAG, "AudioRecord (Aramus) started")
+                                audioRecordStarted = true
+                            }
+                            override fun onRecordingStopped(trimmedAudioBytes: ByteArray, rawAudioBytes: ByteArray, metadata: RealtimeRmsRecorder.RmsMetadata) {
+                                Log.d(TAG, "AudioRecord (Aramus) stopped. Trimmed: ${trimmedAudioBytes.size} bytes")
+                                aramusTrimmedAudioBytes = trimmedAudioBytes
+                            }
+                            override fun onRecordingError(error: String) {
+                                Log.e(TAG, "AudioRecord (Aramus) error: $error")
+                                aramusResults = aramusResults.map {
+                                    it.copy(status = FlowStatus.ERROR, error = error)
+                                }.toMutableList()
+                            }
+                        })
+                    }
+
+                    if (mediaRecorderStarted || audioRecordStarted) {
                         isRecording = true
-                        Log.d(TAG, "Recording started successfully")
+                        Log.d(TAG, "Recorders started (Media: $needMediaRecorder, Audio: $needAudioRecord)")
                     } else {
-                        Log.e(TAG, "Failed to start recording")
-                        // Reset flow states
-                        flowResults = flowResults.map {
-                            it.copy(status = FlowStatus.IDLE)
-                        }.toMutableList()
+                        Log.e(TAG, "Failed to start recorders")
+                        flowResults = flowResults.map { it.copy(status = FlowStatus.IDLE) }.toMutableList()
+                        aramusResults = aramusResults.map { it.copy(status = FlowStatus.IDLE) }.toMutableList()
                         Toast.makeText(context, "Failed to start recording", Toast.LENGTH_SHORT).show()
                     }
                 },
@@ -267,117 +446,465 @@ fun FlowComparisonScreen(
                     isRecording = false
                     isProcessing = true
 
-                    // Capture start time when recording stops - this is when user expects timing to begin
                     val recordingStopTime = System.currentTimeMillis()
 
-                    // Update all flows to transcribing state
+                    // Filter enabled flows
+                    val enabledMediaFlows = flowResults.filter { it.flow in enabledFlows }
+                    val enabledAramusFlows = aramusResults.filter { it.flow in enabledFlows }
+
+                    // Update enabled flows to transcribing state
                     flowResults = flowResults.map {
-                        it.copy(status = FlowStatus.TRANSCRIBING)
+                        if (it.flow in enabledFlows) it.copy(status = FlowStatus.TRANSCRIBING) else it
+                    }.toMutableList()
+                    aramusResults = aramusResults.map {
+                        if (it.flow in enabledFlows) it.copy(status = FlowStatus.TRANSCRIBING) else it
                     }.toMutableList()
 
-                    audioRecorder.stopRecording(object : AudioRecorder.RecordingCallback {
-                        override fun onRecordingStarted() {}
-                        override fun onRecordingStopped(audioBytes: ByteArray) {
-                            Log.d(TAG, "Recording stopped, ${audioBytes.size} bytes")
-                            val audioFormat = audioRecorder.getAudioFormat()
-                            val durationMs = (audioBytes.size.toLong() * 8 / 64).coerceAtLeast(1000)
-                            
-                            // Launch parallel transcriptions
-                            scope.launch {
-                                transcribeAllFlows(
-                                    context = context,
-                                    audioBytes = audioBytes,
-                                    audioFormat = audioFormat,
-                                    durationMs = durationMs,
-                                    apiClient = apiClient,
-                                    authManager = authManager,
-                                    flowResults = flowResults,
-                                    recordingStopTime = recordingStopTime,
-                                    onFlowComplete = { flow, text, timeMs ->
-                                        finishCounter++
-                                        flowResults = flowResults.map {
-                                            if (it.flow == flow) {
-                                                it.copy(
-                                                    status = FlowStatus.SUCCESS,
-                                                    text = text,
-                                                    timeMs = timeMs,
-                                                    finishOrder = finishCounter
-                                                )
-                                            } else it
-                                        }.toMutableList()
-                                        
-                                        // Check if all done
-                                        if (flowResults.all { it.status == FlowStatus.SUCCESS || it.status == FlowStatus.ERROR }) {
-                                            isProcessing = false
+                    // Stop AudioRecord if it was started
+                    if (enabledAramusFlows.isNotEmpty()) {
+                        realtimeRmsRecorder.stopRecording()
+                    }
+
+                    // Stop MediaRecorder and process if it was started
+                    if (enabledMediaFlows.isNotEmpty()) {
+                        audioRecorder.stopRecording(object : AudioRecorder.RecordingCallback {
+                            override fun onRecordingStarted() {}
+                            override fun onRecordingStopped(audioBytes: ByteArray) {
+                                Log.d(TAG, "MediaRecorder stopped, ${audioBytes.size} bytes")
+                                val audioFormat = audioRecorder.getAudioFormat()
+                                val durationMs = (audioBytes.size.toLong() * 8 / 64).coerceAtLeast(1000)
+
+                                scope.launch {
+                                    transcribeAllFlows(
+                                        context = context,
+                                        audioBytes = audioBytes,
+                                        audioFormat = audioFormat,
+                                        durationMs = durationMs,
+                                        apiClient = apiClient,
+                                        authManager = authManager,
+                                        flowResults = flowResults.filter { it.flow in enabledFlows },
+                                        recordingStopTime = recordingStopTime,
+                                        onFlowComplete = { flow, text, timeMs ->
+                                            mediaRecorderFinishCounter++
+                                            flowResults = flowResults.map {
+                                                if (it.flow == flow) {
+                                                    it.copy(status = FlowStatus.SUCCESS, text = text, timeMs = timeMs, finishOrder = mediaRecorderFinishCounter)
+                                                } else it
+                                            }.toMutableList()
+                                            checkIfAllDone(flowResults, aramusResults, enabledFlows) { isProcessing = false }
+                                        },
+                                        onFlowError = { flow, error ->
+                                            mediaRecorderFinishCounter++
+                                            flowResults = flowResults.map {
+                                                if (it.flow == flow) {
+                                                    it.copy(status = FlowStatus.ERROR, error = error, finishOrder = mediaRecorderFinishCounter)
+                                                } else it
+                                            }.toMutableList()
+                                            checkIfAllDone(flowResults, aramusResults, enabledFlows) { isProcessing = false }
                                         }
-                                    },
-                                    onFlowError = { flow, error ->
-                                        finishCounter++
-                                        flowResults = flowResults.map {
-                                            if (it.flow == flow) {
-                                                it.copy(
-                                                    status = FlowStatus.ERROR,
-                                                    error = error,
-                                                    finishOrder = finishCounter
-                                                )
-                                            } else it
-                                        }.toMutableList()
-                                        
-                                        if (flowResults.all { it.status == FlowStatus.SUCCESS || it.status == FlowStatus.ERROR }) {
-                                            isProcessing = false
-                                        }
-                                    }
-                                )
+                                    )
+                                }
                             }
+                            override fun onRecordingError(error: String) {
+                                Log.e(TAG, "MediaRecorder stop error: $error")
+                            }
+                        })
+                    }
+
+                    // Process Aramus flows (with pre-trimmed audio from RealtimeRmsRecorder)
+                    if (enabledAramusFlows.isNotEmpty()) {
+                        scope.launch {
+                            transcribeAramusFlows(
+                                flows = enabledAramusFlows.map { it.flow },
+                                trimmedAudioBytesProvider = { aramusTrimmedAudioBytes },
+                                audioProcessor = audioProcessor,
+                                apiClient = apiClient,
+                                authManager = authManager,
+                                recordingStopTime = recordingStopTime,
+                                onFlowComplete = { flow, text, timeMs ->
+                                    audioRecordFinishCounter++
+                                    aramusResults = aramusResults.map {
+                                        if (it.flow == flow) {
+                                            it.copy(status = FlowStatus.SUCCESS, text = text, timeMs = timeMs, finishOrder = audioRecordFinishCounter)
+                                        } else it
+                                    }.toMutableList()
+                                    checkIfAllDone(flowResults, aramusResults, enabledFlows) { isProcessing = false }
+                                },
+                                onFlowError = { flow, error ->
+                                    audioRecordFinishCounter++
+                                    aramusResults = aramusResults.map {
+                                        if (it.flow == flow) {
+                                            it.copy(status = FlowStatus.ERROR, error = error, finishOrder = audioRecordFinishCounter)
+                                        } else it
+                                    }.toMutableList()
+                                    checkIfAllDone(flowResults, aramusResults, enabledFlows) { isProcessing = false }
+                                }
+                            )
                         }
-                        override fun onRecordingError(error: String) {
-                            Log.e(TAG, "Stop error: $error")
-                            isProcessing = false
-                        }
-                    })
+                    }
+
+                    // If no flows enabled, stop processing
+                    if (enabledMediaFlows.isEmpty() && enabledAramusFlows.isEmpty()) {
+                        isProcessing = false
+                        Toast.makeText(context, "No flows selected", Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Flow results list
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Side-by-side comparison layout
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                itemsIndexed(flowResults) { index, result ->
-                    FlowResultCard(
-                        result = result,
-                        canMoveUp = index > 0,
-                        canMoveDown = index < flowResults.size - 1,
-                        onMoveUp = {
-                            if (index > 0) {
-                                val newList = flowResults.toMutableList()
-                                Collections.swap(newList, index, index - 1)
-                                flowResults = newList
-                                // Save new order
-                                saveFlowOrder(context, newList.map { it.flow })
-                            }
-                        },
-                        onMoveDown = {
-                            if (index < flowResults.size - 1) {
-                                val newList = flowResults.toMutableList()
-                                Collections.swap(newList, index, index + 1)
-                                flowResults = newList
-                                // Save new order
-                                saveFlowOrder(context, newList.map { it.flow })
-                            }
-                        },
-                        onCopy = {
-                            result.text?.let { text ->
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("Transcription", text))
-                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-                            }
+                // Left column: MediaRecorder flows
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    // Column header
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF6366F1).copy(alpha = 0.1f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(
+                                text = "MediaRecorder",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF6366F1)
+                            )
+                            Text(
+                                text = "Sequential processing",
+                                fontSize = 10.sp,
+                                color = Color(0xFF64748B)
+                            )
                         }
-                    )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Flow results list (filtered by enabled flows)
+                    val filteredFlowResults = flowResults.filter { it.flow in enabledFlows }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        itemsIndexed(filteredFlowResults) { index, result ->
+                            CompactFlowResultCard(
+                                result = result,
+                                canMoveUp = index > 0,
+                                canMoveDown = index < filteredFlowResults.size - 1,
+                                onMoveUp = {
+                                    if (index > 0) {
+                                        // Find actual indices in full list
+                                        val currentIdx = flowResults.indexOfFirst { it.flow == result.flow }
+                                        val prevFlow = filteredFlowResults[index - 1].flow
+                                        val prevIdx = flowResults.indexOfFirst { it.flow == prevFlow }
+                                        if (currentIdx >= 0 && prevIdx >= 0) {
+                                            val newList = flowResults.toMutableList()
+                                            Collections.swap(newList, currentIdx, prevIdx)
+                                            flowResults = newList
+                                            saveFlowOrder(context, newList.map { it.flow })
+                                        }
+                                    }
+                                },
+                                onMoveDown = {
+                                    if (index < filteredFlowResults.size - 1) {
+                                        val currentIdx = flowResults.indexOfFirst { it.flow == result.flow }
+                                        val nextFlow = filteredFlowResults[index + 1].flow
+                                        val nextIdx = flowResults.indexOfFirst { it.flow == nextFlow }
+                                        if (currentIdx >= 0 && nextIdx >= 0) {
+                                            val newList = flowResults.toMutableList()
+                                            Collections.swap(newList, currentIdx, nextIdx)
+                                            flowResults = newList
+                                            saveFlowOrder(context, newList.map { it.flow })
+                                        }
+                                    }
+                                },
+                                onCopy = {
+                                    result.text?.let { text ->
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("Transcription", text))
+                                        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Right column: AudioRecord (Aramus) flows
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    // Column header
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF22C55E).copy(alpha = 0.1f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(
+                                text = "AudioRecord",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF16A34A)
+                            )
+                            Text(
+                                text = "Parallel RMS processing",
+                                fontSize = 10.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Aramus flow results list
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        itemsIndexed(aramusResults.filter { it.flow in enabledFlows }) { _, result ->
+                            CompactFlowResultCard(
+                                result = result,
+                                canMoveUp = false,
+                                canMoveDown = false,
+                                onMoveUp = {},
+                                onMoveDown = {},
+                                onCopy = {
+                                    result.text?.let { text ->
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("Transcription", text))
+                                        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                showReorderButtons = false,
+                                highlightColor = Color(0xFF22C55E)
+                            )
+                        }
+                    }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Check if all enabled flows are done (both MediaRecorder and AudioRecord columns)
+ */
+private fun checkIfAllDone(
+    mediaRecorderResults: List<FlowResult>,
+    aramusResults: List<FlowResult>,
+    enabledFlows: Set<TranscriptionFlow>,
+    onAllDone: () -> Unit
+) {
+    val enabledMediaResults = mediaRecorderResults.filter { it.flow in enabledFlows }
+    val enabledAramusResults = aramusResults.filter { it.flow in enabledFlows }
+
+    val mediaRecorderDone = enabledMediaResults.isEmpty() || enabledMediaResults.all {
+        it.status == FlowStatus.SUCCESS || it.status == FlowStatus.ERROR
+    }
+    val aramusDone = enabledAramusResults.isEmpty() || enabledAramusResults.all {
+        it.status == FlowStatus.SUCCESS || it.status == FlowStatus.ERROR
+    }
+
+    if (mediaRecorderDone && aramusDone) {
+        onAllDone()
+    }
+}
+
+/**
+ * Transcribe using multiple Aramus flows (with different post-processing: WAV vs OGG)
+ */
+private suspend fun transcribeAramusFlows(
+    flows: List<TranscriptionFlow>,
+    trimmedAudioBytesProvider: () -> ByteArray?,
+    audioProcessor: AudioProcessor,
+    apiClient: WhisperApiClient,
+    authManager: FirebaseAuthManager,
+    recordingStopTime: Long,
+    onFlowComplete: (TranscriptionFlow, String, Long) -> Unit,
+    onFlowError: (TranscriptionFlow, String) -> Unit
+) {
+    // Get auth token
+    val user = authManager.ensureSignedIn()
+    if (user == null) {
+        flows.forEach { flow ->
+            withContext(Dispatchers.Main) { onFlowError(flow, "Authentication failed") }
+        }
+        return
+    }
+
+    val token = authManager.getIdToken()
+    if (token == null) {
+        flows.forEach { flow ->
+            withContext(Dispatchers.Main) { onFlowError(flow, "Failed to get auth token") }
+        }
+        return
+    }
+
+    // Wait briefly for RealtimeRmsRecorder callback to complete
+    delay(200)
+
+    // Get trimmed audio from callback
+    val trimmedAudioBytes = trimmedAudioBytesProvider()
+    if (trimmedAudioBytes == null || trimmedAudioBytes.isEmpty()) {
+        flows.forEach { flow ->
+            withContext(Dispatchers.Main) { onFlowError(flow, "No audio data from Aramus recorder") }
+        }
+        return
+    }
+
+    val estimatedDurationMs = (trimmedAudioBytes.size.toLong() * 1000 / 32000).coerceAtLeast(1000)
+    Log.d(TAG, "Aramus: Processing ${flows.size} flows with ${trimmedAudioBytes.size} bytes")
+
+    // Launch each flow in parallel
+    coroutineScope {
+        flows.forEach { flow ->
+            launch(Dispatchers.IO) {
+                try {
+                    // Determine audio format based on flow
+                    val (audioBytes, audioFormat) = when (flow) {
+                        TranscriptionFlow.ARAMUS_OPENAI -> {
+                            // Send WAV directly
+                            Log.d(TAG, "ARAMUS_OPENAI: Sending WAV (${trimmedAudioBytes.size} bytes)")
+                            Pair(trimmedAudioBytes, "wav")
+                        }
+                        else -> Pair(trimmedAudioBytes, "wav")
+                    }
+
+                    // Make API call
+                    val text = suspendCancellableCoroutine<String> { continuation ->
+                        val callback = object : WhisperApiClient.TranscriptionCallback {
+                            override fun onSuccess(text: String) {
+                                if (continuation.isActive) continuation.resume(text) {}
+                            }
+                            override fun onError(error: String) {
+                                if (continuation.isActive) continuation.cancel(Exception(error))
+                            }
+                            override fun onTrialExpired(message: String) {
+                                if (continuation.isActive) continuation.cancel(Exception(message))
+                            }
+                        }
+
+                        apiClient.transcribe(
+                            audioBytes = audioBytes,
+                            authToken = token,
+                            audioFormat = audioFormat,
+                            model = "gpt-4o-mini-transcribe",
+                            audioDurationMs = estimatedDurationMs,
+                            callback = callback
+                        )
+                    }
+
+                    val elapsedMs = System.currentTimeMillis() - recordingStopTime
+                    Log.d(TAG, "${flow.name} completed in ${elapsedMs}ms")
+
+                    withContext(Dispatchers.Main) {
+                        onFlowComplete(flow, text, elapsedMs)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "${flow.name} failed: ${e.message}")
+                    withContext(Dispatchers.Main) {
+                        onFlowError(flow, e.message ?: "Unknown error")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Transcribe using Aramus flow (RealtimeRmsRecorder with parallel RMS + GPT-4o-mini-transcribe)
+ * @deprecated Use transcribeAramusFlows instead
+ */
+private suspend fun transcribeAramusFlow(
+    trimmedAudioBytesProvider: () -> ByteArray?,
+    apiClient: WhisperApiClient,
+    authManager: FirebaseAuthManager,
+    recordingStopTime: Long,
+    onComplete: (String, Long) -> Unit,
+    onError: (String) -> Unit
+) {
+    try {
+        // Get auth token
+        val user = authManager.ensureSignedIn()
+        if (user == null) {
+            withContext(Dispatchers.Main) { onError("Authentication failed") }
+            return
+        }
+
+        val token = authManager.getIdToken()
+        if (token == null) {
+            withContext(Dispatchers.Main) { onError("Failed to get auth token") }
+            return
+        }
+
+        // Wait briefly for RealtimeRmsRecorder callback to complete
+        delay(200)
+
+        // Get trimmed audio from callback (file is deleted after processing)
+        val trimmedAudioBytes = trimmedAudioBytesProvider()
+        if (trimmedAudioBytes == null || trimmedAudioBytes.isEmpty()) {
+            withContext(Dispatchers.Main) { onError("No audio data from Aramus recorder") }
+            return
+        }
+
+        // Estimate duration: WAV at 16kHz, mono, 16-bit = 32000 bytes per second
+        val estimatedDurationMs = (trimmedAudioBytes.size.toLong() * 1000 / 32000).coerceAtLeast(1000)
+
+        Log.d(TAG, "Aramus: Sending pre-trimmed WAV audio, size: ${trimmedAudioBytes.size} bytes")
+
+        // Use suspendCancellableCoroutine to convert callback to suspend
+        val text = suspendCancellableCoroutine<String> { continuation ->
+            val callback = object : WhisperApiClient.TranscriptionCallback {
+                override fun onSuccess(text: String) {
+                    if (continuation.isActive) {
+                        continuation.resume(text) {}
+                    }
+                }
+                override fun onError(error: String) {
+                    if (continuation.isActive) {
+                        continuation.cancel(Exception(error))
+                    }
+                }
+                override fun onTrialExpired(message: String) {
+                    if (continuation.isActive) {
+                        continuation.cancel(Exception(message))
+                    }
+                }
+            }
+
+            // Use gpt-4o-mini-transcribe model (same as FLOW_4)
+            apiClient.transcribe(
+                audioBytes = trimmedAudioBytes,
+                authToken = token,
+                audioFormat = "wav",
+                model = "gpt-4o-mini-transcribe",
+                audioDurationMs = estimatedDurationMs,
+                callback = callback
+            )
+        }
+
+        val elapsedMs = System.currentTimeMillis() - recordingStopTime
+        Log.d(TAG, "Aramus completed in ${elapsedMs}ms (from recording stop)")
+
+        withContext(Dispatchers.Main) {
+            onComplete(text, elapsedMs)
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Aramus failed: ${e.message}")
+        withContext(Dispatchers.Main) {
+            onError(e.message ?: "Unknown error")
         }
     }
 }
@@ -640,6 +1167,195 @@ private fun FlowResultCard(
 }
 
 /**
+ * Compact card for side-by-side comparison layout
+ */
+@Composable
+private fun CompactFlowResultCard(
+    result: FlowResult,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onCopy: () -> Unit,
+    showReorderButtons: Boolean = true,
+    highlightColor: Color = Color(0xFF6366F1)
+) {
+    val isVisible = remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { isVisible.value = true }
+
+    AnimatedVisibility(
+        visible = isVisible.value,
+        enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { it / 2 }
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = when (result.status) {
+                    FlowStatus.SUCCESS -> Color.White
+                    FlowStatus.ERROR -> Color(0xFFFEE2E2)
+                    else -> Color.White
+                }
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(10.dp)) {
+                // Header row: Flow name + timing
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // Reorder buttons (optional)
+                        if (showReorderButtons) {
+                            Column {
+                                IconButton(
+                                    onClick = onMoveUp,
+                                    enabled = canMoveUp,
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.KeyboardArrowUp,
+                                        contentDescription = "Move up",
+                                        tint = if (canMoveUp) Color(0xFF64748B) else Color(0xFFCBD5E1),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = onMoveDown,
+                                    enabled = canMoveDown,
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Move down",
+                                        tint = if (canMoveDown) Color(0xFF64748B) else Color(0xFFCBD5E1),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+
+                        // Medal for finish order
+                        if (result.finishOrder in 1..4) {
+                            val medal = when (result.finishOrder) {
+                                1 -> "🥇"
+                                2 -> "🥈"
+                                3 -> "🥉"
+                                else -> "#${result.finishOrder}"
+                            }
+                            Text(
+                                text = medal,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(end = 4.dp)
+                            )
+                        }
+
+                        // Flow name (shortened for compact view)
+                        Text(
+                            text = result.flow.displayName.take(20),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp,
+                            color = Color(0xFF1E293B),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    // Timing badge
+                    if (result.timeMs != null) {
+                        val timeText = if (result.timeMs!! < 1000) {
+                            "${result.timeMs}ms"
+                        } else {
+                            String.format("%.1fs", result.timeMs!! / 1000.0)
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = highlightColor.copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                text = timeText,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = highlightColor,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Status / Result
+                when (result.status) {
+                    FlowStatus.IDLE -> {
+                        Text(
+                            text = "Waiting...",
+                            fontSize = 11.sp,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
+                    FlowStatus.RECORDING -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(12.dp),
+                                strokeWidth = 1.5.dp,
+                                color = Color(0xFFDC2626)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Recording...",
+                                fontSize = 11.sp,
+                                color = Color(0xFFDC2626)
+                            )
+                        }
+                    }
+                    FlowStatus.TRANSCRIBING -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(12.dp),
+                                strokeWidth = 1.5.dp,
+                                color = highlightColor
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Transcribing...",
+                                fontSize = 11.sp,
+                                color = highlightColor
+                            )
+                        }
+                    }
+                    FlowStatus.SUCCESS -> {
+                        Text(
+                            text = result.text ?: "",
+                            fontSize = 11.sp,
+                            color = Color(0xFF1E293B),
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clickable { onCopy() }
+                        )
+                    }
+                    FlowStatus.ERROR -> {
+                        Text(
+                            text = result.error?.take(50) ?: "Error",
+                            fontSize = 11.sp,
+                            color = Color(0xFFDC2626),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Run transcription on all flows in parallel
  */
 private suspend fun transcribeAllFlows(
@@ -775,6 +1491,11 @@ private suspend fun transcribeAllFlows(
                                     audioDurationMs = finalDurationMs,
                                     callback = callback
                                 )
+                            }
+                            TranscriptionFlow.ARAMUS_OPENAI -> {
+                                // Skip - handled separately in transcribeAramusFlows
+                                Log.d(TAG, "Skipping ARAMUS_OPENAI in transcribeAllFlows (handled separately)")
+                                continuation.cancel(Exception("Handled separately"))
                             }
                         }
                     }

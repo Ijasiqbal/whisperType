@@ -551,6 +551,243 @@ class AudioProcessor(private val context: Context) {
         }
     }
     
+    /**
+     * Result of WAV to OGG encoding
+     */
+    data class EncodingResult(
+        val bytes: ByteArray,
+        val format: String,  // "ogg" or "wav"
+        val wasCompressed: Boolean
+    )
+
+    /**
+     * Encode WAV audio bytes to OGG/Opus format for smaller file size
+     * Can be used for audio compression when upload bandwidth is limited
+     *
+     * @param wavBytes WAV file bytes (16kHz, mono, 16-bit PCM)
+     * @return EncodingResult with the encoded bytes and the actual format
+     */
+    suspend fun encodeWavToOgg(wavBytes: ByteArray): EncodingResult = withContext(Dispatchers.Default) {
+        Log.d(TAG, "Encoding WAV to OGG, input size: ${wavBytes.size} bytes")
+
+        // Parse WAV header to get PCM samples
+        val samples = parseWavToSamples(wavBytes)
+        if (samples.isEmpty()) {
+            Log.w(TAG, "Failed to parse WAV, returning original as WAV")
+            return@withContext EncodingResult(wavBytes, "wav", false)
+        }
+
+        Log.d(TAG, "Parsed ${samples.size} samples from WAV")
+
+        val tempOggFile = File(context.cacheDir, "temp_encode_output.ogg")
+
+        try {
+            // Encode samples directly to OGG using MediaCodec (no MediaExtractor)
+            val success = encodeSamplesToOpus(samples, 16000, tempOggFile)
+
+            if (success && tempOggFile.exists() && tempOggFile.length() > 0) {
+                val oggBytes = tempOggFile.readBytes()
+                Log.d(TAG, "OGG encoding complete: ${wavBytes.size} -> ${oggBytes.size} bytes " +
+                        "(${100 - oggBytes.size * 100 / wavBytes.size}% reduction)")
+                return@withContext EncodingResult(oggBytes, "ogg", true)
+            } else {
+                Log.w(TAG, "OGG encoding failed, returning original as WAV")
+                return@withContext EncodingResult(wavBytes, "wav", false)
+            }
+        } finally {
+            tempOggFile.delete()
+        }
+    }
+
+    /**
+     * Parse WAV bytes to PCM samples
+     */
+    private fun parseWavToSamples(wavBytes: ByteArray): ShortArray {
+        try {
+            if (wavBytes.size < 44) return shortArrayOf()
+
+            // Check RIFF header
+            val riff = String(wavBytes, 0, 4)
+            val wave = String(wavBytes, 8, 4)
+            if (riff != "RIFF" || wave != "WAVE") {
+                Log.e(TAG, "Invalid WAV header")
+                return shortArrayOf()
+            }
+
+            // Find data chunk
+            var dataStart = 12
+            while (dataStart < wavBytes.size - 8) {
+                val chunkId = String(wavBytes, dataStart, 4)
+                val chunkSize = ByteBuffer.wrap(wavBytes, dataStart + 4, 4)
+                    .order(ByteOrder.LITTLE_ENDIAN).int
+
+                if (chunkId == "data") {
+                    // Found data chunk
+                    val dataOffset = dataStart + 8
+                    val numSamples = chunkSize / 2  // 16-bit samples
+
+                    val samples = ShortArray(numSamples)
+                    val buffer = ByteBuffer.wrap(wavBytes, dataOffset, chunkSize)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+
+                    for (i in 0 until numSamples) {
+                        samples[i] = buffer.short
+                    }
+
+                    return samples
+                }
+
+                dataStart += 8 + chunkSize
+            }
+
+            Log.e(TAG, "Data chunk not found in WAV")
+            return shortArrayOf()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing WAV", e)
+            return shortArrayOf()
+        }
+    }
+
+    /**
+     * Encode PCM samples directly to OGG/Opus using MediaCodec
+     * This bypasses MediaExtractor which doesn't reliably work with WAV files
+     * Android 10+ supports Opus encoding
+     *
+     * @param samples PCM samples (16-bit, mono)
+     * @param sampleRate Sample rate (typically 16000)
+     * @param outputOgg Output OGG file
+     */
+    private fun encodeSamplesToOpus(samples: ShortArray, sampleRate: Int, outputOgg: File): Boolean {
+        var encoderRef: MediaCodec? = null
+        var muxerRef: MediaMuxer? = null
+
+        return try {
+            Log.d(TAG, "Encoding ${samples.size} samples to Opus at ${sampleRate}Hz")
+
+            // Set up Opus encoder
+            val outputFormat = MediaFormat.createAudioFormat(
+                MediaFormat.MIMETYPE_AUDIO_OPUS,
+                sampleRate,
+                1  // mono
+            ).apply {
+                setInteger(MediaFormat.KEY_BIT_RATE, 24000)  // 24kbps for good quality/size balance
+                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384)
+            }
+
+            val encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_OPUS)
+            encoderRef = encoder
+            encoder.configure(outputFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            encoder.start()
+
+            // Create OGG muxer
+            val muxer = MediaMuxer(outputOgg.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG)
+            muxerRef = muxer
+            var trackIndex = -1
+            var muxerStarted = false
+
+            // Convert samples to bytes (little-endian 16-bit PCM)
+            val sampleBytes = ByteBuffer.allocate(samples.size * 2)
+                .order(ByteOrder.LITTLE_ENDIAN)
+            sampleBytes.asShortBuffer().put(samples)
+            sampleBytes.rewind()
+
+            val bufferInfo = MediaCodec.BufferInfo()
+            var isInputEOS = false
+            var isOutputEOS = false
+            var inputSampleOffset = 0  // Track sample position for presentation time
+
+            val inputChunkSize = 3200  // 100ms at 16kHz = 1600 samples = 3200 bytes
+
+            while (!isOutputEOS) {
+                // Feed input to encoder
+                if (!isInputEOS) {
+                    val inputBufferIndex = encoder.dequeueInputBuffer(10000)
+                    if (inputBufferIndex >= 0) {
+                        val encoderInputBuffer = encoder.getInputBuffer(inputBufferIndex)!!
+                        encoderInputBuffer.clear()
+
+                        val remaining = sampleBytes.remaining()
+                        if (remaining <= 0) {
+                            encoder.queueInputBuffer(
+                                inputBufferIndex, 0, 0, 0,
+                                MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                            )
+                            isInputEOS = true
+                            Log.d(TAG, "Input EOS reached")
+                        } else {
+                            val bytesToWrite = min(remaining, min(encoderInputBuffer.capacity(), inputChunkSize))
+                            val oldLimit = sampleBytes.limit()
+                            sampleBytes.limit(sampleBytes.position() + bytesToWrite)
+                            encoderInputBuffer.put(sampleBytes)
+                            sampleBytes.limit(oldLimit)
+
+                            // Calculate presentation time in microseconds
+                            val presentationTimeUs = (inputSampleOffset.toLong() * 1_000_000L / sampleRate)
+                            inputSampleOffset += bytesToWrite / 2  // 2 bytes per sample
+
+                            encoder.queueInputBuffer(
+                                inputBufferIndex, 0, bytesToWrite,
+                                presentationTimeUs, 0
+                            )
+                        }
+                    }
+                }
+
+                // Get output from encoder
+                val outputBufferIndex = encoder.dequeueOutputBuffer(bufferInfo, 10000)
+                when {
+                    outputBufferIndex >= 0 -> {
+                        val encoderOutputBuffer = encoder.getOutputBuffer(outputBufferIndex)!!
+
+                        if (bufferInfo.size > 0 && muxerStarted) {
+                            encoderOutputBuffer.position(bufferInfo.offset)
+                            encoderOutputBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                            muxer.writeSampleData(trackIndex, encoderOutputBuffer, bufferInfo)
+                        }
+
+                        encoder.releaseOutputBuffer(outputBufferIndex, false)
+
+                        if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                            isOutputEOS = true
+                            Log.d(TAG, "Output EOS reached")
+                        }
+                    }
+                    outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        if (!muxerStarted) {
+                            trackIndex = muxer.addTrack(encoder.outputFormat)
+                            muxer.start()
+                            muxerStarted = true
+                            Log.d(TAG, "Muxer started, track index: $trackIndex")
+                        }
+                    }
+                }
+            }
+
+            // Clean up muxer
+            if (muxerStarted) {
+                muxer.stop()
+                Log.d(TAG, "Muxer stopped successfully")
+            }
+            muxer.release()
+            muxerRef = null
+
+            true
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error encoding to Opus: ${e.message}", e)
+            false
+        } finally {
+            encoderRef?.let {
+                try { it.stop() } catch (e: Exception) { Log.d(TAG, "Encoder stop: ${e.message}") }
+                try { it.release() } catch (e: Exception) { Log.d(TAG, "Encoder release: ${e.message}") }
+            }
+            muxerRef?.let {
+                try { it.release() } catch (e: Exception) { Log.d(TAG, "Muxer release: ${e.message}") }
+            }
+        }
+    }
+
     // Extension functions for little-endian writing
     private fun RandomAccessFile.writeIntLE(value: Int) {
         write(value and 0xFF)
@@ -558,7 +795,7 @@ class AudioProcessor(private val context: Context) {
         write((value shr 16) and 0xFF)
         write((value shr 24) and 0xFF)
     }
-    
+
     private fun RandomAccessFile.writeShortLE(value: Int) {
         write(value and 0xFF)
         write((value shr 8) and 0xFF)

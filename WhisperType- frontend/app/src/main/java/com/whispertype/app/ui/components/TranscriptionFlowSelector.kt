@@ -101,6 +101,10 @@ fun TranscriptionFlowSelector() {
                                 Log.d(TAG, "Selected FLOW_4 (OpenAI Mini No Trim)")
                                 Toast.makeText(context, "Using OpenAI Mini (No Trim)", Toast.LENGTH_SHORT).show()
                             }
+                            TranscriptionFlow.ARAMUS_OPENAI -> {
+                                Log.d(TAG, "Selected ARAMUS_OPENAI")
+                                Toast.makeText(context, "Using Aramus OpenAI", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 )

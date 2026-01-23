@@ -47,6 +47,17 @@ enum class TranscriptionFlow(
     FLOW_4(
         displayName = "OpenAI Mini (No Trim)",
         description = "GPT-4o-mini-transcribe without silence trimming"
+    ),
+
+    /**
+     * Flow 5 - Aramus + OpenAI: Parallel RMS analysis with GPT-4o-mini-transcribe
+     * Uses AudioRecord (not MediaRecorder) with real-time RMS silence detection
+     * RMS analysis runs in parallel during recording for faster processing
+     * Output: WAV format
+     */
+    ARAMUS_OPENAI(
+        displayName = "Aramus + OpenAI",
+        description = "Parallel RMS + GPT-4o-mini-transcribe"
     );
     
     companion object {
