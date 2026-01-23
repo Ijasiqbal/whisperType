@@ -362,11 +362,6 @@ class SpeechRecognitionHelper(
         Log.d(TAG, "Using transcription flow: ${selectedFlow.name}")
         
         when (selectedFlow) {
-            TranscriptionFlow.CLOUD_API -> {
-                // Default flow - proceed with OpenAI cloud API
-                Log.d(TAG, "CLOUD_API flow: sending audio to WhisperType API, format: $audioFormat")
-                transcribeWithCloudApi(audioBytes, audioFormat, durationMs)
-            }
             TranscriptionFlow.GROQ_WHISPER -> {
                 // Groq Whisper flow - use Groq's ultra-fast whisper-large-v3
                 Log.d(TAG, "GROQ_WHISPER flow: sending audio to Groq API, format: $audioFormat")

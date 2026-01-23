@@ -14,15 +14,6 @@ enum class TranscriptionFlow(
     val description: String
 ) {
     /**
-     * Cloud API flow - current default implementation
-     * Audio is recorded → silence trimmed → sent to WhisperType backend → OpenAI Whisper API
-     */
-    CLOUD_API(
-        displayName = "Cloud API (Default)",
-        description = "Uses WhisperType backend with OpenAI Whisper"
-    ),
-    
-    /**
      * Groq Whisper flow - uses Groq's ultra-fast whisper-large-v3 model
      * Audio is recorded → sent directly to Groq API (no silence trimming)
      */
@@ -50,13 +41,13 @@ enum class TranscriptionFlow(
     ),
 
     /**
-     * ARAMUS_OPENAI - Parallel RMS analysis with GPT-4o-mini-transcribe
+     * ARAMUS_OPENAI - Default flow with parallel RMS analysis + GPT-4o-mini-transcribe
      * Uses AudioRecord (not MediaRecorder) with real-time RMS silence detection
      * RMS analysis runs in parallel during recording for faster processing
      * Output: WAV format
      */
     ARAMUS_OPENAI(
-        displayName = "Aramus + OpenAI",
+        displayName = "Aramus + OpenAI (Default)",
         description = "Parallel RMS + GPT-4o-mini-transcribe"
     );
     
@@ -68,9 +59,9 @@ enum class TranscriptionFlow(
         /**
          * The default transcription flow used when no preference is set.
          * Change this to switch the default flow for the entire app.
-         * Available options: CLOUD_API, GROQ_WHISPER, FLOW_3, FLOW_4, ARAMUS_OPENAI
+         * Available options: GROQ_WHISPER, FLOW_3, FLOW_4, ARAMUS_OPENAI
          */
-        val DEFAULT_FLOW = CLOUD_API
+        val DEFAULT_FLOW = ARAMUS_OPENAI
 
         /**
          * Get the currently selected transcription flow

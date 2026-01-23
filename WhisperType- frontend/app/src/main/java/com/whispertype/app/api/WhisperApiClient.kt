@@ -747,7 +747,6 @@ class WhisperApiClient {
         Log.d(TAG, "Warming up for flow: ${selectedFlow.name}")
 
         when (selectedFlow) {
-            com.whispertype.app.speech.TranscriptionFlow.CLOUD_API -> warmTranscribeFunction()
             com.whispertype.app.speech.TranscriptionFlow.GROQ_WHISPER -> warmGroqFunction()
             com.whispertype.app.speech.TranscriptionFlow.FLOW_3 -> {
                 // Flow 3 uses Groq Turbo (whisper-large-v3-turbo), same endpoint as regular Groq
