@@ -47,6 +47,17 @@ enum class TranscriptionFlow(
     FLOW_4(
         displayName = "OpenAI Mini (No Trim)",
         description = "GPT-4o-mini-transcribe without silence trimming"
+    ),
+
+    /**
+     * ARAMUS_OPENAI - Parallel RMS analysis with GPT-4o-mini-transcribe
+     * Uses AudioRecord (not MediaRecorder) with real-time RMS silence detection
+     * RMS analysis runs in parallel during recording for faster processing
+     * Output: WAV format
+     */
+    ARAMUS_OPENAI(
+        displayName = "Aramus + OpenAI",
+        description = "Parallel RMS + GPT-4o-mini-transcribe"
     );
     
     companion object {
@@ -57,7 +68,7 @@ enum class TranscriptionFlow(
         /**
          * The default transcription flow used when no preference is set.
          * Change this to switch the default flow for the entire app.
-         * Available options: CLOUD_API, GROQ_WHISPER, FLOW_3, FLOW_4
+         * Available options: CLOUD_API, GROQ_WHISPER, FLOW_3, FLOW_4, ARAMUS_OPENAI
          */
         val DEFAULT_FLOW = CLOUD_API
 

@@ -12,6 +12,7 @@ import com.whispertype.app.ShortcutPreferences
 import com.whispertype.app.api.WhisperApiClient
 import com.whispertype.app.audio.AudioProcessor
 import com.whispertype.app.audio.AudioRecorder
+import com.whispertype.app.audio.RealtimeRmsRecorder
 import com.whispertype.app.auth.FirebaseAuthManager
 import kotlinx.coroutines.*
 import java.io.File
@@ -53,6 +54,7 @@ class SpeechRecognitionHelper(
     }
 
     private val audioRecorder = AudioRecorder(context)
+    private val realtimeRmsRecorder = RealtimeRmsRecorder(context)
     private val audioProcessor = AudioProcessor(context)
     private val whisperApiClient = WhisperApiClient()
     private val authManager = FirebaseAuthManager()
@@ -127,8 +129,10 @@ class SpeechRecognitionHelper(
             return
         }
 
-        Log.d(TAG, "Starting audio recording")
-        
+        // Check which flow is selected to use appropriate recorder
+        val selectedFlow = TranscriptionFlow.getSelectedFlow(context)
+        Log.d(TAG, "Starting audio recording with flow: ${selectedFlow.name}")
+
         // Warm up: Start auth token refresh and Firebase Function warmup in parallel
         // This runs during recording so everything is ready when user stops speaking
         processingScope.launch {
@@ -144,6 +148,36 @@ class SpeechRecognitionHelper(
         }
         whisperApiClient.warmForFlow(context)  // Warm the correct endpoint for selected flow
 
+        // Use RealtimeRmsRecorder for ARAMUS flow (parallel RMS analysis)
+        if (selectedFlow == TranscriptionFlow.ARAMUS_OPENAI) {
+            Log.d(TAG, "ARAMUS_OPENAI flow: Using RealtimeRmsRecorder with parallel RMS analysis")
+            realtimeRmsRecorder.startRecording(object : RealtimeRmsRecorder.RecordingCallback {
+                override fun onRecordingStarted() {
+                    mainHandler.post {
+                        isListening = true
+                        callback.onReadyForSpeech()
+                        callback.onBeginningOfSpeech()
+                    }
+                }
+
+                override fun onRecordingStopped(trimmedAudioBytes: ByteArray, rawAudioBytes: ByteArray, metadata: RealtimeRmsRecorder.RmsMetadata) {
+                    // Audio is already trimmed by parallel RMS analysis
+                    Log.d(TAG, "ARAMUS_OPENAI: Recording stopped. Trimmed: ${trimmedAudioBytes.size} bytes, " +
+                            "Raw: ${rawAudioBytes.size} bytes, Speech: ${metadata.speechDurationMs}ms of ${metadata.originalDurationMs}ms")
+                    pendingAudioBytes = trimmedAudioBytes
+                }
+
+                override fun onRecordingError(error: String) {
+                    mainHandler.post {
+                        isListening = false
+                        callback.onError(error)
+                    }
+                }
+            })
+            return
+        }
+
+        // Default: Use AudioRecorder (MediaRecorder) for other flows
         val started = audioRecorder.startRecording(object : AudioRecorder.RecordingCallback {
             override fun onRecordingStarted() {
                 mainHandler.post {
@@ -185,10 +219,41 @@ class SpeechRecognitionHelper(
 
         Log.d(TAG, "Stopping audio recording")
         isListening = false
-        
+
         // Update UI to show processing
         callback.onEndOfSpeech()
 
+        // Check which flow is selected
+        val selectedFlow = TranscriptionFlow.getSelectedFlow(context)
+
+        // Handle ARAMUS flow separately - uses RealtimeRmsRecorder
+        if (selectedFlow == TranscriptionFlow.ARAMUS_OPENAI) {
+            realtimeRmsRecorder.stopRecording()
+            // The callback was registered in startListening(), audio will be in pendingAudioBytes
+            // Wait a brief moment for the callback to be processed
+            mainHandler.postDelayed({
+                val trimmedAudio = pendingAudioBytes
+                if (trimmedAudio == null || trimmedAudio.isEmpty()) {
+                    callback.onError("No audio recorded")
+                    return@postDelayed
+                }
+
+                if (trimmedAudio.size < Constants.MIN_AUDIO_SIZE_BYTES) {
+                    callback.onError("No speech detected")
+                    return@postDelayed
+                }
+
+                // Estimate duration: WAV at 16kHz, mono, 16-bit = 32000 bytes per second
+                val estimatedDurationMs = (trimmedAudio.size.toLong() * 1000 / 32000).coerceAtLeast(1000)
+
+                // ARAMUS_OPENAI: Send WAV directly
+                Log.d(TAG, "ARAMUS_OPENAI: Sending pre-trimmed WAV audio, size: ${trimmedAudio.size} bytes")
+                transcribeAudio(trimmedAudio, "wav", estimatedDurationMs)
+            }, 100)
+            return
+        }
+
+        // Default path: Use AudioRecorder (MediaRecorder) for other flows
         audioRecorder.stopRecording(object : AudioRecorder.RecordingCallback {
             override fun onRecordingStarted() {
                 // Not used here
@@ -316,6 +381,11 @@ class SpeechRecognitionHelper(
                 // Flow 4 - OpenAI GPT-4o-mini-transcribe without silence trimming
                 Log.d(TAG, "FLOW_4 (OpenAI Mini No Trim): sending raw audio to Cloud API with gpt-4o-mini-transcribe, format: $audioFormat")
                 transcribeWithCloudApiNoTrim(audioBytes, audioFormat, durationMs)
+            }
+            TranscriptionFlow.ARAMUS_OPENAI -> {
+                // Aramus + OpenAI - Parallel RMS (already trimmed) with GPT-4o-mini-transcribe
+                Log.d(TAG, "ARAMUS_OPENAI: sending pre-trimmed WAV to Cloud API with gpt-4o-mini-transcribe, format: $audioFormat")
+                transcribeWithAramusFlow(audioBytes, audioFormat, durationMs)
             }
         }
     }
@@ -532,6 +602,63 @@ class SpeechRecognitionHelper(
 
                 override fun onError(error: String) {
                     Log.e(TAG, "[Groq Turbo] Transcription error: $error")
+                    mainHandler.post {
+                        callback.onError(error)
+                    }
+                }
+            })
+        }
+    }
+
+    /**
+     * Transcribe using Aramus + OpenAI flow (Parallel RMS + GPT-4o-mini-transcribe)
+     * Audio is already trimmed by RealtimeRmsRecorder's parallel RMS analysis
+     * This uses OpenAI's gpt-4o-mini-transcribe model
+     */
+    private fun transcribeWithAramusFlow(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
+        processingScope.launch {
+            if (isDestroyed) return@launch
+
+            // Ensure signed in
+            val user = authManager.ensureSignedIn()
+            if (user == null) {
+                mainHandler.post {
+                    callback.onError("Authentication failed. Please restart the app.")
+                }
+                return@launch
+            }
+
+            // Get ID token
+            val token = authManager.getIdToken()
+            if (token == null) {
+                mainHandler.post {
+                    callback.onError("Failed to get authentication token.")
+                }
+                return@launch
+            }
+
+            // Use gpt-4o-mini-transcribe model (same as FLOW_4 but with pre-trimmed audio)
+            val modelId = "gpt-4o-mini-transcribe"
+            Log.d(TAG, "[Aramus+OpenAI] Using model: $modelId, format: $audioFormat, duration: ${durationMs}ms")
+
+            // Notify UI that transcription is starting
+            mainHandler.post {
+                if (!isDestroyed) {
+                    callback.onTranscribing()
+                }
+            }
+
+            // Make API call with auth token and gpt-4o-mini-transcribe model
+            whisperApiClient.transcribe(audioBytes, token, audioFormat, modelId, durationMs, object : WhisperApiClient.TranscriptionCallback {
+                override fun onSuccess(text: String) {
+                    Log.d(TAG, "[Aramus+OpenAI] Transcription successful: ${text.take(50)}...")
+                    mainHandler.post {
+                        callback.onResults(text)
+                    }
+                }
+
+                override fun onError(error: String) {
+                    Log.e(TAG, "[Aramus+OpenAI] Transcription error: $error")
                     mainHandler.post {
                         callback.onError(error)
                     }

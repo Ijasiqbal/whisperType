@@ -757,6 +757,10 @@ class WhisperApiClient {
                 // Flow 4 uses OpenAI gpt-4o-mini-transcribe, same endpoint as CLOUD_API
                 warmTranscribeFunction()
             }
+            com.whispertype.app.speech.TranscriptionFlow.ARAMUS_OPENAI -> {
+                // ARAMUS_OPENAI uses OpenAI endpoint
+                warmTranscribeFunction()
+            }
         }
     }
     
