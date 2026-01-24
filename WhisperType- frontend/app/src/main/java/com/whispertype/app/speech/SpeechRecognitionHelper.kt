@@ -107,10 +107,24 @@ class SpeechRecognitionHelper(
         ) == PackageManager.PERMISSION_GRANTED
     }
     
+    private var amplitudeCallback: AudioRecorder.AmplitudeCallback? = null
+
     /**
      * Get the audio recorder for amplitude callback configuration
+     * @deprecated Use setAmplitudeCallback instead to support all flow types
      */
     fun getAudioRecorder(): AudioRecorder = audioRecorder
+
+    /**
+     * Set amplitude callback for voice activity visualization
+     * This ensures the callback is attached to the correct recorder based on the selected flow
+     */
+    fun setAmplitudeCallback(callback: AudioRecorder.AmplitudeCallback?) {
+        this.amplitudeCallback = callback
+        // Set on both recorders to ensure whichever is used reports amplitude
+        audioRecorder.setAmplitudeCallback(callback)
+        realtimeRmsRecorder.setAmplitudeCallback(callback)
+    }
 
     /**
      * Start listening for speech
@@ -151,6 +165,8 @@ class SpeechRecognitionHelper(
         // Use RealtimeRmsRecorder for ARAMUS flow (parallel RMS analysis)
         if (selectedFlow == TranscriptionFlow.ARAMUS_OPENAI) {
             Log.d(TAG, "ARAMUS_OPENAI flow: Using RealtimeRmsRecorder with parallel RMS analysis")
+            // Ensure callback is set
+            realtimeRmsRecorder.setAmplitudeCallback(amplitudeCallback)
             realtimeRmsRecorder.startRecording(object : RealtimeRmsRecorder.RecordingCallback {
                 override fun onRecordingStarted() {
                     mainHandler.post {
@@ -178,6 +194,8 @@ class SpeechRecognitionHelper(
         }
 
         // Default: Use AudioRecorder (MediaRecorder) for other flows
+        // Ensure callback is set
+        audioRecorder.setAmplitudeCallback(amplitudeCallback)
         val started = audioRecorder.startRecording(object : AudioRecorder.RecordingCallback {
             override fun onRecordingStarted() {
                 mainHandler.post {

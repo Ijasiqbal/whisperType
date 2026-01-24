@@ -75,6 +75,8 @@ class RealtimeRmsRecorder(private val context: Context) {
         fun onRecordingError(error: String)
     }
 
+
+
     /**
      * Metadata about the recorded and trimmed audio
      */
@@ -129,8 +131,19 @@ class RealtimeRmsRecorder(private val context: Context) {
     // Callback
     private var callback: RecordingCallback? = null
 
+    // Amplitude callback for waveform visualization
+    @Volatile
+    private var amplitudeCallback: AudioRecorder.AmplitudeCallback? = null
+
     // Timing
     private var recordingStartTimeUs = 0L
+
+    /**
+     * Set the amplitude callback for voice activity visualization
+     */
+    fun setAmplitudeCallback(callback: AudioRecorder.AmplitudeCallback?) {
+        amplitudeCallback = callback
+    }
 
     /**
      * Start recording with real-time RMS analysis
@@ -325,6 +338,19 @@ class RealtimeRmsRecorder(private val context: Context) {
             // Calculate RMS amplitude in dB
             val rmsDb = calculateRmsDb(chunk.samples)
             val isSpeech = rmsDb > SPEECH_THRESHOLD_DB
+
+            // Calculate peak amplitude for visualization (WaveformView)
+            // We do this here to avoid iterating the array twice if possible, 
+            // but for code clarity and since chunk is small (640 samples), a simple loop is fine.
+            if (amplitudeCallback != null) {
+                var maxAmp = 0
+                for (sample in chunk.samples) {
+                    val s = sample.toInt()
+                    val absSample = if (s < 0) -s else s
+                    if (absSample > maxAmp) maxAmp = absSample
+                }
+                amplitudeCallback?.onAmplitude(maxAmp)
+            }
 
             // Update speech segments
             if (isSpeech) {

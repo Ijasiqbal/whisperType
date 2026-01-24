@@ -659,9 +659,13 @@ class OverlayService : Service() {
         previewText?.visibility = View.GONE
         
         // Set up amplitude callback for voice activity animation
-        speechHelper?.getAudioRecorder()?.setAmplitudeCallback(object : AudioRecorder.AmplitudeCallback {
+        speechHelper?.setAmplitudeCallback(object : AudioRecorder.AmplitudeCallback {
             override fun onAmplitude(amplitude: Int) {
-                handleVoiceAmplitude(amplitude)
+                // Ensure we handle UI updates on the main thread
+                // RealtimeRmsRecorder calls this from a background thread
+                uiHandler.post {
+                    handleVoiceAmplitude(amplitude)
+                }
             }
         })
         
@@ -680,7 +684,7 @@ class OverlayService : Service() {
         
         // Stop voice activity animation
         stopPulseAnimation()
-        speechHelper?.getAudioRecorder()?.setAmplitudeCallback(null)
+        speechHelper?.setAmplitudeCallback(null)
         
         // Note: Don't set IDLE state here - onEndOfSpeech callback will set PROCESSING state,
         // then onTranscribing will set TRANSCRIBING state
@@ -707,10 +711,8 @@ class OverlayService : Service() {
             stopPulseAnimation()
         }
         
-        // Animate waveform bars based on current amplitude (ensure on main thread)
-        uiHandler.post {
-            updateAmplitudeBars(amplitude)
-        }
+        // Animate waveform bars based on current amplitude
+        updateAmplitudeBars(amplitude)
     }
     
     /**
