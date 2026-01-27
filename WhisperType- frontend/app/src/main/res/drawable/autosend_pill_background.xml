@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto-send pill background - Liquid Glass effect with orange/amber accent -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Shadow layer -->
+    <item
+        android:top="2dp"
+        android:left="2dp"
+        android:right="2dp"
+        android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <solid android:color="#40000000" />
+        </shape>
+    </item>
+
+    <!-- Background glass effect -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <solid android:color="#35FFFFFF" />
+        </shape>
+    </item>
+
+    <!-- Amber/Orange tint overlay -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <solid android:color="#20FF9800" />
+        </shape>
+    </item>
+
+    <!-- Border with amber accent -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <stroke
+                android:width="1.5dp"
+                android:color="#80FF9800" />
+        </shape>
+    </item>
+
+</layer-list>

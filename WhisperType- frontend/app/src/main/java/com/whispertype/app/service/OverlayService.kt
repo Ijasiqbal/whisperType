@@ -28,10 +28,13 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.Button
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.NotificationCompat
 import com.whispertype.app.MainActivity
 import com.whispertype.app.R
 import com.whispertype.app.Constants
+import com.whispertype.app.ShortcutPreferences
 import com.whispertype.app.audio.AudioRecorder
 import com.whispertype.app.config.RemoteConfigManager
 import com.whispertype.app.data.UsageDataManager
@@ -166,7 +169,29 @@ class OverlayService : Service() {
     // Circular waveform visualizer (legacy, kept for reference)
     private var circularWaveformRef: WeakReference<CircularWaveformView>? = null
     private val circularWaveform: CircularWaveformView? get() = circularWaveformRef?.get()
-    
+
+    // Options button (3-dot menu)
+    private var optionsButtonRef: WeakReference<ImageButton>? = null
+    private val optionsButton: ImageButton? get() = optionsButtonRef?.get()
+
+    // Options menu overlay
+    private var optionsMenuViewRef: WeakReference<View>? = null
+    private val optionsMenuView: View? get() = optionsMenuViewRef?.get()
+
+    @Volatile
+    private var isOptionsMenuVisible = false
+
+    // Auto-Send badge (inline in main overlay)
+    private var autoSendBadgeRef: WeakReference<ImageView>? = null
+    private val autoSendBadge: ImageView? get() = autoSendBadgeRef?.get()
+
+    // Warning dialog overlay
+    private var warningDialogViewRef: WeakReference<View>? = null
+    private val warningDialogView: View? get() = warningDialogViewRef?.get()
+
+    @Volatile
+    private var isWarningDialogVisible = false
+
     // Pending text for clipboard copy (when no text field is focused)
     private var pendingText: String? = null
     
@@ -323,7 +348,9 @@ class OverlayService : Service() {
         closeButtonRef = WeakReference(view.findViewById(R.id.btn_close))
         progressIndicatorRef = WeakReference(view.findViewById(R.id.progress_indicator))
         copyButtonRef = WeakReference(view.findViewById(R.id.btn_copy))
-        
+        optionsButtonRef = WeakReference(view.findViewById(R.id.btn_options))
+        autoSendBadgeRef = WeakReference(view.findViewById<ImageView>(R.id.badge_auto_send))
+
         // Pulse ring UI elements (Liquid Glass style)
         pulseRingInnerRef = WeakReference(view.findViewById(R.id.pulse_ring_inner))
         pulseRingOuterRef = WeakReference(view.findViewById(R.id.pulse_ring_outer))
@@ -357,6 +384,13 @@ class OverlayService : Service() {
             view.post {
                 startListening()
             }
+
+            // Show auto-send pill if auto-send is enabled
+            if (ShortcutPreferences.isAutoSendEnabled(this)) {
+                view.post {
+                    showAutoSendPill()
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add overlay view", e)
             Toast.makeText(this, "Failed to show overlay", Toast.LENGTH_SHORT).show()
@@ -388,6 +422,12 @@ class OverlayService : Service() {
         stopPulseAnimation()
         stopRecordingPulseAnimation()
         
+        // Hide options menu if visible
+        hideOptionsMenu()
+
+        // Hide warning dialog if visible
+        hideWarningDialog()
+
         // Remove view from window manager
         overlayView?.let { view ->
             try {
@@ -396,10 +436,15 @@ class OverlayService : Service() {
                 Log.e(TAG, "Error removing overlay view", e)
             }
         }
-        
+
         // Clean up all view references
         cleanupViewReferences()
-        
+
+        // Reset auto-send to disabled when overlay closes (default behavior)
+        if (ShortcutPreferences.isAutoSendEnabled(this)) {
+            ShortcutPreferences.setAutoSendEnabled(this, false)
+        }
+
         isOverlayVisible = false
         
         // Stop the service when overlay is hidden
@@ -430,8 +475,10 @@ class OverlayService : Service() {
         clipboardIconRef = null
         linearWaveformRef = null
         circularWaveformRef = null
+        optionsButtonRef = null
+        autoSendBadgeRef = null
         pendingText = null
-        
+
         // Clean up animators
         stopRingAnimations()
         stopSuccessAnimation()
@@ -479,13 +526,13 @@ class OverlayService : Service() {
     @SuppressLint("ClickableViewAccessibility")
     private fun setupTouchHandling(view: View, params: WindowManager.LayoutParams) {
         val container = view.findViewById<View>(R.id.pill_container)
-        
+
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
         var initialTouchY = 0f
         var isDragging = false
-        
+
         container.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -499,16 +546,19 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - initialTouchX
                     val dy = event.rawY - initialTouchY
-                    
+
                     // Start dragging if moved more than a threshold
                     if (dx * dx + dy * dy > 100) {
                         isDragging = true
                     }
-                    
+
                     if (isDragging) {
                         params.x = initialX + dx.toInt()
                         params.y = initialY + dy.toInt()
                         windowManager?.updateViewLayout(view, params)
+
+                        // Update positions of secondary overlays to follow main overlay
+                        updateSecondaryOverlayPositions()
                     }
                     true
                 }
@@ -517,6 +567,32 @@ class OverlayService : Service() {
                     !isDragging
                 }
                 else -> false
+            }
+        }
+    }
+
+    /**
+     * Update positions of secondary overlays (options menu)
+     * to follow the main overlay when it's dragged
+     */
+    private fun updateSecondaryOverlayPositions() {
+        val overlayParams = overlayView?.layoutParams as? WindowManager.LayoutParams ?: return
+
+        // Update options menu position
+        if (isOptionsMenuVisible) {
+            optionsMenuView?.let { menu ->
+                val menuParams = menu.layoutParams as? WindowManager.LayoutParams
+                if (menuParams != null) {
+                    // Position to the RIGHT and ABOVE the main overlay
+                    // Assuming centered gravity, add offset to X and subtract from Y
+                    menuParams.x = overlayParams.x + 250
+                    menuParams.y = overlayParams.y - 180
+                    try {
+                        windowManager?.updateViewLayout(menu, menuParams)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error updating options menu position", e)
+                    }
+                }
             }
         }
     }
@@ -540,6 +616,11 @@ class OverlayService : Service() {
         // Copy button copies pending text to clipboard
         copyButton?.setOnClickListener {
             copyToClipboard()
+        }
+
+        // Options button shows/hides the options menu
+        optionsButton?.setOnClickListener {
+            toggleOptionsMenu()
         }
     }
     
@@ -977,11 +1058,38 @@ class OverlayService : Service() {
             if (success) {
                 updateUI(State.SUCCESS)
                 statusText?.text = getString(R.string.overlay_inserted)
-                
-                // Auto-hide after successful insertion (using shared handler)
-                uiHandler.postDelayed({
-                    hideOverlay()
-                }, Constants.SUCCESS_MESSAGE_DELAY_MS)
+
+                // Check if auto-send is enabled
+                val isAutoSendEnabled = ShortcutPreferences.isAutoSendEnabled(this)
+                Log.d(TAG, "Auto-send enabled: $isAutoSendEnabled")
+
+                if (isAutoSendEnabled) {
+                    // Perform auto-send (find and click send button)
+                    statusText?.text = "Sending..."
+                    Log.d(TAG, "Scheduling auto-send after delay...")
+                    uiHandler.postDelayed({
+                        Log.d(TAG, "Executing auto-send now...")
+                        val sendSuccess = accessibilityService.performAutoSend()
+                        Log.d(TAG, "Auto-send result: $sendSuccess")
+                        if (sendSuccess) {
+                            Log.d(TAG, "Auto-send successful")
+                            statusText?.text = "Sent!"
+                        } else {
+                            Log.w(TAG, "Auto-send failed - send button not found")
+                            statusText?.text = "Inserted (send failed)"
+                        }
+
+                        // Auto-hide after sending
+                        uiHandler.postDelayed({
+                            hideOverlay()
+                        }, Constants.SUCCESS_MESSAGE_DELAY_MS)
+                    }, 500)  // Increased delay to let text insertion fully complete
+                } else {
+                    // Auto-hide after successful insertion (using shared handler)
+                    uiHandler.postDelayed({
+                        hideOverlay()
+                    }, Constants.SUCCESS_MESSAGE_DELAY_MS)
+                }
             } else {
                 // No text field focused - show copy button option
                 pendingText = text
@@ -1128,6 +1236,257 @@ class OverlayService : Service() {
         }, Constants.SUCCESS_MESSAGE_DELAY_MS)
     }
     
+    /**
+     * Toggle the options menu visibility
+     */
+    private fun toggleOptionsMenu() {
+        if (isOptionsMenuVisible) {
+            hideOptionsMenu()
+        } else {
+            showOptionsMenu()
+        }
+    }
+
+    /**
+     * Show the options menu above the main overlay
+     */
+    @SuppressLint("InflateParams", "ClickableViewAccessibility")
+    private fun showOptionsMenu() {
+        if (isOptionsMenuVisible) {
+            return
+        }
+
+        Log.d(TAG, "Showing options menu")
+
+        val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+        val menuView = inflater.inflate(R.layout.overlay_options_menu, null)
+        optionsMenuViewRef = WeakReference(menuView)
+
+        // Get the switch for auto-send
+        val autoSendSwitch = menuView.findViewById<SwitchCompat>(R.id.switch_auto_send)
+        val autoSendMenuItem = menuView.findViewById<LinearLayout>(R.id.menu_item_auto_send)
+
+        // Set initial state
+        autoSendSwitch.isChecked = ShortcutPreferences.isAutoSendEnabled(this)
+
+        // Handle click on menu item (entire row is clickable)
+        autoSendMenuItem.setOnClickListener {
+            // Toggle the switch
+            autoSendSwitch.isChecked = !autoSendSwitch.isChecked
+            toggleAutoSend(autoSendSwitch.isChecked)
+        }
+
+        // Calculate position above the main overlay
+        val overlayParams = (overlayView?.layoutParams as? WindowManager.LayoutParams)
+        val menuParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            },
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        )
+
+        // Position the menu above the main overlay - use same gravity for coordinate consistency
+        menuParams.gravity = Gravity.CENTER
+        // Position 250px to the right and 180px above the main overlay
+        menuParams.x = (overlayParams?.x ?: 0) + 250
+        menuParams.y = (overlayParams?.y ?: 0) - 150
+
+        // Close menu when tapping outside (on transparent area)
+        menuView.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                hideOptionsMenu()
+                true
+            } else {
+                false
+            }
+        }
+
+        // Add view to window
+        try {
+            windowManager?.addView(menuView, menuParams)
+            isOptionsMenuVisible = true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show options menu", e)
+        }
+    }
+
+    /**
+     * Hide the options menu
+     */
+    private fun hideOptionsMenu() {
+        if (!isOptionsMenuVisible) {
+            return
+        }
+
+        Log.d(TAG, "Hiding options menu")
+
+        optionsMenuView?.let { view ->
+            try {
+                windowManager?.removeView(view)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error removing options menu", e)
+            }
+        }
+
+        optionsMenuViewRef = null
+        isOptionsMenuVisible = false
+    }
+
+    /**
+     * Toggle auto-send feature on/off
+     */
+    private fun toggleAutoSend(enabled: Boolean) {
+        if (enabled) {
+            // Check if warning has been shown
+            if (!ShortcutPreferences.hasShownAutoSendWarning(this)) {
+                // Show warning dialog first time
+                showAutoSendWarningDialog()
+            } else {
+                // Enable directly
+                enableAutoSend()
+            }
+        } else {
+            // Disable auto-send
+            disableAutoSend()
+        }
+
+        // Hide the options menu after selection
+        hideOptionsMenu()
+    }
+
+    /**
+     * Show warning dialog for auto-send feature (first time only)
+     * Uses a custom overlay window instead of AlertDialog since we're in a Service
+     */
+    @SuppressLint("InflateParams")
+    private fun showAutoSendWarningDialog() {
+        if (isWarningDialogVisible) {
+            return
+        }
+
+        try {
+            Log.d(TAG, "Showing auto-send warning dialog")
+
+            val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+            val dialogView = inflater.inflate(R.layout.overlay_warning_dialog, null)
+            warningDialogViewRef = WeakReference(dialogView)
+
+            // Set up button handlers
+            val btnEnable = dialogView.findViewById<TextView>(R.id.btn_enable)
+            val btnCancel = dialogView.findViewById<TextView>(R.id.btn_cancel)
+
+            btnEnable.setOnClickListener {
+                ShortcutPreferences.setAutoSendWarningShown(this)
+                enableAutoSend()
+                hideWarningDialog()
+            }
+
+            btnCancel.setOnClickListener {
+                hideWarningDialog()
+            }
+
+            // Dismiss on background tap
+            dialogView.setOnClickListener {
+                hideWarningDialog()
+            }
+
+            // Prevent taps on dialog container from dismissing
+            dialogView.findViewById<View>(R.id.warning_dialog_container)?.setOnClickListener {
+                // Do nothing - prevent dismiss
+            }
+
+            // Create window parameters
+            val dialogParams = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                } else {
+                    @Suppress("DEPRECATION")
+                    WindowManager.LayoutParams.TYPE_PHONE
+                },
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                PixelFormat.TRANSLUCENT
+            )
+
+            dialogParams.gravity = Gravity.CENTER
+
+            // Add view to window
+            windowManager?.addView(dialogView, dialogParams)
+            isWarningDialogVisible = true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show warning dialog", e)
+            // Fallback: just enable it
+            ShortcutPreferences.setAutoSendWarningShown(this)
+            enableAutoSend()
+        }
+    }
+
+    /**
+     * Hide the warning dialog
+     */
+    private fun hideWarningDialog() {
+        if (!isWarningDialogVisible) {
+            return
+        }
+
+        Log.d(TAG, "Hiding warning dialog")
+
+        warningDialogView?.let { view ->
+            try {
+                windowManager?.removeView(view)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error removing warning dialog", e)
+            }
+        }
+
+        warningDialogViewRef = null
+        isWarningDialogVisible = false
+    }
+
+    /**
+     * Enable auto-send feature
+     */
+    private fun enableAutoSend() {
+        ShortcutPreferences.setAutoSendEnabled(this, true)
+        showAutoSendPill()
+        Toast.makeText(this, "Auto-send enabled", Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Disable auto-send feature
+     */
+    private fun disableAutoSend() {
+        ShortcutPreferences.setAutoSendEnabled(this, false)
+        hideAutoSendPill()
+        Toast.makeText(this, "Auto-send disabled", Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Show the auto-send badge (inline in main overlay)
+     */
+    private fun showAutoSendPill() {
+        Log.d(TAG, "Showing auto-send badge")
+        autoSendBadge?.visibility = View.VISIBLE
+    }
+
+    /**
+     * Hide the auto-send badge
+     */
+    private fun hideAutoSendPill() {
+        Log.d(TAG, "Hiding auto-send badge")
+        autoSendBadge?.visibility = View.GONE
+    }
+
     /**
      * Create notification channel for foreground service (required on API 26+)
      */

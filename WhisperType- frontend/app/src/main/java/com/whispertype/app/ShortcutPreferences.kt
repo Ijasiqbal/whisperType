@@ -11,6 +11,8 @@ import android.content.SharedPreferences
 object ShortcutPreferences {
     private const val KEY_SHORTCUT_MODE = "shortcut_mode"
     private const val KEY_WHISPER_MODEL = "whisper_model"
+    private const val KEY_AUTO_SEND_ENABLED = "auto_send_enabled"
+    private const val KEY_AUTO_SEND_WARNING_SHOWN = "auto_send_warning_shown"
     
     /**
      * Available shortcut modes
@@ -69,5 +71,33 @@ object ShortcutPreferences {
      */
     fun setWhisperModel(context: Context, model: WhisperModel) {
         getPrefs(context).edit().putString(KEY_WHISPER_MODEL, model.name).apply()
+    }
+
+    /**
+     * Check if auto-send is enabled
+     */
+    fun isAutoSendEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_AUTO_SEND_ENABLED, false)
+    }
+
+    /**
+     * Enable or disable auto-send
+     */
+    fun setAutoSendEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_AUTO_SEND_ENABLED, enabled).apply()
+    }
+
+    /**
+     * Check if auto-send warning has been shown to the user
+     */
+    fun hasShownAutoSendWarning(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_AUTO_SEND_WARNING_SHOWN, false)
+    }
+
+    /**
+     * Mark that auto-send warning has been shown
+     */
+    fun setAutoSendWarningShown(context: Context) {
+        getPrefs(context).edit().putBoolean(KEY_AUTO_SEND_WARNING_SHOWN, true).apply()
     }
 }

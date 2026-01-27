@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+OVERLAY OPTIONS MENU - Dropdown menu for overlay settings
+
+This menu appears ABOVE the main overlay pill when the options button is tapped.
+Designed to match the Liquid Glass aesthetic of the main pill.
+
+Layout:
+- Vertical list of toggle options
+- Each option has: icon, label, description, toggle switch
+- Auto-send option (more options can be added in the future)
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/options_menu_container"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:minWidth="60dp"
+    android:maxWidth="180dp"
+    android:orientation="vertical"
+    android:background="@drawable/pill_liquid_glass_background"
+    android:padding="4dp"
+    android:elevation="12dp">
+
+    <!-- Auto-send option -->
+    <LinearLayout
+        android:id="@+id/menu_item_auto_send"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingVertical="6dp"
+        android:paddingHorizontal="4dp"
+        android:background="@drawable/menu_item_background"
+        android:gravity="center_vertical"
+        android:clickable="true"
+        android:focusable="true">
+
+        <!-- Icon -->
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_send"
+            android:contentDescription="Auto-send icon"
+            android:tint="#F0FFFFFF" />
+
+        <!-- Text container -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp">
+
+            <!-- Label -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Auto-send"
+                android:textColor="#F0FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+
+        </LinearLayout>
+
+        <!-- Toggle switch -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switch_auto_send"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="false"
+            android:focusable="false"
+            android:text=""
+            android:textOn=""
+            android:textOff=""
+            android:showText="false"
+            tools:checked="true" />
+
+    </LinearLayout>
+
+    <!-- Future options can be added here -->
+
+</LinearLayout>
