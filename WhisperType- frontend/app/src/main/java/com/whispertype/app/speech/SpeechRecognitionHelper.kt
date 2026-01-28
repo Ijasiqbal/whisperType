@@ -280,7 +280,7 @@ class SpeechRecognitionHelper(
                 val audioFormat = audioRecorder.getAudioFormat()
 
                 // For flows that skip silence trimming: GROQ_WHISPER, FLOW_3, and FLOW_4
-                if (selectedFlow == TranscriptionFlow.GROQ_WHISPER || selectedFlow == TranscriptionFlow.FLOW_3 || selectedFlow == TranscriptionFlow.FLOW_4) {
+                if (selectedFlow == TranscriptionFlow.GROQ_WHISPER || selectedFlow == TranscriptionFlow.FLOW_3 || selectedFlow == TranscriptionFlow.FLOW_4 || selectedFlow == TranscriptionFlow.GROQ_WHISPER_PROMPTED) {
                     Log.d(TAG, "${selectedFlow.name} flow: skipping silence trimming, sending raw audio")
                     // Estimate duration based on format bitrate
                     val bitrate = if (audioFormat == "ogg") 24 else 64  // kbps
@@ -383,6 +383,11 @@ class SpeechRecognitionHelper(
                 // Aramus + OpenAI - Parallel RMS (already trimmed) with GPT-4o-mini-transcribe
                 Log.d(TAG, "ARAMUS_OPENAI: sending pre-trimmed WAV to Cloud API with gpt-4o-mini-transcribe, format: $audioFormat")
                 transcribeWithAramusFlow(audioBytes, audioFormat, durationMs)
+            }
+            TranscriptionFlow.GROQ_WHISPER_PROMPTED -> {
+                // Groq Whisper L3v3 with punctuation prompt
+                Log.d(TAG, "GROQ_WHISPER_PROMPTED: sending audio to Groq API with whisper-large-v3 + prompt, format: $audioFormat")
+                transcribeWithGroqPromptedApi(audioBytes, audioFormat, durationMs)
             }
         }
     }
@@ -535,7 +540,7 @@ class SpeechRecognitionHelper(
             }
 
             // Make Groq API call
-            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, null, object : WhisperApiClient.TranscriptionCallback {
+            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, null, null, object : WhisperApiClient.TranscriptionCallback {
                 override fun onSuccess(text: String) {
                     Log.d(TAG, "[Groq] Transcription successful: ${text.take(50)}...")
                     mainHandler.post {
@@ -589,7 +594,7 @@ class SpeechRecognitionHelper(
             }
 
             // Make Groq API call with whisper-large-v3-turbo model
-            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, "whisper-large-v3-turbo", object : WhisperApiClient.TranscriptionCallback {
+            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, "whisper-large-v3-turbo", null, object : WhisperApiClient.TranscriptionCallback {
                 override fun onSuccess(text: String) {
                     Log.d(TAG, "[Groq Turbo] Transcription successful: ${text.take(50)}...")
                     mainHandler.post {
@@ -656,6 +661,67 @@ class SpeechRecognitionHelper(
 
                 override fun onError(error: String) {
                     Log.e(TAG, "[Aramus+OpenAI] Transcription error: $error")
+                    mainHandler.post {
+                        callback.onError(error)
+                    }
+                }
+            })
+        }
+    }
+
+    /**
+     * Transcribe using Groq API with whisper-large-v3 and a punctuation-focused prompt
+     * This sends a specialized prompt to guide the Whisper model to produce
+     * proper punctuation (periods, question marks, exclamation marks) and sentence formatting.
+     */
+    private fun transcribeWithGroqPromptedApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
+        processingScope.launch {
+            if (isDestroyed) return@launch
+
+            // Ensure signed in
+            val user = authManager.ensureSignedIn()
+            if (user == null) {
+                mainHandler.post {
+                    callback.onError("Authentication failed. Please restart the app.")
+                }
+                return@launch
+            }
+
+            // Get ID token
+            val token = authManager.getIdToken()
+            if (token == null) {
+                mainHandler.post {
+                    callback.onError("Failed to get authentication token.")
+                }
+                return@launch
+            }
+
+            // Punctuation-focused prompt for Groq Whisper
+            val punctuationPrompt = "Please transcribe accurately with proper punctuation. " +
+                "Use periods at the end of statements, question marks for questions, " +
+                "exclamation marks for exclamations, and commas where natural pauses occur. " +
+                "Format the text into proper sentences with correct capitalization."
+
+            Log.d(TAG, "[Groq Prompted] Calling Groq API with whisper-large-v3 + prompt, format: $audioFormat, duration: ${durationMs}ms")
+
+            // Notify UI that transcription is starting
+            mainHandler.post {
+                if (!isDestroyed) {
+                    callback.onTranscribing()
+                }
+            }
+
+            // Make Groq API call with whisper-large-v3 model and punctuation prompt
+            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, "whisper-large-v3", punctuationPrompt, object : WhisperApiClient.TranscriptionCallback {
+                override fun onSuccess(text: String) {
+                    Log.d(TAG, "[Groq Prompted] Transcription successful: ${text.take(50)}...")
+                    mainHandler.post {
+                        callback.onResults(text)
+                    }
+                }
+
+                override fun onError(error: String) {
+                    Log.e(TAG, "[Groq Prompted] Transcription error: $error")
                     mainHandler.post {
                         callback.onError(error)
                     }

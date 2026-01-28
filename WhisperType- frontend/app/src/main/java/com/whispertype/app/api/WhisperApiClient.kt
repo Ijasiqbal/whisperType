@@ -214,7 +214,9 @@ class WhisperApiClient {
         @SerializedName("model")
         val model: String? = null,  // Optional model parameter
         @SerializedName("audioDurationMs")
-        val audioDurationMs: Long? = null  // Duration in milliseconds for usage tracking
+        val audioDurationMs: Long? = null,  // Duration in milliseconds for usage tracking
+        @SerializedName("prompt")
+        val prompt: String? = null  // Optional prompt for guiding transcription style
     )
 
     /**
@@ -549,17 +551,18 @@ class WhisperApiClient {
         audioFormat: String = "m4a",
         audioDurationMs: Long? = null,
         model: String? = null,
+        prompt: String? = null,
         callback: TranscriptionCallback
     ) {
         val modelName = model ?: "whisper-large-v3"
-        Log.d(TAG, "[Groq] Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, model: $modelName")
+        Log.d(TAG, "[Groq] Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, model: $modelName, prompt: ${if (prompt != null) "yes" else "no"}")
 
         // Encode audio to base64 (NO_WRAP to avoid line breaks)
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
         Log.d(TAG, "[Groq] Base64 encoded, length: ${audioBase64.length}")
 
-        // Create request body with model parameter
-        val requestBody = TranscribeRequest(audioBase64, audioFormat, model, audioDurationMs)
+        // Create request body with model and optional prompt parameter
+        val requestBody = TranscribeRequest(audioBase64, audioFormat, model, audioDurationMs, prompt)
         val jsonBody = gson.toJson(requestBody)
 
         val request = Request.Builder()
@@ -760,6 +763,10 @@ class WhisperApiClient {
             com.whispertype.app.speech.TranscriptionFlow.ARAMUS_OPENAI -> {
                 // ARAMUS_OPENAI uses OpenAI endpoint
                 warmTranscribeFunction()
+            }
+            com.whispertype.app.speech.TranscriptionFlow.GROQ_WHISPER_PROMPTED -> {
+                // Groq Whisper with prompt uses same Groq endpoint
+                warmGroqFunction()
             }
         }
     }

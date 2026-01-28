@@ -58,6 +58,17 @@ enum class TranscriptionFlow(
     ARAMUS_OPENAI(
         displayName = "Aramus + OpenAI",
         description = "Parallel RMS + GPT-4o-mini-transcribe"
+    ),
+
+    /**
+     * Flow 6 - Groq Whisper L3v3 with punctuation prompt
+     * Uses whisper-large-v3 (not turbo) with a specialized prompt
+     * that instructs the model to produce proper punctuation (periods,
+     * question marks, exclamation marks) and sentence formatting.
+     */
+    GROQ_WHISPER_PROMPTED(
+        displayName = "Groq Prompted (L3v3)",
+        description = "Groq whisper-large-v3 with punctuation prompt"
     );
     
     companion object {

@@ -596,24 +596,34 @@ class OverlayService : Service() {
             Log.w(TAG, "Force update required, blocking transcription")
             Toast.makeText(
                 this,
-                "Please update VoxType to continue using voice typing.",
+                "Please update WhisperType to continue using voice typing.",
                 Toast.LENGTH_LONG
             ).show()
             hideOverlay()
             return
         }
         
-        // Quota validation is handled by the backend - it will return 403 if no quota
-        // This ensures the backend is the source of truth for subscription status
+        // === ITERATION 2: Check trial status before starting ===
         val usageState = UsageDataManager.usageState.value
-        Log.d(TAG, "Starting transcription: isProUser=${usageState.isProUser}")
-
+        Log.d(TAG, "Trial check: status=${usageState.trialStatus}, isTrialValid=${usageState.isTrialValid}")
+        
+        if (!usageState.isTrialValid) {
+            Log.w(TAG, "Trial expired, blocking transcription")
+            Toast.makeText(
+                this,
+                "Your free trial has ended. Open WhisperType to learn more.",
+                Toast.LENGTH_LONG
+            ).show()
+            hideOverlay()
+            return
+        }
+        
         // Show warning toast if at warning threshold (but still allow transcription)
         when (usageState.warningLevel) {
             UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> {
                 Toast.makeText(
                     this,
-                    "You're almost out of free trial minutes!",
+                    "⚠️ You're almost out of free trial minutes!",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -642,7 +652,7 @@ class OverlayService : Service() {
         if (!speechHelper!!.hasPermission()) {
             Toast.makeText(
                 this,
-                "Microphone permission required. Open VoxType to grant it.",
+                "Microphone permission required. Open WhisperType to grant it.",
                 Toast.LENGTH_LONG
             ).show()
             return

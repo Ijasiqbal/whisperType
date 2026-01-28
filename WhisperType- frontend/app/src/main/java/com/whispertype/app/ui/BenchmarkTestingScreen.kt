@@ -606,6 +606,7 @@ private suspend fun runBenchmark(
                                 audioFormat = audioFormat,
                                 audioDurationMs = benchmarkResult.originalDurationMs,
                                 model = null,
+                                prompt = null,
                                 callback = callback
                             )
                         }
@@ -616,6 +617,22 @@ private suspend fun runBenchmark(
                                 audioFormat = audioFormat,
                                 audioDurationMs = benchmarkResult.originalDurationMs,
                                 model = "whisper-large-v3-turbo",
+                                prompt = null,
+                                callback = callback
+                            )
+                        }
+                        TranscriptionFlow.GROQ_WHISPER_PROMPTED -> {
+                            val punctuationPrompt = "Please transcribe accurately with proper punctuation. " +
+                                "Use periods at the end of statements, question marks for questions, " +
+                                "exclamation marks for exclamations, and commas where natural pauses occur. " +
+                                "Format the text into proper sentences with correct capitalization."
+                            apiClient.transcribeWithGroq(
+                                audioBytes = audioToSend,
+                                authToken = token,
+                                audioFormat = audioFormat,
+                                audioDurationMs = benchmarkResult.originalDurationMs,
+                                model = "whisper-large-v3",
+                                prompt = punctuationPrompt,
                                 callback = callback
                             )
                         }

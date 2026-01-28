@@ -1411,6 +1411,7 @@ export const transcribeAudioGroq = onRequest(
         audioFormat = "m4a",
         model,
         audioDurationMs,
+        prompt,
       } = request.body;
       if (!audioBase64 || typeof audioBase64 !== "string") {
         await logTranscriptionRequest(uid, false, Date.now() - startTime);
@@ -1434,8 +1435,17 @@ export const transcribeAudioGroq = onRequest(
       const selectedModel = model && validGroqModels.includes(model) ?
         model : "whisper-large-v3";
 
+      // Validate optional prompt parameter (max 500 chars)
+      const hasPrompt = typeof prompt === "string" &&
+        prompt.trim().length > 0;
+      const transcriptionPrompt = hasPrompt ?
+        prompt.trim().substring(0, 500) : undefined;
+
+      const promptLog = transcriptionPrompt ?
+        ", prompt: yes" : "";
       logger.info(
-        `[Groq] Processing request - format: ${format}, model: ${selectedModel}`
+        `[Groq] Processing request - format: ${format}` +
+        `, model: ${selectedModel}${promptLog}`
       );
 
       // === Check validity with priority: Trial → Pro → Block ===
@@ -1587,14 +1597,25 @@ export const transcribeAudioGroq = onRequest(
         });
 
         // Call Groq Whisper API
+        const hasP = transcriptionPrompt ?
+          ", with prompt" : "";
         logger.info(
-          `[Groq] Calling Whisper API (format: ${format}, ` +
-          `model: ${selectedModel})`
+          "[Groq] Calling Whisper API " +
+          `(format: ${format}, ` +
+          `model: ${selectedModel}${hasP})`
         );
-        const transcription = await groq.audio.transcriptions.create({
+        const groqParams = transcriptionPrompt ? {
           file: fs.createReadStream(tempFilePath),
           model: selectedModel,
-        });
+          prompt: transcriptionPrompt,
+        } : {
+          file: fs.createReadStream(tempFilePath),
+          model: selectedModel,
+        };
+        const transcription =
+          await groq.audio.transcriptions.create(
+            groqParams
+          );
 
         // Clean up temporary file
         fs.unlinkSync(tempFilePath);

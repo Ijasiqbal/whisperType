@@ -97,6 +97,10 @@ fun TranscriptionFlowSelector() {
                                 Log.d(TAG, "Selected FLOW_3 (Groq Turbo)")
                                 Toast.makeText(context, "Using Groq Turbo (Fastest)", Toast.LENGTH_SHORT).show()
                             }
+                            TranscriptionFlow.GROQ_WHISPER_PROMPTED -> {
+                                Log.d(TAG, "Selected GROQ_WHISPER_PROMPTED (Groq L3v3 with Prompt)")
+                                Toast.makeText(context, "Using Groq Prompted (Better Punctuation)", Toast.LENGTH_SHORT).show()
+                            }
                             TranscriptionFlow.FLOW_4 -> {
                                 Log.d(TAG, "Selected FLOW_4 (OpenAI Mini No Trim)")
                                 Toast.makeText(context, "Using OpenAI Mini (No Trim)", Toast.LENGTH_SHORT).show()

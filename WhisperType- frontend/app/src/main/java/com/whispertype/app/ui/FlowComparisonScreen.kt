@@ -193,6 +193,9 @@ fun FlowComparisonScreen(
     // Show flow selector
     var showFlowSelector by remember { mutableStateOf(false) }
 
+    // View mode: true = 2 columns, false = 1 column
+    var isTwoColumnView by remember { mutableStateOf(true) }
+
     // Flow results state for MediaRecorder flows
     var flowResults by remember {
         val savedOrder = loadFlowOrder(context)
@@ -278,7 +281,7 @@ fun FlowComparisonScreen(
                 .background(Color(0xFFFFF7ED))
                 .padding(16.dp)
         ) {
-            // Flow selector row
+            // Flow selector and view toggle row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -289,11 +292,24 @@ fun FlowComparisonScreen(
                     fontSize = 12.sp,
                     color = Color(0xFF64748B)
                 )
-                TextButton(onClick = { showFlowSelector = !showFlowSelector }) {
-                    Text(
-                        text = if (showFlowSelector) "Hide Selector" else "Select Flows",
-                        fontSize = 12.sp
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // View mode toggle button
+                    OutlinedButton(
+                        onClick = { isTwoColumnView = !isTwoColumnView },
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
+                    ) {
+                        Text(
+                            text = if (isTwoColumnView) "2 Columns" else "1 Column",
+                            fontSize = 11.sp
+                        )
+                    }
+                    TextButton(onClick = { showFlowSelector = !showFlowSelector }) {
+                        Text(
+                            text = if (showFlowSelector) "Hide Selector" else "Select Flows",
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
 
@@ -553,144 +569,270 @@ fun FlowComparisonScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Side-by-side comparison layout
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Left column: MediaRecorder flows
-                Column(
+            // Conditional layout based on view mode
+            if (isTwoColumnView) {
+                // Side-by-side comparison layout (2 columns)
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
+                        .fillMaxSize()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Column header
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF6366F1).copy(alpha = 0.1f),
-                        modifier = Modifier.fillMaxWidth()
+                    // Left column: MediaRecorder flows
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Text(
-                                text = "MediaRecorder",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF6366F1)
-                            )
-                            Text(
-                                text = "Sequential processing",
-                                fontSize = 10.sp,
-                                color = Color(0xFF64748B)
-                            )
+                        // Column header
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF6366F1).copy(alpha = 0.1f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text(
+                                    text = "MediaRecorder",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF6366F1)
+                                )
+                                Text(
+                                    text = "Sequential processing",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Flow results list (filtered by enabled flows)
+                        val filteredFlowResults = flowResults.filter { it.flow in enabledFlows }
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            itemsIndexed(filteredFlowResults) { index, result ->
+                                CompactFlowResultCard(
+                                    result = result,
+                                    canMoveUp = index > 0,
+                                    canMoveDown = index < filteredFlowResults.size - 1,
+                                    onMoveUp = {
+                                        if (index > 0) {
+                                            // Find actual indices in full list
+                                            val currentIdx = flowResults.indexOfFirst { it.flow == result.flow }
+                                            val prevFlow = filteredFlowResults[index - 1].flow
+                                            val prevIdx = flowResults.indexOfFirst { it.flow == prevFlow }
+                                            if (currentIdx >= 0 && prevIdx >= 0) {
+                                                val newList = flowResults.toMutableList()
+                                                Collections.swap(newList, currentIdx, prevIdx)
+                                                flowResults = newList
+                                                saveFlowOrder(context, newList.map { it.flow })
+                                            }
+                                        }
+                                    },
+                                    onMoveDown = {
+                                        if (index < filteredFlowResults.size - 1) {
+                                            val currentIdx = flowResults.indexOfFirst { it.flow == result.flow }
+                                            val nextFlow = filteredFlowResults[index + 1].flow
+                                            val nextIdx = flowResults.indexOfFirst { it.flow == nextFlow }
+                                            if (currentIdx >= 0 && nextIdx >= 0) {
+                                                val newList = flowResults.toMutableList()
+                                                Collections.swap(newList, currentIdx, nextIdx)
+                                                flowResults = newList
+                                                saveFlowOrder(context, newList.map { it.flow })
+                                            }
+                                        }
+                                    },
+                                    onCopy = {
+                                        result.text?.let { text ->
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("Transcription", text))
+                                            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Flow results list (filtered by enabled flows)
-                    val filteredFlowResults = flowResults.filter { it.flow in enabledFlows }
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    // Right column: AudioRecord (Aramus) flows
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     ) {
-                        itemsIndexed(filteredFlowResults) { index, result ->
-                            CompactFlowResultCard(
-                                result = result,
-                                canMoveUp = index > 0,
-                                canMoveDown = index < filteredFlowResults.size - 1,
-                                onMoveUp = {
-                                    if (index > 0) {
-                                        // Find actual indices in full list
-                                        val currentIdx = flowResults.indexOfFirst { it.flow == result.flow }
-                                        val prevFlow = filteredFlowResults[index - 1].flow
-                                        val prevIdx = flowResults.indexOfFirst { it.flow == prevFlow }
-                                        if (currentIdx >= 0 && prevIdx >= 0) {
-                                            val newList = flowResults.toMutableList()
-                                            Collections.swap(newList, currentIdx, prevIdx)
-                                            flowResults = newList
-                                            saveFlowOrder(context, newList.map { it.flow })
+                        // Column header
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF22C55E).copy(alpha = 0.1f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text(
+                                    text = "AudioRecord",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF16A34A)
+                                )
+                                Text(
+                                    text = "Parallel RMS processing",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Aramus flow results list
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            itemsIndexed(aramusResults.filter { it.flow in enabledFlows }) { _, result ->
+                                CompactFlowResultCard(
+                                    result = result,
+                                    canMoveUp = false,
+                                    canMoveDown = false,
+                                    onMoveUp = {},
+                                    onMoveDown = {},
+                                    onCopy = {
+                                        result.text?.let { text ->
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("Transcription", text))
+                                            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                                         }
-                                    }
-                                },
-                                onMoveDown = {
-                                    if (index < filteredFlowResults.size - 1) {
-                                        val currentIdx = flowResults.indexOfFirst { it.flow == result.flow }
-                                        val nextFlow = filteredFlowResults[index + 1].flow
-                                        val nextIdx = flowResults.indexOfFirst { it.flow == nextFlow }
-                                        if (currentIdx >= 0 && nextIdx >= 0) {
-                                            val newList = flowResults.toMutableList()
-                                            Collections.swap(newList, currentIdx, nextIdx)
-                                            flowResults = newList
-                                            saveFlowOrder(context, newList.map { it.flow })
-                                        }
-                                    }
-                                },
-                                onCopy = {
-                                    result.text?.let { text ->
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        clipboard.setPrimaryClip(ClipData.newPlainText("Transcription", text))
-                                        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            )
+                                    },
+                                    showReorderButtons = false,
+                                    highlightColor = Color(0xFF22C55E)
+                                )
+                            }
                         }
                     }
                 }
-
-                // Right column: AudioRecord (Aramus) flows
-                Column(
+            } else {
+                // Single column layout (stacked)
+                LazyColumn(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
+                        .fillMaxSize()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Column header
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF22C55E).copy(alpha = 0.1f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Text(
-                                text = "AudioRecord",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF16A34A)
-                            )
-                            Text(
-                                text = "Parallel RMS processing",
-                                fontSize = 10.sp,
-                                color = Color(0xFF64748B)
-                            )
+                    // MediaRecorder section
+                    item {
+                        Column {
+                            // Section header
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF6366F1).copy(alpha = 0.1f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text(
+                                        text = "MediaRecorder",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF6366F1)
+                                    )
+                                    Text(
+                                        text = "Sequential processing",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF64748B)
+                                    )
+                                }
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Aramus flow results list
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        itemsIndexed(aramusResults.filter { it.flow in enabledFlows }) { _, result ->
-                            CompactFlowResultCard(
-                                result = result,
-                                canMoveUp = false,
-                                canMoveDown = false,
-                                onMoveUp = {},
-                                onMoveDown = {},
-                                onCopy = {
-                                    result.text?.let { text ->
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        clipboard.setPrimaryClip(ClipData.newPlainText("Transcription", text))
-                                        Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                    // MediaRecorder flow results
+                    itemsIndexed(flowResults.filter { it.flow in enabledFlows }) { index, result ->
+                        val filteredFlowResults = flowResults.filter { it.flow in enabledFlows }
+                        CompactFlowResultCard(
+                            result = result,
+                            canMoveUp = index > 0,
+                            canMoveDown = index < filteredFlowResults.size - 1,
+                            onMoveUp = {
+                                if (index > 0) {
+                                    val currentIdx = flowResults.indexOfFirst { it.flow == result.flow }
+                                    val prevFlow = filteredFlowResults[index - 1].flow
+                                    val prevIdx = flowResults.indexOfFirst { it.flow == prevFlow }
+                                    if (currentIdx >= 0 && prevIdx >= 0) {
+                                        val newList = flowResults.toMutableList()
+                                        Collections.swap(newList, currentIdx, prevIdx)
+                                        flowResults = newList
+                                        saveFlowOrder(context, newList.map { it.flow })
                                     }
-                                },
-                                showReorderButtons = false,
-                                highlightColor = Color(0xFF22C55E)
-                            )
+                                }
+                            },
+                            onMoveDown = {
+                                if (index < filteredFlowResults.size - 1) {
+                                    val currentIdx = flowResults.indexOfFirst { it.flow == result.flow }
+                                    val nextFlow = filteredFlowResults[index + 1].flow
+                                    val nextIdx = flowResults.indexOfFirst { it.flow == nextFlow }
+                                    if (currentIdx >= 0 && nextIdx >= 0) {
+                                        val newList = flowResults.toMutableList()
+                                        Collections.swap(newList, currentIdx, nextIdx)
+                                        flowResults = newList
+                                        saveFlowOrder(context, newList.map { it.flow })
+                                    }
+                                }
+                            },
+                            onCopy = {
+                                result.text?.let { text ->
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("Transcription", text))
+                                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    }
+
+                    // AudioRecord section header
+                    item {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF22C55E).copy(alpha = 0.1f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text(
+                                        text = "AudioRecord",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF16A34A)
+                                    )
+                                    Text(
+                                        text = "Parallel RMS processing",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF64748B)
+                                    )
+                                }
+                            }
                         }
+                    }
+
+                    // AudioRecord flow results
+                    itemsIndexed(aramusResults.filter { it.flow in enabledFlows }) { _, result ->
+                        CompactFlowResultCard(
+                            result = result,
+                            canMoveUp = false,
+                            canMoveDown = false,
+                            onMoveUp = {},
+                            onMoveDown = {},
+                            onCopy = {
+                                result.text?.let { text ->
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("Transcription", text))
+                                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            showReorderButtons = false,
+                            highlightColor = Color(0xFF22C55E)
+                        )
                     }
                 }
             }
@@ -1131,12 +1273,12 @@ private fun FlowResultCard(
                             text = result.text ?: "",
                             fontSize = 14.sp,
                             color = Color(0xFF1E293B),
-                            maxLines = 5,
+                            maxLines = 12,
                             overflow = TextOverflow.Ellipsis
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         // Copy button
                         OutlinedButton(
                             onClick = onCopy,
@@ -1333,9 +1475,9 @@ private fun CompactFlowResultCard(
                     FlowStatus.SUCCESS -> {
                         Text(
                             text = result.text ?: "",
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             color = Color(0xFF1E293B),
-                            maxLines = 3,
+                            maxLines = 10,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.clickable { onCopy() }
                         )
@@ -1467,6 +1609,7 @@ private suspend fun transcribeAllFlows(
                                     audioFormat = finalAudioFormat,
                                     audioDurationMs = finalDurationMs,
                                     model = null,  // Default: whisper-large-v3
+                                    prompt = null,
                                     callback = callback
                                 )
                             }
@@ -1478,6 +1621,7 @@ private suspend fun transcribeAllFlows(
                                     audioFormat = finalAudioFormat,
                                     audioDurationMs = finalDurationMs,
                                     model = "whisper-large-v3-turbo",
+                                    prompt = null,
                                     callback = callback
                                 )
                             }
@@ -1489,6 +1633,22 @@ private suspend fun transcribeAllFlows(
                                     audioFormat = finalAudioFormat,
                                     model = "gpt-4o-mini-transcribe",
                                     audioDurationMs = finalDurationMs,
+                                    callback = callback
+                                )
+                            }
+                            TranscriptionFlow.GROQ_WHISPER_PROMPTED -> {
+                                Log.d(TAG, "Starting GROQ_WHISPER_PROMPTED transcription (no trim, with prompt)")
+                                val punctuationPrompt = "Please transcribe accurately with proper punctuation. " +
+                                    "Use periods at the end of statements, question marks for questions, " +
+                                    "exclamation marks for exclamations, and commas where natural pauses occur. " +
+                                    "Format the text into proper sentences with correct capitalization."
+                                apiClient.transcribeWithGroq(
+                                    audioBytes = finalAudioBytes,
+                                    authToken = token,
+                                    audioFormat = finalAudioFormat,
+                                    audioDurationMs = finalDurationMs,
+                                    model = "whisper-large-v3",
+                                    prompt = punctuationPrompt,
                                     callback = callback
                                 )
                             }
