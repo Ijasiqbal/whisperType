@@ -2,6 +2,7 @@ package com.whispertype.app.speech
 
 import android.content.Context
 import android.util.Log
+import com.whispertype.app.ShortcutPreferences
 
 /**
  * Enum representing different transcription flows available in the app
@@ -84,6 +85,20 @@ enum class TranscriptionFlow(
             Log.d(TAG, "Setting transcription flow to: ${flow.name}")
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().putString(KEY_SELECTED_FLOW, flow.name).apply()
+        }
+
+        /**
+         * Maps a ModelTier to the corresponding TranscriptionFlow
+         * - AUTO (Free): FLOW_3 (Groq Turbo - whisper-large-v3-turbo)
+         * - STANDARD (1x credit): GROQ_WHISPER (whisper-large-v3)
+         * - PREMIUM (2x credit): ARAMUS_OPENAI (OpenAI gpt-4o-mini-transcribe)
+         */
+        fun fromModelTier(tier: ShortcutPreferences.ModelTier): TranscriptionFlow {
+            return when (tier) {
+                ShortcutPreferences.ModelTier.AUTO -> FLOW_3
+                ShortcutPreferences.ModelTier.STANDARD -> GROQ_WHISPER
+                ShortcutPreferences.ModelTier.PREMIUM -> ARAMUS_OPENAI
+            }
         }
     }
 }

@@ -1,8 +1,33 @@
 # WhisperType API Documentation
 
+Complete API reference for the WhisperType backend services.
+
 ## Base URL
+
 ```
 https://us-central1-whispertype-1de9f.cloudfunctions.net
+```
+
+## Authentication
+
+All endpoints (except `/health`) require Firebase Authentication.
+
+**Header Format:**
+```
+Authorization: Bearer <firebase_id_token>
+```
+
+**Getting a Token (Android/Kotlin):**
+```kotlin
+val user = FirebaseAuth.getInstance().currentUser
+val token = user?.getIdToken(false)?.await()?.token
+```
+
+**Error Response (401):**
+```json
+{
+  "error": "Unauthorized: Invalid or missing authentication token"
+}
 ```
 
 ---
@@ -13,352 +38,424 @@ https://us-central1-whispertype-1de9f.cloudfunctions.net
 
 Check if the service is running.
 
-**Endpoint:** `GET /health`
-
-**URL:**
-```
-https://health-35dvue2fxa-uc.a.run.app
-```
+| Property | Value |
+|----------|-------|
+| **Endpoint** | `GET /health` |
+| **Authentication** | None |
 
 **Response:**
 ```
 OK
 ```
 
-**Status Codes:**
-- `200 OK` - Service is running
-
 **Example:**
 ```bash
-curl https://health-35dvue2fxa-uc.a.run.app
+curl https://us-central1-whispertype-1de9f.cloudfunctions.net/health
 ```
 
 ---
 
-### 2. Transcribe Audio
+### 2. Transcribe Audio (OpenAI)
 
-Transcribe audio using OpenAI Whisper API.
+Transcribe audio using OpenAI Whisper API. Uses PREMIUM tier models (2x credits).
 
-**Endpoint:** `POST /transcribeAudio`
+| Property | Value |
+|----------|-------|
+| **Endpoint** | `POST /transcribeAudio` |
+| **Authentication** | Required |
+| **Content-Type** | `application/json` |
 
-**URL:**
-```
-https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio
-```
+#### Request Body
 
-#### Request
-
-**Method:** `POST`
-
-**Headers:**
-```
-Content-Type: application/json
-```
-
-**Body:**
 ```json
 {
   "audioBase64": "string (required)",
-  "audioFormat": "string (optional, default: 'm4a')"
+  "audioFormat": "string (optional, default: 'm4a')",
+  "model": "string (optional)",
+  "audioDurationMs": "number (optional)"
 }
 ```
 
-**Parameters:**
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| audioBase64 | string | Yes | Base64-encoded audio file. Supported formats: mp3, mp4, mpeg, mpga, m4a, wav, webm |
-| audioFormat | string | No | Audio file format: `wav`, `m4a`, `mp3`, `webm`, `mp4`, `mpeg`, `mpga`. Defaults to `m4a` for backwards compatibility. Must match the actual audio content. |
+| `audioBase64` | string | Yes | Base64-encoded audio file |
+| `audioFormat` | string | No | Audio format: `wav`, `m4a`, `mp3`, `webm`, `mp4`, `mpeg`, `mpga`, `ogg`. Default: `m4a` |
+| `model` | string | No | Model to use: `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`. Default: `gpt-4o-mini-transcribe` |
+| `audioDurationMs` | number | No | Audio duration in milliseconds (for accurate credit calculation) |
 
-**Headers:**
-```
-Content-Type: application/json
-Authorization: Bearer <firebase_id_token>
-```
+#### Success Response (200)
 
-#### Response
-
-**Success Response (200 OK):**
 ```json
 {
-  "text": "This is the transcribed text from your audio"
+  "text": "Transcribed text from your audio",
+  "creditsUsed": 2,
+  "totalCreditsThisMonth": 150,
+  "plan": "free",
+  "subscriptionStatus": {
+    "status": "active",
+    "creditsRemaining": 850,
+    "creditsLimit": 1000,
+    "resetDateMs": 1735689600000,
+    "warningLevel": "none"
+  },
+  "trialStatus": {
+    "status": "active",
+    "freeCreditsUsed": 150,
+    "freeCreditsRemaining": 850,
+    "freeTierCredits": 1000,
+    "trialExpiryDateMs": 1735689600000,
+    "warningLevel": "none"
+  }
 }
 ```
 
-**Error Responses:**
+For Pro users, includes `proStatus` instead of `trialStatus`:
+```json
+{
+  "proStatus": {
+    "isActive": true,
+    "proCreditsUsed": 500,
+    "proCreditsRemaining": 9500,
+    "proCreditsLimit": 10000,
+    "currentPeriodEndMs": 1735689600000
+  }
+}
+```
 
-**400 Bad Request** - Missing or invalid parameters:
+#### Error Responses
+
+**400 Bad Request:**
 ```json
 {
   "error": "Missing or invalid audioBase64 field in request body"
 }
 ```
 
-**400 Bad Request** - Invalid base64 data:
-```json
-{
-  "error": "Invalid base64 audio data"
-}
-```
-
-**405 Method Not Allowed** - Wrong HTTP method:
-```
-Method Not Allowed
-```
-
-**500 Internal Server Error** - Server configuration error:
-```json
-{
-  "error": "Server configuration error"
-}
-```
-
-**500 Internal Server Error** - Transcription failed:
-```json
-{
-  "error": "Failed to transcribe audio"
-}
-```
-
-**500 Internal Server Error** - Unexpected error:
-```json
-{
-  "error": "Internal server error"
-}
-```
-
-#### Status Codes
-
-| Code | Description |
-|------|-------------|
-| 200 | Success - Transcription completed |
-| 400 | Bad Request - Invalid or missing parameters |
-| 401 | Unauthorized - Invalid or missing authentication token |
-| 405 | Method Not Allowed - Request method is not POST |
-| 500 | Internal Server Error - Server or API error |
-
----
-
-## Code Examples
-
-### cURL
-
-```bash
-# Simple test (replace <BASE64_AUDIO> with your actual base64-encoded audio)
-curl -X POST https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio \
-  -H "Content-Type: application/json" \
-  -d '{"audioBase64": "<BASE64_AUDIO>"}'
-
-# With audio file encoding inline (macOS/Linux)
-curl -X POST https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio \
-  -H "Content-Type: application/json" \
-  -d "{\"audioBase64\": \"$(base64 -i audio.webm)\"}"
-```
-
-### Android (Kotlin)
-
-```kotlin
-import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
-import android.util.Base64
-
-// Encode your audio bytes to Base64
-val audioBytes: ByteArray = // ... your recorded audio bytes
-val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
-
-// Create JSON request body
-val json = JSONObject()
-json.put("audioBase64", audioBase64)
-
-// Create HTTP request
-val client = OkHttpClient()
-val url = "https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio"
-
-val request = Request.Builder()
-    .url(url)
-    .post(json.toString().toRequestBody("application/json".toMediaType()))
-    .build()
-
-// Execute request
-client.newCall(request).enqueue(object : Callback {
-    override fun onResponse(call: Call, response: Response) {
-        if (response.isSuccessful) {
-            val responseBody = response.body?.string()
-            val jsonResponse = JSONObject(responseBody ?: "{}")
-            val transcription = jsonResponse.getString("text")
-            
-            // Use the transcription
-            println("Transcription: $transcription")
-        } else {
-            val errorBody = response.body?.string()
-            println("Error: $errorBody")
-        }
-    }
-    
-    override fun onFailure(call: Call, e: IOException) {
-        println("Request failed: ${e.message}")
-    }
-})
-```
-
-### JavaScript (Node.js)
-
-```javascript
-const fetch = require('node-fetch');
-const fs = require('fs');
-
-async function transcribeAudio(audioFilePath) {
-  // Read and encode audio file
-  const audioBuffer = fs.readFileSync(audioFilePath);
-  const audioBase64 = audioBuffer.toString('base64');
-  
-  // Make API request
-  const response = await fetch(
-    'https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ audioBase64 }),
-    }
-  );
-  
-  const data = await response.json();
-  
-  if (response.ok) {
-    console.log('Transcription:', data.text);
-    return data.text;
-  } else {
-    console.error('Error:', data.error);
-    throw new Error(data.error);
-  }
-}
-
-// Usage
-transcribeAudio('./audio.webm')
-  .then(text => console.log('Result:', text))
-  .catch(err => console.error('Failed:', err));
-```
-
-### Python
-
-```python
-import requests
-import base64
-import json
-
-def transcribe_audio(audio_file_path):
-    # Read and encode audio file
-    with open(audio_file_path, 'rb') as audio_file:
-        audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
-    
-    # Make API request
-    url = 'https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio'
-    headers = {'Content-Type': 'application/json'}
-    data = {'audioBase64': audio_base64}
-    
-    response = requests.post(url, headers=headers, json=data)
-    
-    if response.status_code == 200:
-        result = response.json()
-        print('Transcription:', result['text'])
-        return result['text']
-    else:
-        error = response.json()
-        print('Error:', error.get('error', 'Unknown error'))
-        raise Exception(error.get('error', 'Unknown error'))
-
-# Usage
-try:
-    text = transcribe_audio('audio.webm')
-    print('Result:', text)
-except Exception as e:
-    print('Failed:', e)
-```
-
----
-
-## Audio Format Requirements
-
-**Supported Formats:**
-- mp3
-- mp4
-- mpeg
-- mpga
-- m4a
-- wav
-- webm
-
-**Recommended Format:** WebM (good compression, widely supported)
-
-**File Size Limit:** 25 MB (OpenAI Whisper API limit)
-
-**Base64 Encoding:**
-- Ensure no line breaks in the base64 string
-- Use standard base64 encoding (not URL-safe variant)
-
----
-
-## Authentication
-
-✅ **Phase 2 - Firebase Authentication**
-
-This endpoint requires **Firebase Authentication**. All requests must include a valid Firebase ID token in the Authorization header.
-
-**Supported Auth Methods:**
-- Anonymous Authentication
-- Google Sign-In
-- Email/Password
-
-**Header Format:**
-```
-Authorization: Bearer <firebase_id_token>
-```
-
-**Error Response (401):**
+**401 Unauthorized:**
 ```json
 {
   "error": "Unauthorized: Invalid or missing authentication token"
 }
 ```
 
-**Firestore Logging:**
-All requests are logged to the `transcriptions` collection with:
-- `uid` - User ID
-- `createdAt` - Timestamp
-- `success` - Boolean
-- `durationMs` - Processing time
+**403 Forbidden - Trial Expired:**
+```json
+{
+  "error": "TRIAL_EXPIRED",
+  "message": "Your free trial has ended",
+  "details": "Your 3-month free trial period has expired. Subscribe to Pro to continue using WhisperType.",
+  "trialStatus": {
+    "status": "expired_time",
+    "freeCreditsUsed": 500,
+    "freeCreditsRemaining": 500,
+    "freeTierCredits": 1000,
+    "trialExpiryDateMs": 1735689600000
+  }
+}
+```
+
+**403 Forbidden - Pro Expired:**
+```json
+{
+  "error": "PRO_EXPIRED",
+  "message": "Your Pro subscription has expired",
+  "details": "Please renew your subscription to continue.",
+  "proStatus": {
+    "isActive": false,
+    "status": "expired"
+  }
+}
+```
+
+**403 Forbidden - Pro Limit Reached:**
+```json
+{
+  "error": "PRO_LIMIT_REACHED",
+  "message": "Monthly credit limit reached",
+  "details": "You've used all 10000 credits this month. Credits reset on your billing anniversary.",
+  "proStatus": {
+    "proCreditsUsed": 10000,
+    "proCreditsRemaining": 0,
+    "proCreditsLimit": 10000,
+    "resetDateMs": 1735689600000
+  }
+}
+```
+
+**500 Internal Server Error:**
+```json
+{
+  "error": "Failed to transcribe audio"
+}
+```
+
+#### Example
+
+```bash
+curl -X POST https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>" \
+  -d "{\"audioBase64\": \"$(base64 -i audio.m4a)\", \"audioFormat\": \"m4a\"}"
+```
 
 ---
 
-### 3. Delete Account
+### 3. Transcribe Audio (Groq)
 
-Delete user account and all associated data.
+Transcribe audio using Groq Whisper API. Offers free (AUTO) and standard tier options.
 
-**Endpoint:** `POST /deleteAccount`
+| Property | Value |
+|----------|-------|
+| **Endpoint** | `POST /transcribeAudioGroq` |
+| **Authentication** | Required |
+| **Content-Type** | `application/json` |
 
-**URL:**
+#### Request Body
+
+```json
+{
+  "audioBase64": "string (required)",
+  "audioFormat": "string (optional, default: 'm4a')",
+  "model": "string (optional)",
+  "audioDurationMs": "number (optional)"
+}
 ```
-https://us-central1-whispertype-1de9f.cloudfunctions.net/deleteAccount
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `audioBase64` | string | Yes | Base64-encoded audio file |
+| `audioFormat` | string | No | Audio format: `wav`, `m4a`, `mp3`, `webm`, `mp4`, `mpeg`, `mpga`, `ogg`. Default: `m4a` |
+| `model` | string | No | Model: `whisper-large-v3-turbo` (FREE), `whisper-large-v3` (STANDARD). Default: `whisper-large-v3-turbo` |
+| `audioDurationMs` | number | No | Audio duration in milliseconds |
+
+#### Model Tiers
+
+| Model | Tier | Credit Multiplier |
+|-------|------|-------------------|
+| `whisper-large-v3-turbo` | AUTO | 0x (free) |
+| `whisper-large-v3` | STANDARD | 1x |
+
+#### Success Response (200)
+
+Same format as OpenAI endpoint.
+
+#### Example
+
+```bash
+curl -X POST https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudioGroq \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>" \
+  -d "{\"audioBase64\": \"$(base64 -i audio.m4a)\", \"model\": \"whisper-large-v3-turbo\"}"
 ```
 
-#### Request
+---
 
-**Method:** `POST`
+### 4. Get Trial Status
 
-**Headers:**
+Get the current user's free trial status.
+
+| Property | Value |
+|----------|-------|
+| **Endpoint** | `GET/POST /getTrialStatus` |
+| **Authentication** | Required |
+
+#### Success Response (200)
+
+```json
+{
+  "status": "active",
+  "freeCreditsUsed": 150,
+  "freeCreditsRemaining": 850,
+  "freeTierCredits": 1000,
+  "trialExpiryDateMs": 1735689600000,
+  "warningLevel": "none",
+  "totalCreditsThisMonth": 150
+}
 ```
-Content-Type: application/json
-Authorization: Bearer <firebase_id_token>
+
+#### Status Values
+
+| Status | Description |
+|--------|-------------|
+| `active` | Trial is active and has credits remaining |
+| `expired_time` | Trial period (3 months) has ended |
+| `expired_usage` | All free credits have been used |
+
+#### Warning Levels
+
+| Level | Description |
+|-------|-------------|
+| `none` | Less than 50% used |
+| `fifty_percent` | 50-79% credits used |
+| `eighty_percent` | 80-94% credits used |
+| `ninety_five_percent` | 95%+ credits used |
+
+#### Example
+
+```bash
+curl -X GET https://us-central1-whispertype-1de9f.cloudfunctions.net/getTrialStatus \
+  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>"
 ```
 
-**Body:** None required
+---
 
-#### Response
+### 5. Get Subscription Status
 
-**Success Response (200 OK):**
+Get comprehensive subscription status for the current user.
+
+| Property | Value |
+|----------|-------|
+| **Endpoint** | `GET/POST /getSubscriptionStatus` |
+| **Authentication** | Required |
+
+#### Response (Free User)
+
+```json
+{
+  "plan": "free",
+  "isActive": true,
+  "freeCreditsUsed": 150,
+  "freeCreditsRemaining": 850,
+  "freeTierCredits": 1000,
+  "trialExpiryDateMs": 1735689600000,
+  "totalCreditsThisMonth": 150,
+  "status": "active",
+  "warningLevel": "none",
+  "proPlanEnabled": true,
+  "proCreditsLimit": 10000
+}
+```
+
+#### Response (Pro User)
+
+```json
+{
+  "plan": "pro",
+  "isActive": true,
+  "proCreditsUsed": 500,
+  "proCreditsRemaining": 9500,
+  "proCreditsLimit": 10000,
+  "resetDateMs": 1735689600000,
+  "subscriptionStartDateMs": 1704067200000,
+  "subscriptionStatus": "active",
+  "status": "active",
+  "warningLevel": "none",
+  "proPlanEnabled": true,
+  "totalCreditsThisMonth": 500
+}
+```
+
+#### Subscription Status Values
+
+| Status | Description |
+|--------|-------------|
+| `active` | Subscription is active |
+| `cancelled` | User cancelled, still active until period end |
+| `expired` | Subscription has expired |
+| `pending` | Payment pending |
+
+#### Example
+
+```bash
+curl -X GET https://us-central1-whispertype-1de9f.cloudfunctions.net/getSubscriptionStatus \
+  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>"
+```
+
+---
+
+### 6. Verify Subscription
+
+Verify a Google Play purchase and activate Pro subscription.
+
+| Property | Value |
+|----------|-------|
+| **Endpoint** | `POST /verifySubscription` |
+| **Authentication** | Required |
+| **Content-Type** | `application/json` |
+
+#### Request Body
+
+```json
+{
+  "purchaseToken": "string (required)",
+  "productId": "string (required)"
+}
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `purchaseToken` | string | Yes | Google Play purchase token |
+| `productId` | string | Yes | Product ID (e.g., `whispertype_pro_monthly`) |
+
+#### Success Response (200)
+
+```json
+{
+  "success": true,
+  "plan": "pro",
+  "proStatus": {
+    "isActive": true,
+    "proCreditsUsed": 0,
+    "proCreditsRemaining": 10000,
+    "proCreditsLimit": 10000,
+    "currentPeriodEndMs": 1738281600000
+  }
+}
+```
+
+#### Error Responses
+
+**400 Bad Request:**
+```json
+{
+  "error": "Missing purchaseToken or productId"
+}
+```
+
+**403 Forbidden:**
+```json
+{
+  "error": "SUBSCRIPTION_INVALID",
+  "message": "Subscription verification failed",
+  "details": "The subscription could not be verified with Google Play."
+}
+```
+
+#### Example (Android/Kotlin)
+
+```kotlin
+suspend fun verifySubscription(purchaseToken: String, productId: String) {
+    val user = FirebaseAuth.getInstance().currentUser
+    val idToken = user?.getIdToken(false)?.await()?.token ?: return
+
+    val json = JSONObject().apply {
+        put("purchaseToken", purchaseToken)
+        put("productId", productId)
+    }
+
+    val request = Request.Builder()
+        .url("https://us-central1-whispertype-1de9f.cloudfunctions.net/verifySubscription")
+        .post(json.toString().toRequestBody("application/json".toMediaType()))
+        .addHeader("Authorization", "Bearer $idToken")
+        .build()
+
+    // Execute request...
+}
+```
+
+---
+
+### 7. Delete Account
+
+Permanently delete user account and all associated data.
+
+| Property | Value |
+|----------|-------|
+| **Endpoint** | `POST /deleteAccount` |
+| **Authentication** | Required |
+
+#### Success Response (200)
+
 ```json
 {
   "success": true,
@@ -366,21 +463,23 @@ Authorization: Bearer <firebase_id_token>
 }
 ```
 
-**Error Responses:**
+#### What Gets Deleted
 
-**401 Unauthorized** - Invalid or missing authentication token:
+- User document in Firestore (`users` collection)
+- All usage logs (`usage_logs` collection)
+- All transcription request logs (`transcriptions` collection)
+- Firebase Authentication account
+
+#### Error Responses
+
+**401 Unauthorized:**
 ```json
 {
   "error": "Unauthorized: Invalid or missing authentication token"
 }
 ```
 
-**405 Method Not Allowed** - Wrong HTTP method:
-```
-Method Not Allowed
-```
-
-**500 Internal Server Error** - Failed to delete account:
+**500 Internal Server Error:**
 ```json
 {
   "error": "Failed to delete account",
@@ -388,211 +487,334 @@ Method Not Allowed
 }
 ```
 
-#### What Gets Deleted
-
-When you delete your account, the following data is permanently removed:
-- User document in Firestore (`users` collection)
-- All usage logs (`usage_logs` collection)
-- All transcription request logs (`transcription_requests` collection)
-- Firebase Authentication account
-
-#### Status Codes
-
-| Code | Description |
-|------|-------------|
-| 200 | Success - Account deleted |
-| 401 | Unauthorized - Invalid or missing authentication token |
-| 405 | Method Not Allowed - Request method is not POST |
-| 500 | Internal Server Error - Deletion failed |
-
 #### Example
 
-**Android (Kotlin):**
-```kotlin
-import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
-import com.google.firebase.auth.FirebaseAuth
+```bash
+curl -X POST https://us-central1-whispertype-1de9f.cloudfunctions.net/deleteAccount \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>"
+```
 
-suspend fun deleteAccount() {
-    // Get current user's ID token
-    val user = FirebaseAuth.getInstance().currentUser
-    val idToken = user?.getIdToken(false)?.await()?.token ?: return
-    
-    val client = OkHttpClient()
-    val url = "https://us-central1-whispertype-1de9f.cloudfunctions.net/deleteAccount"
-    
-    val request = Request.Builder()
-        .url(url)
-        .post("{}".toRequestBody("application/json".toMediaType()))
-        .addHeader("Authorization", "Bearer $idToken")
-        .build()
-    
-    client.newCall(request).enqueue(object : Callback {
-        override fun onResponse(call: Call, response: Response) {
-            if (response.isSuccessful) {
-                // Account deleted successfully
-                println("Account deleted")
-            } else {
-                println("Error: ${response.code}")
-            }
-        }
-        
-        override fun onFailure(call: Call, e: IOException) {
-            println("Request failed: ${e.message}")
-        }
-    })
+---
+
+## Credit System
+
+### How Credits Work
+
+Credits are consumed when transcribing audio. The calculation is:
+
+```
+Base Credits = Audio Duration (seconds) / 6
+Final Credits = Base Credits × Model Tier Multiplier
+```
+
+### Model Tiers
+
+| Tier | Multiplier | Models |
+|------|------------|--------|
+| AUTO | 0x (free) | `whisper-large-v3-turbo` (Groq) |
+| STANDARD | 1x | `whisper-large-v3` (Groq), `gpt-4o-mini-transcribe` (OpenAI) |
+| PREMIUM | 2x | `gpt-4o-transcribe` (OpenAI) |
+
+### Examples
+
+| Audio Duration | Model | Tier | Credits Used |
+|----------------|-------|------|--------------|
+| 30 seconds | whisper-large-v3-turbo | AUTO | 0 |
+| 30 seconds | whisper-large-v3 | STANDARD | 5 |
+| 30 seconds | gpt-4o-transcribe | PREMIUM | 10 |
+| 60 seconds | gpt-4o-mini-transcribe | STANDARD | 10 |
+
+### Credit Limits
+
+| Plan | Monthly Credits | Reset |
+|------|-----------------|-------|
+| Free Trial | 1,000 | N/A (one-time) |
+| Pro | 10,000 | Monthly (billing anniversary) |
+
+---
+
+## Audio Requirements
+
+### Supported Formats
+
+- mp3
+- mp4
+- mpeg
+- mpga
+- m4a
+- wav
+- webm
+- ogg
+
+### Limits
+
+- **Maximum file size**: 25 MB
+- **Recommended format**: m4a or webm (good compression)
+
+### Base64 Encoding
+
+- Use standard base64 encoding (not URL-safe)
+- Ensure no line breaks in the encoded string
+- Use `Base64.NO_WRAP` on Android
+
+---
+
+## Warmup Requests
+
+To prevent cold starts, send warmup requests before user interactions:
+
+**GET Request:**
+```bash
+curl https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+**POST with warmup flag:**
+```json
+{
+  "warmup": true
 }
 ```
 
-**cURL:**
-```bash
-# Get your Firebase ID token first, then:
-curl -X POST https://us-central1-whispertype-1de9f.cloudfunctions.net/deleteAccount \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <YOUR_FIREBASE_ID_TOKEN>"
+Warmup requests return `200 OK` with `{"status": "warm"}` without processing audio.
+
+---
+
+## Error Handling Best Practices
+
+### Recommended Approach
+
+```kotlin
+when (response.code) {
+    200 -> handleSuccess(response)
+    400 -> handleBadRequest(response)  // Invalid input
+    401 -> handleUnauthorized()        // Re-authenticate
+    403 -> handleForbidden(response)   // Check error code for specific handling
+    500 -> handleServerError()         // Retry with exponential backoff
+}
+```
+
+### 403 Error Codes
+
+| Error Code | Action |
+|------------|--------|
+| `TRIAL_EXPIRED` | Prompt user to subscribe |
+| `PRO_EXPIRED` | Prompt user to renew subscription |
+| `PRO_LIMIT_REACHED` | Show credits reset date |
+
+### Retry Strategy
+
+For 500 errors, implement exponential backoff:
+
+```kotlin
+val delays = listOf(1000L, 2000L, 4000L) // milliseconds
+for (delay in delays) {
+    val response = makeRequest()
+    if (response.isSuccessful) break
+    delay(delay)
+}
 ```
 
 ---
 
 ## Rate Limits
 
-Currently no rate limits enforced. OpenAI Whisper API has its own rate limits based on your OpenAI account tier.
+- No rate limits enforced by WhisperType backend
+- Subject to OpenAI/Groq API rate limits based on account tier
+- Recommended: Implement client-side throttling for UX
 
 ---
 
-## Error Handling Best Practices
+## Code Examples
 
-1. **Always check HTTP status code** before parsing response
-2. **Handle network timeouts** - transcription can take several seconds
-3. **Validate audio before sending** - check file size and format
-4. **Implement retry logic** for 500 errors with exponential backoff
-5. **Log errors with request IDs** for debugging
+### Android (Kotlin) - Complete Example
 
-**Example Error Handling (Kotlin):**
 ```kotlin
-override fun onResponse(call: Call, response: Response) {
-    when (response.code) {
-        200 -> {
-            // Success
-            val text = JSONObject(response.body?.string()).getString("text")
-            handleSuccess(text)
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.tasks.await
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import android.util.Base64
+
+class TranscriptionService {
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    private val baseUrl = "https://us-central1-whispertype-1de9f.cloudfunctions.net"
+
+    suspend fun transcribe(
+        audioBytes: ByteArray,
+        format: String = "m4a",
+        useGroq: Boolean = true
+    ): TranscriptionResult {
+        val token = getAuthToken() ?: throw UnauthorizedException()
+
+        val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
+        val endpoint = if (useGroq) "transcribeAudioGroq" else "transcribeAudio"
+
+        val json = JSONObject().apply {
+            put("audioBase64", audioBase64)
+            put("audioFormat", format)
+            if (useGroq) put("model", "whisper-large-v3-turbo")
         }
-        400 -> {
-            // Bad request - check your input
-            val error = JSONObject(response.body?.string()).getString("error")
-            handleBadRequest(error)
-        }
-        405 -> {
-            // Wrong method - should be POST
-            handleMethodError()
-        }
-        500 -> {
-            // Server error - retry with backoff
-            handleServerError()
-        }
-        else -> {
-            // Unexpected error
-            handleUnexpectedError(response.code)
+
+        val request = Request.Builder()
+            .url("$baseUrl/$endpoint")
+            .post(json.toString().toRequestBody("application/json".toMediaType()))
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+
+        val response = client.newCall(request).execute()
+        return parseResponse(response)
+    }
+
+    private suspend fun getAuthToken(): String? {
+        return FirebaseAuth.getInstance().currentUser
+            ?.getIdToken(false)
+            ?.await()
+            ?.token
+    }
+
+    private fun parseResponse(response: Response): TranscriptionResult {
+        val body = response.body?.string() ?: "{}"
+        val json = JSONObject(body)
+
+        return when (response.code) {
+            200 -> TranscriptionResult.Success(
+                text = json.getString("text"),
+                creditsUsed = json.optInt("creditsUsed", 0)
+            )
+            403 -> TranscriptionResult.QuotaExceeded(
+                error = json.getString("error"),
+                message = json.getString("message")
+            )
+            else -> TranscriptionResult.Error(
+                code = response.code,
+                message = json.optString("error", "Unknown error")
+            )
         }
     }
 }
+
+sealed class TranscriptionResult {
+    data class Success(val text: String, val creditsUsed: Int) : TranscriptionResult()
+    data class QuotaExceeded(val error: String, val message: String) : TranscriptionResult()
+    data class Error(val code: Int, val message: String) : TranscriptionResult()
+}
 ```
 
----
+### Python
 
-## Testing
+```python
+import requests
+import base64
+from typing import Optional
 
-### Test with Postman
+class WhisperTypeClient:
+    BASE_URL = "https://us-central1-whispertype-1de9f.cloudfunctions.net"
 
-1. **Create a new POST request**
-   - URL: `https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio`
+    def __init__(self, firebase_token: str):
+        self.headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {firebase_token}"
+        }
 
-2. **Set Headers**
-   - `Content-Type: application/json`
+    def transcribe(
+        self,
+        audio_path: str,
+        audio_format: str = "m4a",
+        use_groq: bool = True,
+        model: Optional[str] = None
+    ) -> dict:
+        with open(audio_path, "rb") as f:
+            audio_base64 = base64.b64encode(f.read()).decode("utf-8")
 
-3. **Set Body** (raw JSON)
-   ```json
-   {
-     "audioBase64": "YOUR_BASE64_AUDIO_HERE"
-   }
-   ```
+        endpoint = "transcribeAudioGroq" if use_groq else "transcribeAudio"
 
-4. **Send** and check response
+        payload = {
+            "audioBase64": audio_base64,
+            "audioFormat": audio_format
+        }
+        if model:
+            payload["model"] = model
 
-### Generate Test Audio Base64
+        response = requests.post(
+            f"{self.BASE_URL}/{endpoint}",
+            json=payload,
+            headers=self.headers,
+            timeout=60
+        )
 
-**macOS/Linux:**
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Error {response.status_code}: {response.json()}")
+
+    def get_subscription_status(self) -> dict:
+        response = requests.get(
+            f"{self.BASE_URL}/getSubscriptionStatus",
+            headers=self.headers
+        )
+        return response.json()
+
+# Usage
+client = WhisperTypeClient(firebase_token="your_token_here")
+result = client.transcribe("audio.m4a", use_groq=True)
+print(f"Transcription: {result['text']}")
+print(f"Credits used: {result['creditsUsed']}")
+```
+
+### cURL
+
 ```bash
-# Create a test audio file or use existing
-base64 -i test_audio.webm
-```
+# Get subscription status
+curl -X GET https://us-central1-whispertype-1de9f.cloudfunctions.net/getSubscriptionStatus \
+  -H "Authorization: Bearer $FIREBASE_TOKEN"
 
-**Windows:**
-```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("test_audio.webm"))
-```
+# Transcribe with Groq (free tier)
+curl -X POST https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudioGroq \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $FIREBASE_TOKEN" \
+  -d "{
+    \"audioBase64\": \"$(base64 -i audio.m4a)\",
+    \"audioFormat\": \"m4a\",
+    \"model\": \"whisper-large-v3-turbo\"
+  }"
 
----
-
-## Troubleshooting
-
-### "Missing or invalid audioBase64 field"
-- Ensure request body contains `audioBase64` field
-- Check that it's a string, not an object
-- Verify JSON is properly formatted
-
-### "Invalid base64 audio data"
-- Base64 string may be corrupted
-- Ensure no extra characters or line breaks
-- Re-encode the audio file
-
-### "Server configuration error"
-- API key issue (contact admin)
-- Should not occur in production
-
-### "Failed to transcribe audio"
-- Audio format may not be supported
-- File may be corrupted
-- OpenAI API may be down
-- Check Firebase logs for details
-
-### Request timeout
-- Large audio files take longer to process
-- Increase timeout to 30-60 seconds
-- Consider splitting long audio files
-
----
-
-## Support
-
-**Firebase Console:**
-https://console.firebase.google.com/project/whispertype-1de9f/overview
-
-**View Logs:**
-```bash
-firebase functions:log
-```
-
-**Monitor Function:**
-```bash
-firebase functions:list
+# Transcribe with OpenAI (premium)
+curl -X POST https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $FIREBASE_TOKEN" \
+  -d "{
+    \"audioBase64\": \"$(base64 -i audio.m4a)\",
+    \"audioFormat\": \"m4a\",
+    \"model\": \"gpt-4o-transcribe\"
+  }"
 ```
 
 ---
 
 ## Changelog
 
-### v2.0.0 - Phase 2 (Current)
-- Added Firebase Authentication requirement
-- All requests now require `Authorization: Bearer <token>` header
-- Added Firestore logging for usage tracking
-- Anonymous authentication supported
-- Returns 401 for unauthorized requests
+### v3.0.0 (Current)
+- Added Groq transcription endpoint with free tier
+- Implemented credit-based billing system
+- Added model tier multipliers (AUTO/STANDARD/PREMIUM)
+- Google Play subscription verification
+- Pro subscription with monthly credit reset
+- Comprehensive subscription status endpoints
 
-### v1.0.0 - Phase 1
+### v2.0.0
+- Added Firebase Authentication requirement
+- Firestore logging for usage tracking
+- Anonymous authentication supported
+
+### v1.0.0
 - Initial release
-- `/transcribeAudio` endpoint
 - OpenAI Whisper integration
 - Basic error handling
-- No authentication (development only)

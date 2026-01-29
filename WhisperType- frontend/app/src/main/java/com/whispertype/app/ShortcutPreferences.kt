@@ -13,6 +13,7 @@ object ShortcutPreferences {
     private const val KEY_WHISPER_MODEL = "whisper_model"
     private const val KEY_AUTO_SEND_ENABLED = "auto_send_enabled"
     private const val KEY_AUTO_SEND_WARNING_SHOWN = "auto_send_warning_shown"
+    private const val KEY_MODEL_TIER = "model_tier"
     
     /**
      * Available shortcut modes
@@ -29,6 +30,22 @@ object ShortcutPreferences {
     enum class WhisperModel(val displayName: String, val modelId: String) {
         GPT4O_TRANSCRIBE("GPT-4o Transcribe (Standard)", "gpt-4o-transcribe"),
         GPT4O_TRANSCRIBE_MINI("GPT-4o Transcribe Mini (Fast)", "gpt-4o-mini-transcribe")
+    }
+
+    /**
+     * Model tiers for transcription quality selection
+     * - AUTO: Free tier using Groq Turbo (whisper-large-v3-turbo)
+     * - STANDARD: 1x credit using Groq Whisper (whisper-large-v3)
+     * - PREMIUM: 2x credit using OpenAI (gpt-4o-mini-transcribe)
+     */
+    enum class ModelTier(
+        val displayName: String,
+        val creditCost: String,
+        val description: String
+    ) {
+        AUTO("Auto", "Free", "Fast & unlimited"),
+        STANDARD("Standard", "1x", "High accuracy"),
+        PREMIUM("Premium", "2x", "Best quality")
     }
     
     private fun getPrefs(context: Context): SharedPreferences {
@@ -99,5 +116,25 @@ object ShortcutPreferences {
      */
     fun setAutoSendWarningShown(context: Context) {
         getPrefs(context).edit().putBoolean(KEY_AUTO_SEND_WARNING_SHOWN, true).apply()
+    }
+
+    /**
+     * Get the current model tier
+     * Default is PREMIUM (OpenAI) for best quality
+     */
+    fun getModelTier(context: Context): ModelTier {
+        val tierName = getPrefs(context).getString(KEY_MODEL_TIER, ModelTier.PREMIUM.name)
+        return try {
+            ModelTier.valueOf(tierName ?: ModelTier.PREMIUM.name)
+        } catch (e: IllegalArgumentException) {
+            ModelTier.PREMIUM
+        }
+    }
+
+    /**
+     * Set the model tier
+     */
+    fun setModelTier(context: Context, tier: ModelTier) {
+        getPrefs(context).edit().putString(KEY_MODEL_TIER, tier.name).apply()
     }
 }

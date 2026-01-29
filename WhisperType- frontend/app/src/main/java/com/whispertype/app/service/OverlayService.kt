@@ -19,6 +19,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.animation.LayoutTransition
@@ -29,7 +30,9 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.Button
+import android.widget.RadioButton
 import androidx.appcompat.widget.SwitchCompat
+import com.whispertype.app.speech.TranscriptionFlow
 import androidx.core.app.NotificationCompat
 import com.whispertype.app.MainActivity
 import com.whispertype.app.R
@@ -195,6 +198,12 @@ class OverlayService : Service() {
     // Pending text for clipboard copy (when no text field is focused)
     private var pendingText: String? = null
     
+    // Track last overlay width to detect size changes
+    private var lastOverlayWidth = 0
+    
+    // Layout listener for detecting overlay size changes
+    private var layoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
+    
     // Listening state
     @Volatile
     private var isListening = false
@@ -221,9 +230,15 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "OverlayService created")
-        
+
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        
+
+        // Sync TranscriptionFlow with user's stored ModelTier preference
+        val modelTier = ShortcutPreferences.getModelTier(this)
+        val flow = TranscriptionFlow.fromModelTier(modelTier)
+        TranscriptionFlow.setSelectedFlow(this, flow)
+        Log.d(TAG, "Initialized TranscriptionFlow to ${flow.name} based on ModelTier ${modelTier.name}")
+
         // Initialize speech recognition
         speechHelper = SpeechRecognitionHelper(this, object : SpeechRecognitionHelper.Callback {
             override fun onReadyForSpeech() {
@@ -391,6 +406,19 @@ class OverlayService : Service() {
                     showAutoSendPill()
                 }
             }
+            
+            // Add layout listener to detect width changes and update modal position
+            layoutListener = ViewTreeObserver.OnGlobalLayoutListener {
+                val currentWidth = overlayView?.width ?: 0
+                if (currentWidth != lastOverlayWidth && currentWidth > 0) {
+                    lastOverlayWidth = currentWidth
+                    // Update modal position when width changes
+                    if (isOptionsMenuVisible) {
+                        updateSecondaryOverlayPositions()
+                    }
+                }
+            }
+            view.viewTreeObserver.addOnGlobalLayoutListener(layoutListener)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add overlay view", e)
             Toast.makeText(this, "Failed to show overlay", Toast.LENGTH_SHORT).show()
@@ -428,6 +456,15 @@ class OverlayService : Service() {
         // Hide warning dialog if visible
         hideWarningDialog()
 
+        // Remove layout listener before removing view
+        overlayView?.let { view ->
+            layoutListener?.let { listener ->
+                view.viewTreeObserver.removeOnGlobalLayoutListener(listener)
+            }
+        }
+        layoutListener = null
+        lastOverlayWidth = 0
+        
         // Remove view from window manager
         overlayView?.let { view ->
             try {
@@ -583,10 +620,15 @@ class OverlayService : Service() {
             optionsMenuView?.let { menu ->
                 val menuParams = menu.layoutParams as? WindowManager.LayoutParams
                 if (menuParams != null) {
-                    // Position to the RIGHT and ABOVE the main overlay
-                    // Assuming centered gravity, add offset to X and subtract from Y
-                    menuParams.x = overlayParams.x + 250
-                    menuParams.y = overlayParams.y - 180
+                    // Position above and aligned with the right edge of the main overlay
+                    // Since both use Gravity.CENTER, to align right edges:
+                    // menuX + menuWidth/2 = overlayX + overlayWidth/2
+                    // menuX = overlayX + (overlayWidth - menuWidth) / 2
+                    val overlayWidth = overlayView?.width ?: 220
+                    val menuWidth = menu.width.takeIf { it > 0 } ?: (150 * resources.displayMetrics.density).toInt()
+                    val leftOffset = (10 * resources.displayMetrics.density).toInt() // 10dp left adjustment
+                    menuParams.x = overlayParams.x + (overlayWidth - menuWidth) / 2 - leftOffset
+                    menuParams.y = overlayParams.y - 292 // moved up by 12 pixels total
                     try {
                         windowManager?.updateViewLayout(menu, menuParams)
                     } catch (e: Exception) {
@@ -1262,6 +1304,35 @@ class OverlayService : Service() {
         val menuView = inflater.inflate(R.layout.overlay_options_menu, null)
         optionsMenuViewRef = WeakReference(menuView)
 
+        // Get tier selection views
+        val tierAuto = menuView.findViewById<LinearLayout>(R.id.tier_auto)
+        val tierStandard = menuView.findViewById<LinearLayout>(R.id.tier_standard)
+        val tierPremium = menuView.findViewById<LinearLayout>(R.id.tier_premium)
+
+        val radioAuto = menuView.findViewById<RadioButton>(R.id.radio_auto)
+        val radioStandard = menuView.findViewById<RadioButton>(R.id.radio_standard)
+        val radioPremium = menuView.findViewById<RadioButton>(R.id.radio_premium)
+
+        // Set initial state based on current preference
+        val currentTier = ShortcutPreferences.getModelTier(this)
+        updateTierSelection(currentTier, radioAuto, radioStandard, radioPremium)
+
+        // Handle tier selection
+        tierAuto.setOnClickListener {
+            selectModelTier(ShortcutPreferences.ModelTier.AUTO, radioAuto, radioStandard, radioPremium)
+        }
+        tierStandard.setOnClickListener {
+            selectModelTier(ShortcutPreferences.ModelTier.STANDARD, radioAuto, radioStandard, radioPremium)
+        }
+        tierPremium.setOnClickListener {
+            selectModelTier(ShortcutPreferences.ModelTier.PREMIUM, radioAuto, radioStandard, radioPremium)
+        }
+
+        /* ============================================================
+           AUTO-SEND FEATURE - COMMENTED OUT FOR FUTURE IMPLEMENTATION
+           This feature may be re-enabled in a future release.
+           DO NOT REMOVE - keep for future developers.
+           ============================================================
         // Get the switch for auto-send
         val autoSendSwitch = menuView.findViewById<SwitchCompat>(R.id.switch_auto_send)
         val autoSendMenuItem = menuView.findViewById<LinearLayout>(R.id.menu_item_auto_send)
@@ -1275,6 +1346,7 @@ class OverlayService : Service() {
             autoSendSwitch.isChecked = !autoSendSwitch.isChecked
             toggleAutoSend(autoSendSwitch.isChecked)
         }
+        ============================================================ */
 
         // Calculate position above the main overlay
         val overlayParams = (overlayView?.layoutParams as? WindowManager.LayoutParams)
@@ -1293,11 +1365,16 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT
         )
 
-        // Position the menu above the main overlay - use same gravity for coordinate consistency
+        // Position the menu above and aligned with the right edge of the main overlay
         menuParams.gravity = Gravity.CENTER
-        // Position 250px to the right and 180px above the main overlay
-        menuParams.x = (overlayParams?.x ?: 0) + 250
-        menuParams.y = (overlayParams?.y ?: 0) - 150
+        // Since both use Gravity.CENTER, to align right edges:
+        // menuX + menuWidth/2 = overlayX + overlayWidth/2
+        // menuX = overlayX + (overlayWidth - menuWidth) / 2
+        val overlayWidth = overlayView?.width ?: (220 * resources.displayMetrics.density).toInt()
+        val menuWidthEstimate = (150 * resources.displayMetrics.density).toInt() // menu minWidth is 150dp
+        val leftOffset = (10 * resources.displayMetrics.density).toInt() // 10dp left adjustment
+        menuParams.x = (overlayParams?.x ?: 0) + (overlayWidth - menuWidthEstimate) / 2 - leftOffset
+        menuParams.y = (overlayParams?.y ?: 0) - 292 // moved up by 12 pixels total
 
         // Close menu when tapping outside (on transparent area)
         menuView.setOnTouchListener { _, event ->
@@ -1316,6 +1393,51 @@ class OverlayService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to show options menu", e)
         }
+    }
+
+    /**
+     * Update radio button selection state for model tiers
+     */
+    private fun updateTierSelection(
+        tier: ShortcutPreferences.ModelTier,
+        radioAuto: RadioButton,
+        radioStandard: RadioButton,
+        radioPremium: RadioButton
+    ) {
+        radioAuto.isChecked = tier == ShortcutPreferences.ModelTier.AUTO
+        radioStandard.isChecked = tier == ShortcutPreferences.ModelTier.STANDARD
+        radioPremium.isChecked = tier == ShortcutPreferences.ModelTier.PREMIUM
+    }
+
+    /**
+     * Handle model tier selection
+     */
+    private fun selectModelTier(
+        tier: ShortcutPreferences.ModelTier,
+        radioAuto: RadioButton,
+        radioStandard: RadioButton,
+        radioPremium: RadioButton
+    ) {
+        Log.d(TAG, "Selecting model tier: ${tier.name}")
+
+        // Update preference
+        ShortcutPreferences.setModelTier(this, tier)
+
+        // Update the underlying TranscriptionFlow
+        val flow = TranscriptionFlow.fromModelTier(tier)
+        TranscriptionFlow.setSelectedFlow(this, flow)
+        Log.d(TAG, "TranscriptionFlow set to: ${flow.name}")
+
+        // Update UI
+        updateTierSelection(tier, radioAuto, radioStandard, radioPremium)
+
+        // Show feedback
+        Toast.makeText(this, "${tier.displayName} selected", Toast.LENGTH_SHORT).show()
+
+        // Auto-hide menu after selection
+        uiHandler.postDelayed({
+            hideOptionsMenu()
+        }, 300)
     }
 
     /**

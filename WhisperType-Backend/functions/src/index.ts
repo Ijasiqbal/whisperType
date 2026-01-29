@@ -25,6 +25,32 @@ const db = admin.firestore();
 const remoteConfig = admin.remoteConfig();
 
 /**
+ * Model tiers for transcription quality selection
+ * - AUTO: Free tier using Groq Turbo (whisper-large-v3-turbo) - 0 credits
+ * - STANDARD: 1x credit using Groq Whisper (whisper-large-v3)
+ * - PREMIUM: 2x credit using OpenAI (gpt-4o-mini-transcribe)
+ */
+type ModelTier = "AUTO" | "STANDARD" | "PREMIUM";
+
+/**
+ * Get the credit multiplier for a given model tier
+ * @param {ModelTier} tier - The model tier
+ * @return {number} Credit multiplier (0=free, 1=standard, 2=premium)
+ */
+function getCreditMultiplier(tier: ModelTier): number {
+  switch (tier) {
+  case "AUTO":
+    return 0; // Free - no credits charged
+  case "STANDARD":
+    return 1; // 1x credits
+  case "PREMIUM":
+    return 2; // 2x credits
+  default:
+    return 1; // Default to standard
+  }
+}
+
+/**
  * Verify Firebase ID token from Authorization header
  * @param {string | undefined} authHeader - The Authorization header value
  * @return {Promise<admin.auth.DecodedIdToken | null>} Decoded token or null
@@ -702,20 +728,24 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
  * @param {string} uid - User ID
  * @param {number} creditsUsed - Credits deducted
  * @param {string} source - Usage source (free, pro, etc.)
+ * @param {ModelTier} modelTier - Model tier used (AUTO, STANDARD, PREMIUM)
  * @return {Promise<void>}
  */
 async function logUsage(
   uid: string,
   creditsUsed: number,
-  source: UsageLogEntry["source"] = "free"
+  source: UsageLogEntry["source"] = "free",
+  modelTier: ModelTier = "STANDARD"
 ): Promise<void> {
   try {
     const entry: Omit<UsageLogEntry, "timestamp"> & {
       timestamp: admin.firestore.FieldValue;
+      modelTier?: ModelTier;
     } = {
       creditsUsed: creditsUsed,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       source: source,
+      modelTier: modelTier,
     };
 
     await db
@@ -724,7 +754,10 @@ async function logUsage(
       .collection("entries")
       .add(entry);
 
-    logger.info(`Logged ${creditsUsed} credits usage for user ${uid}`);
+    logger.info(
+      `Logged ${creditsUsed} credits usage for user ${uid} ` +
+      `(tier: ${modelTier})`
+    );
   } catch (error) {
     // Don't fail the request if logging fails
     logger.error("Failed to log usage", error);
@@ -736,19 +769,41 @@ async function logUsage(
  * Converts audio duration to credits using secondsPerCredit rate
  * @param {string} uid - User ID
  * @param {number} audioDurationMs - Audio duration in milliseconds
+ * @param {ModelTier} modelTier - Tier (AUTO=0x, STANDARD=1x, PREMIUM=2x)
  * @return {Promise<TrialStatusResult>} Updated trial status
  */
 async function deductTrialUsage(
   uid: string,
-  audioDurationMs: number
+  audioDurationMs: number,
+  modelTier: ModelTier = "STANDARD"
 ): Promise<TrialStatusResult> {
   const userRef = db.collection("users").doc(uid);
   const limits = await getPlanLimits();
 
-  // Convert audio duration to credits
-  // e.g., 5248ms -> 6 seconds -> 1 credit (if secondsPerCredit=6)
+  // Convert audio duration to credits with tier multiplier
+  // e.g., 5248ms -> 6 seconds -> 1 base credit (if secondsPerCredit=6)
+  // AUTO tier: 0x multiplier (free)
+  // STANDARD tier: 1x multiplier
+  // PREMIUM tier: 2x multiplier
   const audioSeconds = Math.ceil(audioDurationMs / 1000);
-  const creditsToDeduct = Math.ceil(audioSeconds / limits.secondsPerCredit);
+  const baseCredits = Math.ceil(audioSeconds / limits.secondsPerCredit);
+  const multiplier = getCreditMultiplier(modelTier);
+  const creditsToDeduct = baseCredits * multiplier;
+
+  // If AUTO tier (free), still log but don't actually deduct
+  if (creditsToDeduct === 0) {
+    logger.info(
+      `[AUTO/Free] No credits deducted for ${audioSeconds}s audio ` +
+      `from user ${uid} (tier: ${modelTier})`
+    );
+    // Log the free usage for audit trail
+    await logUsage(uid, 0, "free", modelTier);
+
+    // Return current status without deduction
+    const userDoc = await userRef.get();
+    const userData = userDoc.data() as UserDocument;
+    return checkTrialStatus(userData, limits.freeTierCredits);
+  }
 
   // Use a transaction to safely increment usage
   const updatedUser = await db.runTransaction(async (transaction) => {
@@ -772,10 +827,11 @@ async function deductTrialUsage(
   });
 
   // Log the usage entry for audit trail
-  await logUsage(uid, creditsToDeduct);
+  await logUsage(uid, creditsToDeduct, "free", modelTier);
 
   logger.info(
-    `Deducted ${creditsToDeduct} credits (${audioSeconds}s audio) ` +
+    `Deducted ${creditsToDeduct} credits (${audioSeconds}s audio, ` +
+    `${multiplier}x multiplier, tier: ${modelTier}) ` +
     `from user ${uid}, total: ${updatedUser.freeCreditsUsed} credits`
   );
 
@@ -788,18 +844,37 @@ async function deductTrialUsage(
  * Converts audio duration to credits using secondsPerCredit rate
  * @param {string} uid - User ID
  * @param {number} audioDurationMs - Audio duration in milliseconds
+ * @param {ModelTier} modelTier - Tier (AUTO=0x, STANDARD=1x, PREMIUM=2x)
  * @return {Promise<ProStatusResult>} Updated Pro status
  */
 async function deductProUsage(
   uid: string,
-  audioDurationMs: number
+  audioDurationMs: number,
+  modelTier: ModelTier = "STANDARD"
 ): Promise<ProStatusResult> {
   const userRef = db.collection("users").doc(uid);
   const limits = await getPlanLimits();
 
-  // Convert audio duration to credits
+  // Convert audio duration to credits with tier multiplier
   const audioSeconds = Math.ceil(audioDurationMs / 1000);
-  const creditsToDeduct = Math.ceil(audioSeconds / limits.secondsPerCredit);
+  const baseCredits = Math.ceil(audioSeconds / limits.secondsPerCredit);
+  const multiplier = getCreditMultiplier(modelTier);
+  const creditsToDeduct = baseCredits * multiplier;
+
+  // If AUTO tier (free), still log but don't actually deduct
+  if (creditsToDeduct === 0) {
+    logger.info(
+      `[AUTO/Free] Pro: No credits deducted for ${audioSeconds}s audio ` +
+      `from user ${uid} (tier: ${modelTier})`
+    );
+    // Log the free usage for audit trail
+    await logUsage(uid, 0, "pro", modelTier);
+
+    // Return current status without deduction
+    const userDoc = await userRef.get();
+    const userData = userDoc.data() as UserDocument;
+    return checkProStatus(userData, limits.proTierCredits);
+  }
 
   // Use a transaction to safely increment usage
   const updatedUser = await db.runTransaction(async (transaction) => {
@@ -831,12 +906,12 @@ async function deductProUsage(
   });
 
   // Log the usage entry for audit trail (with Pro source)
-  await logUsage(uid, creditsToDeduct, "pro");
+  await logUsage(uid, creditsToDeduct, "pro", modelTier);
 
   logger.info(
     `Pro: Deducted ${creditsToDeduct} credits ` +
-    `(${audioSeconds}s audio) from user ${uid}, ` +
-    `total: ${updatedUser.proSubscription?.proCreditsUsed} credits`
+    `(${audioSeconds}s, ${multiplier}x, tier: ${modelTier}) ` +
+    `from ${uid}, total: ${updatedUser.proSubscription?.proCreditsUsed}`
   );
 
   return checkProStatus(updatedUser, limits.proTierCredits);
@@ -1254,6 +1329,9 @@ export const transcribeAudio = onRequest(
 
         // === Deduct credits from correct quota ===
         // (Whisper succeeded, so we charge the user from trial or Pro)
+        // OpenAI endpoint always uses PREMIUM tier (2x credits)
+        const modelTier: ModelTier = "PREMIUM";
+
         let responseStatus: {
           plan: string;
           status: string;
@@ -1263,16 +1341,21 @@ export const transcribeAudio = onRequest(
           warningLevel: string;
         };
 
-        // Calculate credits to deduct
+        // Calculate credits to deduct with PREMIUM multiplier (2x)
         const audioSeconds = Math.ceil(durationMs / 1000);
-        const creditsDeducted = Math.ceil(
-          audioSeconds / limits.secondsPerCredit
+        const baseCredits = Math.ceil(audioSeconds / limits.secondsPerCredit);
+        const multiplier = getCreditMultiplier(modelTier);
+        const creditsDeducted = baseCredits * multiplier;
+
+        logger.info(
+          `[OpenAI] Model tier: ${modelTier}, multiplier: ${multiplier}x, ` +
+          `base credits: ${baseCredits}, final credits: ${creditsDeducted}`
         );
 
         if (uid) {
           if (usageSource === "pro") {
             // Deduct from Pro subscription
-            const proStatus = await deductProUsage(uid, durationMs);
+            const proStatus = await deductProUsage(uid, durationMs, modelTier);
             responseStatus = {
               plan: "pro",
               status: proStatus.isActive ? "active" : "expired",
@@ -1285,7 +1368,9 @@ export const transcribeAudio = onRequest(
             };
           } else {
             // Deduct from free trial
-            const trialStatus = await deductTrialUsage(uid, durationMs);
+            const trialStatus = await deductTrialUsage(
+              uid, durationMs, modelTier
+            );
             responseStatus = {
               plan: "free",
               status: trialStatus.status,
@@ -1312,8 +1397,9 @@ export const transcribeAudio = onRequest(
           creditsDeducted;
 
         logger.info(
-          `Transcription success: deducted ${creditsDeducted} credits ` +
-          `from ${usageSource}, remaining: ${responseStatus.creditsRemaining}`
+          `[OpenAI] Success: ${creditsDeducted} credits ` +
+          `(tier: ${modelTier}) from ${usageSource}, ` +
+          `remaining: ${responseStatus.creditsRemaining}`
         );
 
         // Return transcription with credits-based status
@@ -1654,11 +1740,21 @@ export const transcribeAudioGroq = onRequest(
           );
         }
 
-        // Deduct credits from correct quota
+        // Determine model tier based on selected Groq model
+        // whisper-large-v3-turbo = AUTO (free), whisper-large-v3 = STANDARD
+        const isTurbo = selectedModel === "whisper-large-v3-turbo";
+        const modelTier: ModelTier = isTurbo ? "AUTO" : "STANDARD";
+
+        // Deduct credits from correct quota with tier multiplier
         // Calculate credits to deduct
         const audioSeconds = Math.ceil(durationMs / 1000);
-        const creditsDeducted = Math.ceil(
-          audioSeconds / limits.secondsPerCredit
+        const baseCredits = Math.ceil(audioSeconds / limits.secondsPerCredit);
+        const multiplier = getCreditMultiplier(modelTier);
+        const creditsDeducted = baseCredits * multiplier;
+
+        logger.info(
+          `[Groq] Model tier: ${modelTier}, multiplier: ${multiplier}x, ` +
+          `base credits: ${baseCredits}, final credits: ${creditsDeducted}`
         );
 
         let responseStatus: {
@@ -1671,7 +1767,7 @@ export const transcribeAudioGroq = onRequest(
         };
 
         if (usageSource === "pro") {
-          const proStatus = await deductProUsage(uid, durationMs);
+          const proStatus = await deductProUsage(uid, durationMs, modelTier);
           responseStatus = {
             plan: "pro",
             status: proStatus.isActive ? "active" : "expired",
@@ -1683,7 +1779,9 @@ export const transcribeAudioGroq = onRequest(
                 "ninety_percent" : "none",
           };
         } else {
-          const trialStatus = await deductTrialUsage(uid, durationMs);
+          const trialStatus = await deductTrialUsage(
+            uid, durationMs, modelTier
+          );
           responseStatus = {
             plan: "free",
             status: trialStatus.status,
@@ -1698,7 +1796,8 @@ export const transcribeAudioGroq = onRequest(
 
         logger.info(
           `[Groq] Transcription success: deducted ${creditsDeducted} credits ` +
-          `from ${usageSource}, remaining: ${responseStatus.creditsRemaining}`
+          `(tier: ${modelTier}) from ${usageSource}, ` +
+          `remaining: ${responseStatus.creditsRemaining}`
         );
 
         // Return transcription with credits-based status
