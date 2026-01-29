@@ -206,9 +206,9 @@ class BillingManager(private val context: Context) {
                                 Log.w(TAG, "Backend verification failed: $error, using defaults")
                                 // Fallback: Set Pro status with default values
                                 UsageDataManager.updateProStatus(
-                                    proSecondsUsed = 0,
-                                    proSecondsRemaining = 9000, // 150 min default
-                                    proSecondsLimit = 9000,
+                                    proCreditsUsed = 0,
+                                    proCreditsRemaining = 10000, // Default pro credits
+                                    proCreditsLimit = 10000,
                                     proResetDateMs = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
                                 )
                             }
@@ -217,9 +217,9 @@ class BillingManager(private val context: Context) {
                         Log.w(TAG, "No auth token available, using default Pro values")
                         // No auth token - set default Pro values
                         UsageDataManager.updateProStatus(
-                            proSecondsUsed = 0,
-                            proSecondsRemaining = 9000,
-                            proSecondsLimit = 9000,
+                            proCreditsUsed = 0,
+                            proCreditsRemaining = 10000,
+                            proCreditsLimit = 10000,
                             proResetDateMs = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
                         )
                     }
@@ -287,9 +287,9 @@ class BillingManager(private val context: Context) {
                         _subscriptionStatus.value = SubscriptionStatus.Active
                         // IMPORTANT: Also update UsageDataManager so OverlayService recognizes Pro status
                         UsageDataManager.updateProStatus(
-                            proSecondsUsed = 0,
-                            proSecondsRemaining = 9000,  // Default 150 minutes
-                            proSecondsLimit = 9000,
+                            proCreditsUsed = 0,
+                            proCreditsRemaining = 10000,  // Default 10000 credits
+                            proCreditsLimit = 10000,
                             proResetDateMs = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)  // ~30 days
                         )
                         pendingSuccessCallback?.invoke()

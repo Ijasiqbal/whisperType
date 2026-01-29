@@ -33,18 +33,18 @@ import kotlinx.coroutines.delay
 fun TrialExpiredScreen(
     trialStatus: UsageDataManager.TrialStatus,
     priceDisplay: String = "₹79/month",
-    minutesLimit: Int = 150,
+    creditsLimit: Int = 10000,
     planName: String = "WhisperType Pro",
     isLoading: Boolean = false,
     onUpgrade: () -> Unit = {},
     onContactSupport: () -> Unit = {}
 ) {
     val reasonText = when (trialStatus) {
-        UsageDataManager.TrialStatus.EXPIRED_TIME -> 
-            "Your 3-month free trial period has ended."
-        UsageDataManager.TrialStatus.EXPIRED_USAGE -> 
-            "You've used all your free trial minutes."
-        else -> 
+        UsageDataManager.TrialStatus.EXPIRED_TIME ->
+            "Your free trial period has ended."
+        UsageDataManager.TrialStatus.EXPIRED_USAGE ->
+            "You've used all your free credits."
+        else ->
             "Your free trial has ended."
     }
     
@@ -163,7 +163,7 @@ fun TrialExpiredScreen(
             ) {
                 ProUpgradeCard(
                     planName = planName,
-                    minutesLimit = minutesLimit,
+                    creditsLimit = creditsLimit,
                     priceDisplay = priceDisplay,
                     onUpgrade = onUpgrade
                 )
@@ -186,7 +186,7 @@ fun TrialExpiredScreen(
 @Composable
 private fun ProUpgradeCard(
     planName: String,
-    minutesLimit: Int,
+    creditsLimit: Int,
     priceDisplay: String,
     onUpgrade: () -> Unit
 ) {
@@ -206,33 +206,33 @@ private fun ProUpgradeCard(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1E293B)
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Text(
-                text = "$minutesLimit minutes every month",
+                text = "$creditsLimit credits every month",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF6366F1)
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = priceDisplay,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1E293B)
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Benefits with icons
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.Start
             ) {
-                BenefitRow("$minutesLimit minutes resets monthly")
+                BenefitRow("$creditsLimit credits resets monthly")
                 BenefitRow("No trial expiry anxiety")
                 BenefitRow("Cancel anytime")
             }

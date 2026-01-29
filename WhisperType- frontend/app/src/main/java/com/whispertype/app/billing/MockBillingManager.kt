@@ -77,9 +77,9 @@ class MockBillingManager {
             
             // Update UsageDataManager so UI reflects Pro status
             UsageDataManager.updateProStatus(
-                proSecondsUsed = 0,
-                proSecondsRemaining = 9000,  // 150 minutes
-                proSecondsLimit = 9000,
+                proCreditsUsed = 0,
+                proCreditsRemaining = 10000,  // Default pro credits
+                proCreditsLimit = 10000,
                 proResetDateMs = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000) // 30 days from now
             )
             Log.d(TAG, "🧪 UsageDataManager updated to Pro status")

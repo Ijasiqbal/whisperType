@@ -256,9 +256,9 @@ fun ProfileScreen(
         }
         
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Last transcription info
-        if (usageState.lastSecondsUsed > 0) {
+        if (usageState.lastCreditsUsed > 0) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -285,7 +285,7 @@ fun ProfileScreen(
                             color = Color(0xFF1E293B)
                         )
                         Text(
-                            text = "${usageState.lastSecondsUsed} seconds",
+                            text = "${usageState.lastCreditsUsed} credits",
                             fontSize = 12.sp,
                             color = Color(0xFF64748B)
                         )
@@ -331,12 +331,12 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
     }
     
     val warningMessage = when (usageState.warningLevel) {
-        UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> 
-            "You're almost out of free minutes!"
-        UsageDataManager.WarningLevel.EIGHTY_PERCENT -> 
-            "80% of your free trial used"
-        UsageDataManager.WarningLevel.FIFTY_PERCENT -> 
-            "50% of your free trial used"
+        UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT ->
+            "You're almost out of free credits!"
+        UsageDataManager.WarningLevel.EIGHTY_PERCENT ->
+            "80% of your free credits used"
+        UsageDataManager.WarningLevel.FIFTY_PERCENT ->
+            "50% of your free credits used"
         else -> null
     }
     
@@ -411,7 +411,7 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Minutes remaining
+            // Credits remaining
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -422,32 +422,32 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                         SkeletonText(width = 80.dp, height = 40.dp)
                     } else {
                         Text(
-                            text = usageState.formattedTimeRemaining,
+                            text = "${usageState.freeCreditsRemaining}",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
                         )
                     }
                     if (usageState.isLoading) {
-                        // Skeleton for "remaining" label - 14sp ≈ 18dp
+                        // Skeleton for "credits remaining" label - 14sp ≈ 18dp
                         Spacer(modifier = Modifier.height(4.dp))
-                        SkeletonText(width = 70.dp, height = 18.dp)
+                        SkeletonText(width = 100.dp, height = 18.dp)
                     } else {
                         Text(
-                            text = "remaining",
+                            text = "credits remaining",
                             fontSize = 14.sp,
                             color = Color(0xFF64748B)
                         )
                     }
                 }
-                
+
                 Column(horizontalAlignment = Alignment.End) {
                     if (usageState.isLoading) {
                         // 24sp ≈ 30dp with font metrics
                         SkeletonText(width = 60.dp, height = 30.dp)
                     } else {
                         Text(
-                            text = usageState.formattedTimeUsed,
+                            text = "${usageState.freeCreditsUsed}",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF94A3B8)
@@ -459,7 +459,7 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                         SkeletonText(width = 100.dp, height = 16.dp)
                     } else {
                         Text(
-                            text = "of ${usageState.formattedTotalTime} used",
+                            text = "of ${usageState.freeTierCredits} used",
                             fontSize = 12.sp,
                             color = Color(0xFF94A3B8)
                         )
@@ -549,12 +549,9 @@ private fun ProStatusCard(
     usageState: UsageDataManager.UsageState,
     onManageSubscription: () -> Unit
 ) {
-    // Format seconds as M:SS
-    val formattedProUsed = formatSecondsToMinutes(usageState.proSecondsUsed)
-    val formattedProLimit = formatSecondsToMinutes(usageState.proSecondsLimit)
-    val formattedProRemaining = formatSecondsToMinutes(usageState.proSecondsRemaining)
-    val usagePercentage = if (usageState.proSecondsLimit > 0) {
-        (usageState.proSecondsUsed.toFloat() / usageState.proSecondsLimit.toFloat())
+    // Calculate usage percentage for credits
+    val usagePercentage = if (usageState.proCreditsLimit > 0) {
+        (usageState.proCreditsUsed.toFloat() / usageState.proCreditsLimit.toFloat())
     } else 0f
     
     Card(
@@ -623,19 +620,19 @@ private fun ProStatusCard(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                // Usage text
+                // Usage text (credits)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "$formattedProUsed / $formattedProLimit used",
+                        text = "${usageState.proCreditsUsed} / ${usageState.proCreditsLimit} credits",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
                     Text(
-                        text = "$formattedProRemaining left",
+                        text = "${usageState.proCreditsRemaining} left",
                         fontSize = 14.sp,
                         color = Color.White.copy(alpha = 0.8f)
                     )

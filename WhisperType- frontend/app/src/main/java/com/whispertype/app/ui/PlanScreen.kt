@@ -37,7 +37,7 @@ import java.util.*
 @Composable
 fun PlanScreen(
     priceDisplay: String = "₹79/month",
-    minutesLimit: Int = 150,
+    creditsLimit: Int = 10000,
     planName: String = "WhisperType Pro",
     isLoading: Boolean = false,
     onUpgrade: () -> Unit = {},
@@ -113,7 +113,7 @@ fun PlanScreen(
         ) {
             UpgradeCard(
                 isExpired = isExpired,
-                minutesLimit = minutesLimit,
+                creditsLimit = creditsLimit,
                 priceDisplay = priceDisplay,
                 onUpgrade = onUpgrade
             )
@@ -201,10 +201,10 @@ private fun CurrentPlanCard(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Usage info
+            // Usage info (credits-based)
             if (usageState.isProUser) {
                 Text(
-                    text = "${usageState.proSecondsRemaining / 60} min remaining",
+                    text = "${usageState.proCreditsRemaining} credits remaining",
                     fontSize = 18.sp,
                     color = Color.White.copy(alpha = 0.9f),
                     textAlign = TextAlign.Center,
@@ -224,7 +224,7 @@ private fun CurrentPlanCard(
                 }
             } else {
                 Text(
-                    text = usageState.formattedTimeRemaining + " remaining",
+                    text = "${usageState.freeCreditsRemaining} credits remaining",
                     fontSize = 18.sp,
                     color = if (isExpired) Color(0xFFDC2626) else Color(0xFF1E293B),
                     textAlign = TextAlign.Center,
@@ -238,7 +238,7 @@ private fun CurrentPlanCard(
 @Composable
 private fun UpgradeCard(
     isExpired: Boolean,
-    minutesLimit: Int,
+    creditsLimit: Int,
     priceDisplay: String,
     onUpgrade: () -> Unit
 ) {
@@ -259,33 +259,33 @@ private fun UpgradeCard(
                 color = Color(0xFF1E293B),
                 textAlign = TextAlign.Center
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Text(
-                text = "$minutesLimit minutes every month",
+                text = "$creditsLimit credits every month",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF6366F1)
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = priceDisplay,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1E293B)
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Benefits with icons
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.Start
             ) {
-                BenefitItem("$minutesLimit minutes resets monthly")
+                BenefitItem("$creditsLimit credits resets monthly")
                 BenefitItem("No trial expiry worries")
                 BenefitItem("Cancel anytime")
             }

@@ -1299,13 +1299,13 @@ fun AppWithBottomNav(
                 if (token != null) {
                     com.whispertype.app.api.WhisperApiClient().getTrialStatus(
                         authToken = token,
-                        onSuccess = { status, freeSecondsUsed, freeSecondsRemaining, trialExpiryDateMs, warningLevel ->
-                            android.util.Log.d("MainActivity", "Trial status fetched: $status, $freeSecondsRemaining seconds remaining")
+                        onSuccess = { status, freeCreditsUsed, freeCreditsRemaining, trialExpiryDateMs, warningLevel ->
+                            android.util.Log.d("MainActivity", "Trial status fetched: $status, $freeCreditsRemaining credits remaining")
                             // Update UsageDataManager with the fetched status
                             UsageDataManager.updateTrialStatus(
                                 status = status,
-                                freeSecondsUsed = freeSecondsUsed,
-                                freeSecondsRemaining = freeSecondsRemaining,
+                                freeCreditsUsed = freeCreditsUsed,
+                                freeCreditsRemaining = freeCreditsRemaining,
                                 trialExpiryDateMs = trialExpiryDateMs,
                                 warningLevel = warningLevel
                             )
@@ -1436,7 +1436,7 @@ fun AppWithBottomNav(
                 BottomNavTab.PLAN -> {
                     PlanScreen(
                         priceDisplay = planConfig.proPriceDisplay,
-                        minutesLimit = planConfig.proMinutesLimit,
+                        creditsLimit = planConfig.proMinutesLimit,
                         planName = planConfig.proPlanName,
                         isLoading = isConfigLoading,
                         onUpgrade = onUpgrade,

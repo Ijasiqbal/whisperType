@@ -86,13 +86,16 @@ async function logTranscriptionRequest(
 
 /**
  * Plan limits interface (Trial + Pro from Remote Config)
+ * Uses credits instead of seconds/minutes for billing
  */
 interface PlanLimits {
-  // Trial limits
-  freeTrialSeconds: number;
+  // Credit limits (configurable via Remote Config)
+  freeTierCredits: number; // Total credits for free tier
+  proTierCredits: number; // Total credits per month for pro tier
+  secondsPerCredit: number; // How many seconds of audio equals 1 credit
+  // Trial expiry
   trialDurationMonths: number;
-  // Pro limits
-  proSecondsLimit: number;
+  // Pro config
   proProductId: string;
   proPlanEnabled: boolean;
 }
@@ -103,14 +106,15 @@ let cacheTimestamp = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Default fallback values if Remote Config is unavailable
-const DEFAULT_FREE_TRIAL_MINUTES = 20;
+const DEFAULT_FREE_TIER_CREDITS = 1000;
+const DEFAULT_PRO_TIER_CREDITS = 10000;
+const DEFAULT_SECONDS_PER_CREDIT = 6;
 const DEFAULT_TRIAL_DURATION_MONTHS = 3;
-const DEFAULT_PRO_MINUTES = 150;
 const DEFAULT_PRO_PRODUCT_ID = "whispertype_pro_monthly";
 
 /**
  * Get plan limits from Remote Config with caching
- * Includes both Trial and Pro limits
+ * Includes credit limits for both Trial and Pro tiers
  * Falls back to defaults if Remote Config is unavailable
  * @return {Promise<PlanLimits>} Plan limits configuration
  */
@@ -126,13 +130,27 @@ async function getPlanLimits(): Promise<PlanLimits> {
     // Fetch Remote Config template
     const template = await remoteConfig.getTemplate();
 
-    // Extract trial parameters with defaults
-    const freeTrialParam = template.parameters?.free_trial_minutes;
-    const freeTrialMinutes = freeTrialParam &&
-      freeTrialParam.defaultValue &&
-      "value" in freeTrialParam.defaultValue ?
-      Number(freeTrialParam.defaultValue.value) :
-      DEFAULT_FREE_TRIAL_MINUTES;
+    // Extract credit parameters with defaults
+    const freeTierCreditsParam = template.parameters?.free_tier_credits;
+    const freeTierCredits = freeTierCreditsParam &&
+      freeTierCreditsParam.defaultValue &&
+      "value" in freeTierCreditsParam.defaultValue ?
+      Number(freeTierCreditsParam.defaultValue.value) :
+      DEFAULT_FREE_TIER_CREDITS;
+
+    const proTierCreditsParam = template.parameters?.pro_tier_credits;
+    const proTierCredits = proTierCreditsParam &&
+      proTierCreditsParam.defaultValue &&
+      "value" in proTierCreditsParam.defaultValue ?
+      Number(proTierCreditsParam.defaultValue.value) :
+      DEFAULT_PRO_TIER_CREDITS;
+
+    const secondsPerCreditParam = template.parameters?.seconds_per_credit;
+    const secondsPerCredit = secondsPerCreditParam &&
+      secondsPerCreditParam.defaultValue &&
+      "value" in secondsPerCreditParam.defaultValue ?
+      Number(secondsPerCreditParam.defaultValue.value) :
+      DEFAULT_SECONDS_PER_CREDIT;
 
     const trialDurationParam = template.parameters?.trial_duration_months;
     const trialDurationMonths = trialDurationParam &&
@@ -140,14 +158,6 @@ async function getPlanLimits(): Promise<PlanLimits> {
       "value" in trialDurationParam.defaultValue ?
       Number(trialDurationParam.defaultValue.value) :
       DEFAULT_TRIAL_DURATION_MONTHS;
-
-    // Extract Pro parameters with defaults
-    const proMinutesParam = template.parameters?.pro_minutes_limit;
-    const proMinutes = proMinutesParam &&
-      proMinutesParam.defaultValue &&
-      "value" in proMinutesParam.defaultValue ?
-      Number(proMinutesParam.defaultValue.value) :
-      DEFAULT_PRO_MINUTES;
 
     const proProductIdParam = template.parameters?.pro_product_id;
     const proProductId = proProductIdParam &&
@@ -165,17 +175,19 @@ async function getPlanLimits(): Promise<PlanLimits> {
 
     // Cache the values
     cachedPlanLimits = {
-      freeTrialSeconds: freeTrialMinutes * 60,
+      freeTierCredits: freeTierCredits,
+      proTierCredits: proTierCredits,
+      secondsPerCredit: secondsPerCredit,
       trialDurationMonths: trialDurationMonths,
-      proSecondsLimit: proMinutes * 60,
       proProductId: proProductId,
       proPlanEnabled: proPlanEnabled,
     };
     cacheTimestamp = now;
 
     logger.info(
-      `Remote Config loaded: ${freeTrialMinutes} min trial, ` +
-      `${trialDurationMonths} months, Pro: ${proMinutes} min`
+      `Remote Config loaded: ${freeTierCredits} free credits, ` +
+      `${proTierCredits} pro credits, ${secondsPerCredit} secs/credit, ` +
+      `${trialDurationMonths} months expiry`
     );
 
     return cachedPlanLimits;
@@ -187,9 +199,10 @@ async function getPlanLimits(): Promise<PlanLimits> {
 
     // Fallback to defaults
     const fallbackLimits: PlanLimits = {
-      freeTrialSeconds: DEFAULT_FREE_TRIAL_MINUTES * 60,
+      freeTierCredits: DEFAULT_FREE_TIER_CREDITS,
+      proTierCredits: DEFAULT_PRO_TIER_CREDITS,
+      secondsPerCredit: DEFAULT_SECONDS_PER_CREDIT,
       trialDurationMonths: DEFAULT_TRIAL_DURATION_MONTHS,
-      proSecondsLimit: DEFAULT_PRO_MINUTES * 60,
       proProductId: DEFAULT_PRO_PRODUCT_ID,
       proPlanEnabled: true,
     };
@@ -207,12 +220,12 @@ async function getPlanLimits(): Promise<PlanLimits> {
  * @deprecated Use getPlanLimits() instead
  */
 async function getTrialLimits(): Promise<{
-  freeTrialSeconds: number;
+  freeTierCredits: number;
   trialDurationMonths: number;
 }> {
   const limits = await getPlanLimits();
   return {
-    freeTrialSeconds: limits.freeTrialSeconds,
+    freeTierCredits: limits.freeTierCredits,
     trialDurationMonths: limits.trialDurationMonths,
   };
 }
@@ -227,7 +240,7 @@ interface ProSubscription {
   startDate: admin.firestore.Timestamp;
   currentPeriodStart: admin.firestore.Timestamp;
   currentPeriodEnd: admin.firestore.Timestamp; // Reset date (predictable!)
-  proSecondsUsed: number; // Resets each billing period
+  proCreditsUsed: number; // Resets each billing period
 }
 
 /**
@@ -239,12 +252,14 @@ interface UserDocument {
   plan: "free" | "pro";
   // Trial fields
   freeTrialStart: admin.firestore.Timestamp;
-  freeSecondsUsed: number; // Lifetime usage in seconds
-  trialExpiryDate: admin.firestore.Timestamp; // 3 months from freeTrialStart
+  freeCreditsUsed: number; // Lifetime usage in credits
+  // Configurable months from freeTrialStart
+  trialExpiryDate: admin.firestore.Timestamp;
   // Pro subscription fields (Iteration 3)
   proSubscription?: ProSubscription;
-  // Legacy field (for migration)
+  // Legacy fields (for migration - will be reset to 0)
   freeMinutesRemaining?: number;
+  freeSecondsUsed?: number; // Old field, migrated to freeCreditsUsed
 }
 
 /**
@@ -253,8 +268,9 @@ interface UserDocument {
 interface TrialStatusResult {
   isValid: boolean;
   status: "active" | "expired_time" | "expired_usage";
-  freeSecondsUsed: number;
-  freeSecondsRemaining: number;
+  freeCreditsUsed: number;
+  freeCreditsRemaining: number;
+  freeTierCredits: number; // Total credits limit
   trialExpiryDate: admin.firestore.Timestamp;
   trialExpiryDateMs: number;
   warningLevel: "none" | "fifty_percent" |
@@ -264,17 +280,17 @@ interface TrialStatusResult {
 /**
  * Calculate trial status for a user
  * @param {UserDocument} user - The user document
- * @param {number} freeTrialSeconds - Trial limit in seconds from Remote Config
+ * @param {number} freeTierCredits - Credit limit from Remote Config
  * @return {TrialStatusResult} The trial status
  */
 function checkTrialStatus(
   user: UserDocument,
-  freeTrialSeconds: number
+  freeTierCredits: number
 ): TrialStatusResult {
   const now = admin.firestore.Timestamp.now();
-  const freeSecondsUsed = user.freeSecondsUsed || 0;
-  const freeSecondsRemaining = Math.max(
-    0, freeTrialSeconds - freeSecondsUsed
+  const freeCreditsUsed = user.freeCreditsUsed || 0;
+  const freeCreditsRemaining = Math.max(
+    0, freeTierCredits - freeCreditsUsed
   );
   const trialExpiryDate = user.trialExpiryDate;
   const trialExpiryDateMs = trialExpiryDate.toMillis();
@@ -284,8 +300,9 @@ function checkTrialStatus(
     return {
       isValid: false,
       status: "expired_time",
-      freeSecondsUsed,
-      freeSecondsRemaining: 0,
+      freeCreditsUsed,
+      freeCreditsRemaining: 0,
+      freeTierCredits,
       trialExpiryDate,
       trialExpiryDateMs,
       warningLevel: "none",
@@ -293,12 +310,13 @@ function checkTrialStatus(
   }
 
   // Check if trial expired by usage
-  if (freeSecondsUsed >= freeTrialSeconds) {
+  if (freeCreditsUsed >= freeTierCredits) {
     return {
       isValid: false,
       status: "expired_usage",
-      freeSecondsUsed,
-      freeSecondsRemaining: 0,
+      freeCreditsUsed,
+      freeCreditsRemaining: 0,
+      freeTierCredits,
       trialExpiryDate,
       trialExpiryDateMs,
       warningLevel: "none",
@@ -306,7 +324,7 @@ function checkTrialStatus(
   }
 
   // Calculate warning level based on usage percentage
-  const usagePercent = (freeSecondsUsed / freeTrialSeconds) * 100;
+  const usagePercent = (freeCreditsUsed / freeTierCredits) * 100;
   let warningLevel: TrialStatusResult["warningLevel"] = "none";
   if (usagePercent >= 95) {
     warningLevel = "ninety_five_percent";
@@ -319,8 +337,9 @@ function checkTrialStatus(
   return {
     isValid: true,
     status: "active",
-    freeSecondsUsed,
-    freeSecondsRemaining,
+    freeCreditsUsed,
+    freeCreditsRemaining,
+    freeTierCredits,
     trialExpiryDate,
     trialExpiryDateMs,
     warningLevel,
@@ -332,11 +351,11 @@ function checkTrialStatus(
  */
 interface ProStatusResult {
   isActive: boolean;
-  proSecondsUsed: number;
-  proSecondsRemaining: number;
-  proSecondsLimit: number;
+  proCreditsUsed: number;
+  proCreditsRemaining: number;
+  proCreditsLimit: number;
   currentPeriodEndMs: number; // Reset date
-  hasMinutesRemaining: boolean;
+  hasCreditsRemaining: boolean;
   needsReVerification?: boolean; // True if period expired but sub exists
 }
 
@@ -345,12 +364,12 @@ interface ProStatusResult {
  * Verifies both status AND expiration time to prevent expired subscriptions
  * from being treated as active.
  * @param {UserDocument} user - The user document
- * @param {number} proSecondsLimit - Pro limit in seconds from Remote Config
+ * @param {number} proTierCredits - Pro credit limit from Remote Config
  * @return {ProStatusResult} The Pro status
  */
 function checkProStatus(
   user: UserDocument,
-  proSecondsLimit: number
+  proTierCredits: number
 ): ProStatusResult {
   const sub = user.proSubscription;
   const now = Date.now();
@@ -359,11 +378,11 @@ function checkProStatus(
   if (!sub || sub.status !== "active") {
     return {
       isActive: false,
-      proSecondsUsed: 0,
-      proSecondsRemaining: 0,
-      proSecondsLimit: proSecondsLimit,
+      proCreditsUsed: 0,
+      proCreditsRemaining: 0,
+      proCreditsLimit: proTierCredits,
       currentPeriodEndMs: 0,
-      hasMinutesRemaining: false,
+      hasCreditsRemaining: false,
     };
   }
 
@@ -379,23 +398,23 @@ function checkProStatus(
     // but Firestore hasn't been updated yet - caller should re-verify
     return {
       isActive: false,
-      proSecondsUsed: sub.proSecondsUsed,
-      proSecondsRemaining: 0,
-      proSecondsLimit: proSecondsLimit,
+      proCreditsUsed: sub.proCreditsUsed,
+      proCreditsRemaining: 0,
+      proCreditsLimit: proTierCredits,
       currentPeriodEndMs: periodEndMs,
-      hasMinutesRemaining: false,
+      hasCreditsRemaining: false,
       needsReVerification: true, // Signal to re-verify with Google Play
     };
   }
 
-  const remaining = proSecondsLimit - sub.proSecondsUsed;
+  const remaining = proTierCredits - sub.proCreditsUsed;
   return {
     isActive: true,
-    proSecondsUsed: sub.proSecondsUsed,
-    proSecondsRemaining: Math.max(0, remaining),
-    proSecondsLimit: proSecondsLimit,
+    proCreditsUsed: sub.proCreditsUsed,
+    proCreditsRemaining: Math.max(0, remaining),
+    proCreditsLimit: proTierCredits,
     currentPeriodEndMs: periodEndMs,
-    hasMinutesRemaining: remaining > 0,
+    hasCreditsRemaining: remaining > 0,
   };
 }
 
@@ -405,13 +424,13 @@ function checkProStatus(
  * have been auto-renewed in Google Play
  * @param {string} uid - User ID
  * @param {UserDocument} user - User document with proSubscription
- * @param {number} proSecondsLimit - Pro limit in seconds from Remote Config
+ * @param {number} proTierCredits - Pro credit limit from Remote Config
  * @return {Promise<Object>} Result with renewed, proStatus, updatedUser
  */
 async function reVerifyProSubscriptionWithGooglePlay(
   uid: string,
   user: UserDocument,
-  proSecondsLimit: number
+  proTierCredits: number
 ): Promise<{
   renewed: boolean;
   proStatus: ProStatusResult;
@@ -422,7 +441,7 @@ async function reVerifyProSubscriptionWithGooglePlay(
     logger.warn(`Cannot re-verify: no subscription data for ${uid}`);
     return {
       renewed: false,
-      proStatus: checkProStatus(user, proSecondsLimit),
+      proStatus: checkProStatus(user, proTierCredits),
     };
   }
 
@@ -432,7 +451,7 @@ async function reVerifyProSubscriptionWithGooglePlay(
     logger.error("GOOGLE_PLAY_KEY not available for re-verification");
     return {
       renewed: false,
-      proStatus: checkProStatus(user, proSecondsLimit),
+      proStatus: checkProStatus(user, proTierCredits),
     };
   }
 
@@ -490,11 +509,11 @@ async function reVerifyProSubscriptionWithGooglePlay(
         renewed: false,
         proStatus: {
           isActive: false,
-          proSecondsUsed: sub.proSecondsUsed,
-          proSecondsRemaining: 0,
-          proSecondsLimit: proSecondsLimit,
+          proCreditsUsed: sub.proCreditsUsed,
+          proCreditsRemaining: 0,
+          proCreditsLimit: proTierCredits,
           currentPeriodEndMs: sub.currentPeriodEnd.toMillis(),
-          hasMinutesRemaining: false,
+          hasCreditsRemaining: false,
         },
       };
     }
@@ -511,11 +530,11 @@ async function reVerifyProSubscriptionWithGooglePlay(
 
     // Check if this is a new billing period (reset usage)
     const oldPeriodEnd = sub.currentPeriodEnd.toMillis();
-    let proSecondsUsed = sub.proSecondsUsed;
+    let proCreditsUsed = sub.proCreditsUsed;
     if (now > oldPeriodEnd) {
       // New period - reset usage
-      proSecondsUsed = 0;
-      logger.info(`New billing period for ${uid}, resetting usage to 0`);
+      proCreditsUsed = 0;
+      logger.info(`New billing period for ${uid}, resetting credits to 0`);
     }
 
     // Update subscription in Firestore
@@ -524,7 +543,7 @@ async function reVerifyProSubscriptionWithGooglePlay(
       status: "active",
       currentPeriodStart: nowTimestamp,
       currentPeriodEnd: expiryTimestamp,
-      proSecondsUsed: proSecondsUsed,
+      proCreditsUsed: proCreditsUsed,
     };
 
     await userRef.update({
@@ -538,16 +557,16 @@ async function reVerifyProSubscriptionWithGooglePlay(
       proSubscription: updatedSub,
     };
 
-    const remaining = proSecondsLimit - proSecondsUsed;
+    const remaining = proTierCredits - proCreditsUsed;
     return {
       renewed: true,
       proStatus: {
         isActive: true,
-        proSecondsUsed: proSecondsUsed,
-        proSecondsRemaining: Math.max(0, remaining),
-        proSecondsLimit: proSecondsLimit,
+        proCreditsUsed: proCreditsUsed,
+        proCreditsRemaining: Math.max(0, remaining),
+        proCreditsLimit: proTierCredits,
         currentPeriodEndMs: expiryTimeMs,
-        hasMinutesRemaining: remaining > 0,
+        hasCreditsRemaining: remaining > 0,
       },
       updatedUser: updatedUser,
     };
@@ -555,7 +574,7 @@ async function reVerifyProSubscriptionWithGooglePlay(
     logger.error(`Failed to re-verify subscription for ${uid}`, error);
     return {
       renewed: false,
-      proStatus: checkProStatus(user, proSecondsLimit),
+      proStatus: checkProStatus(user, proTierCredits),
     };
   }
 }
@@ -564,7 +583,7 @@ async function reVerifyProSubscriptionWithGooglePlay(
  * Usage log entry interface
  */
 interface UsageLogEntry {
-  secondsUsed: number;
+  creditsUsed: number;
   timestamp: admin.firestore.Timestamp;
   source: "free" | "pro" | "overage" | "recharge";
 }
@@ -586,7 +605,8 @@ function calculateTrialExpiryDate(
 
 /**
  * Get or create user document in Firestore
- * Handles migration from legacy users (freeMinutesRemaining -> freeSecondsUsed)
+ * Handles migration from legacy users - RESETS ALL USERS
+ * TO 0 CREDITS (fresh start)
  * @param {string} uid - User ID
  * @return {Promise<UserDocument>} The user document
  */
@@ -600,16 +620,11 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
   if (userDoc.exists) {
     const userData = userDoc.data() as UserDocument;
 
-    // Check if migration needed (legacy user without new trial fields)
-    if (userData.freeSecondsUsed === undefined) {
-      logger.info(`Migrating legacy user ${uid} to new trial system`);
-
-      // Convert legacy freeMinutesRemaining to freeSecondsUsed
-      // Old system: 60 minutes remaining = 0 used
-      // New system: Track seconds USED, not remaining
-      const legacyRemaining = userData.freeMinutesRemaining ?? 60;
-      const legacyUsedMinutes = 60 - legacyRemaining;
-      const freeSecondsUsed = Math.max(0, legacyUsedMinutes * 60);
+    // Check if migration needed
+    // (user has old freeSecondsUsed or no freeCreditsUsed)
+    // MIGRATION: Reset ALL users to 0 credits for fresh start
+    if (userData.freeCreditsUsed === undefined) {
+      logger.info(`Migrating user ${uid} to credits system (fresh start)`);
 
       // Calculate trial expiry date from freeTrialStart
       const freeTrialStart = userData.freeTrialStart ||
@@ -619,22 +634,25 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
         trialLimits.trialDurationMonths
       );
 
+      // FRESH START: Reset credits to 0
+      const freeCreditsUsed = 0;
+
       // Update the user document with new fields
       const updatedUser: UserDocument = {
         ...userData,
         freeTrialStart,
-        freeSecondsUsed,
+        freeCreditsUsed,
         trialExpiryDate,
       };
 
       await userRef.update({
-        freeSecondsUsed,
+        freeCreditsUsed,
         trialExpiryDate,
         freeTrialStart,
       });
 
       logger.info(
-        `Migrated user ${uid}: ${freeSecondsUsed}s used, ` +
+        `Migrated user ${uid}: reset to ${freeCreditsUsed} credits, ` +
         `expires ${trialExpiryDate.toDate().toISOString()}`
       );
 
@@ -666,7 +684,7 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
     createdAt: now,
     plan: "free",
     freeTrialStart: now,
-    freeSecondsUsed: 0,
+    freeCreditsUsed: 0,
     trialExpiryDate,
   };
 
@@ -682,20 +700,20 @@ async function getOrCreateUser(uid: string): Promise<UserDocument> {
 /**
  * Log usage after transcription
  * @param {string} uid - User ID
- * @param {number} secondsUsed - Seconds of audio transcribed
+ * @param {number} creditsUsed - Credits deducted
  * @param {string} source - Usage source (free, pro, etc.)
  * @return {Promise<void>}
  */
 async function logUsage(
   uid: string,
-  secondsUsed: number,
+  creditsUsed: number,
   source: UsageLogEntry["source"] = "free"
 ): Promise<void> {
   try {
     const entry: Omit<UsageLogEntry, "timestamp"> & {
       timestamp: admin.firestore.FieldValue;
     } = {
-      secondsUsed: secondsUsed,
+      creditsUsed: creditsUsed,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       source: source,
     };
@@ -706,7 +724,7 @@ async function logUsage(
       .collection("entries")
       .add(entry);
 
-    logger.info(`Logged ${secondsUsed} seconds usage for user ${uid}`);
+    logger.info(`Logged ${creditsUsed} credits usage for user ${uid}`);
   } catch (error) {
     // Don't fail the request if logging fails
     logger.error("Failed to log usage", error);
@@ -714,8 +732,8 @@ async function logUsage(
 }
 
 /**
- * Deduct usage from user's trial quota
- * Rounds up audio duration to nearest minute before deducting
+ * Deduct credits from user's trial quota
+ * Converts audio duration to credits using secondsPerCredit rate
  * @param {string} uid - User ID
  * @param {number} audioDurationMs - Audio duration in milliseconds
  * @return {Promise<TrialStatusResult>} Updated trial status
@@ -725,10 +743,12 @@ async function deductTrialUsage(
   audioDurationMs: number
 ): Promise<TrialStatusResult> {
   const userRef = db.collection("users").doc(uid);
+  const limits = await getPlanLimits();
 
-  // Bill exact seconds (rounded up from milliseconds)
-  // e.g., 5248ms -> 6 seconds, 3264ms -> 4 seconds
-  const secondsUsed = Math.ceil(audioDurationMs / 1000);
+  // Convert audio duration to credits
+  // e.g., 5248ms -> 6 seconds -> 1 credit (if secondsPerCredit=6)
+  const audioSeconds = Math.ceil(audioDurationMs / 1000);
+  const creditsToDeduct = Math.ceil(audioSeconds / limits.secondsPerCredit);
 
   // Use a transaction to safely increment usage
   const updatedUser = await db.runTransaction(async (transaction) => {
@@ -738,34 +758,34 @@ async function deductTrialUsage(
     }
 
     const userData = userDoc.data() as UserDocument;
-    const newSecondsUsed = (userData.freeSecondsUsed || 0) + secondsUsed;
+    const newCreditsUsed = (userData.freeCreditsUsed || 0) + creditsToDeduct;
 
     transaction.update(userRef, {
-      freeSecondsUsed: newSecondsUsed,
+      freeCreditsUsed: newCreditsUsed,
     });
 
     // Return updated user data
     return {
       ...userData,
-      freeSecondsUsed: newSecondsUsed,
+      freeCreditsUsed: newCreditsUsed,
     };
   });
 
   // Log the usage entry for audit trail
-  await logUsage(uid, secondsUsed);
+  await logUsage(uid, creditsToDeduct);
 
   logger.info(
-    `Deducted ${secondsUsed}s (${Math.ceil(secondsUsed / 60)} min) ` +
-    `from user ${uid}, total: ${updatedUser.freeSecondsUsed}s`
+    `Deducted ${creditsToDeduct} credits (${audioSeconds}s audio) ` +
+    `from user ${uid}, total: ${updatedUser.freeCreditsUsed} credits`
   );
 
-  // Fetch trial limits and check status
-  const trialLimits = await getTrialLimits();
-  return checkTrialStatus(updatedUser, trialLimits.freeTrialSeconds);
+  // Check status with updated credits
+  return checkTrialStatus(updatedUser, limits.freeTierCredits);
 }
 
 /**
- * Deduct usage from user's Pro subscription quota
+ * Deduct credits from user's Pro subscription quota
+ * Converts audio duration to credits using secondsPerCredit rate
  * @param {string} uid - User ID
  * @param {number} audioDurationMs - Audio duration in milliseconds
  * @return {Promise<ProStatusResult>} Updated Pro status
@@ -777,8 +797,9 @@ async function deductProUsage(
   const userRef = db.collection("users").doc(uid);
   const limits = await getPlanLimits();
 
-  // Bill exact seconds (rounded up from milliseconds)
-  const secondsUsed = Math.ceil(audioDurationMs / 1000);
+  // Convert audio duration to credits
+  const audioSeconds = Math.ceil(audioDurationMs / 1000);
+  const creditsToDeduct = Math.ceil(audioSeconds / limits.secondsPerCredit);
 
   // Use a transaction to safely increment usage
   const updatedUser = await db.runTransaction(async (transaction) => {
@@ -792,11 +813,11 @@ async function deductProUsage(
       throw new Error("User has no Pro subscription");
     }
 
-    const newProSecondsUsed =
-      userData.proSubscription.proSecondsUsed + secondsUsed;
+    const newProCreditsUsed =
+      userData.proSubscription.proCreditsUsed + creditsToDeduct;
 
     transaction.update(userRef, {
-      "proSubscription.proSecondsUsed": newProSecondsUsed,
+      "proSubscription.proCreditsUsed": newProCreditsUsed,
     });
 
     // Return updated user data
@@ -804,27 +825,28 @@ async function deductProUsage(
       ...userData,
       proSubscription: {
         ...userData.proSubscription,
-        proSecondsUsed: newProSecondsUsed,
+        proCreditsUsed: newProCreditsUsed,
       },
     };
   });
 
   // Log the usage entry for audit trail (with Pro source)
-  await logUsage(uid, secondsUsed, "pro");
+  await logUsage(uid, creditsToDeduct, "pro");
 
   logger.info(
-    `Pro: Deducted ${secondsUsed}s from user ${uid}, ` +
-    `total: ${updatedUser.proSubscription?.proSecondsUsed}s`
+    `Pro: Deducted ${creditsToDeduct} credits ` +
+    `(${audioSeconds}s audio) from user ${uid}, ` +
+    `total: ${updatedUser.proSubscription?.proCreditsUsed} credits`
   );
 
-  return checkProStatus(updatedUser, limits.proSecondsLimit);
+  return checkProStatus(updatedUser, limits.proTierCredits);
 }
 
 /**
- * Get total usage for the current billing period (anniversary-based)
+ * Get total credits used for the current billing period (anniversary-based)
  * Billing period resets on the same day of the month as the user's signup date
  * @param {string} uid - User ID
- * @return {Promise<number>} Total seconds used this billing period
+ * @return {Promise<number>} Total credits used this billing period
  */
 async function getTotalUsageThisPeriod(uid: string): Promise<number> {
   try {
@@ -869,13 +891,13 @@ async function getTotalUsageThisPeriod(uid: string): Promise<number> {
       .where("timestamp", ">=", startTimestamp)
       .get();
 
-    let totalSeconds = 0;
+    let totalCredits = 0;
     snapshot.forEach((doc) => {
       const data = doc.data() as UsageLogEntry;
-      totalSeconds += data.secondsUsed || 0;
+      totalCredits += data.creditsUsed || 0;
     });
 
-    return totalSeconds;
+    return totalCredits;
   } catch (error) {
     logger.error("Failed to get billing period usage", error);
     return 0;
@@ -883,10 +905,10 @@ async function getTotalUsageThisPeriod(uid: string): Promise<number> {
 }
 
 /**
- * Get total lifetime usage from usage_logs (all time)
- * Used to sync freeSecondsUsed when there's a mismatch
+ * Get total lifetime credits usage from usage_logs (all time)
+ * Used to sync freeCreditsUsed when there's a mismatch
  * @param {string} uid - User ID
- * @return {Promise<number>} Total seconds used lifetime
+ * @return {Promise<number>} Total credits used lifetime
  */
 async function getTotalLifetimeUsage(uid: string): Promise<number> {
   try {
@@ -896,13 +918,13 @@ async function getTotalLifetimeUsage(uid: string): Promise<number> {
       .collection("entries")
       .get();
 
-    let totalSeconds = 0;
+    let totalCredits = 0;
     snapshot.forEach((doc) => {
       const data = doc.data() as UsageLogEntry;
-      totalSeconds += data.secondsUsed || 0;
+      totalCredits += data.creditsUsed || 0;
     });
 
-    return totalSeconds;
+    return totalCredits;
   } catch (error) {
     logger.error("Failed to get lifetime usage", error);
     return 0;
@@ -1035,13 +1057,13 @@ export const transcribeAudio = onRequest(
 
       // Priority 1: Check free trial (if user is on free plan)
       if (userPlan === "free") {
-        const trialStatus = checkTrialStatus(user, limits.freeTrialSeconds);
+        const trialStatus = checkTrialStatus(user, limits.freeTierCredits);
         if (trialStatus.isValid) {
           canProceed = true;
           usageSource = "free";
           logger.info(
             `Trial valid for ${uid}: ` +
-            `${trialStatus.freeSecondsRemaining}s remaining`
+            `${trialStatus.freeCreditsRemaining} credits remaining`
           );
         }
       }
@@ -1052,7 +1074,7 @@ export const transcribeAudio = onRequest(
       const hasProSubscription = user.proSubscription?.status === "active";
       let currentUser = user; // Track potentially updated user
       if (!canProceed && (userPlan === "pro" || hasProSubscription)) {
-        let proStatus = checkProStatus(user, limits.proSecondsLimit);
+        let proStatus = checkProStatus(user, limits.proTierCredits);
 
         // If subscription appears expired, try re-verifying with Google Play
         // The subscription might have been auto-renewed
@@ -1063,7 +1085,7 @@ export const transcribeAudio = onRequest(
           const reVerifyResult = await reVerifyProSubscriptionWithGooglePlay(
             uid,
             user,
-            limits.proSecondsLimit
+            limits.proTierCredits
           );
           if (reVerifyResult.renewed) {
             proStatus = reVerifyResult.proStatus;
@@ -1076,11 +1098,12 @@ export const transcribeAudio = onRequest(
           }
         }
 
-        if (proStatus.isActive && proStatus.hasMinutesRemaining) {
+        if (proStatus.isActive && proStatus.hasCreditsRemaining) {
           canProceed = true;
           usageSource = "pro";
           logger.info(
-            `Pro valid for ${uid}: ${proStatus.proSecondsRemaining}s remaining`
+            `Pro valid for ${uid}: ` +
+            `${proStatus.proCreditsRemaining} credits remaining`
           );
         }
       }
@@ -1088,10 +1111,10 @@ export const transcribeAudio = onRequest(
       // Priority 3: Block if no valid quota
       if (!canProceed) {
         const trialStatus = checkTrialStatus(
-          currentUser, limits.freeTrialSeconds
+          currentUser, limits.freeTierCredits
         );
         const proStatus = checkProStatus(
-          currentUser, limits.proSecondsLimit
+          currentUser, limits.proTierCredits
         );
         logger.warn(
           `No valid quota for user ${uid}: plan=${userPlan}`
@@ -1103,7 +1126,7 @@ export const transcribeAudio = onRequest(
         const proExpiredByTime = isProUser &&
           currentUser.proSubscription &&
           Date.now() > currentUser.proSubscription.currentPeriodEnd.toMillis();
-        const proExpiredByUsage = isProUser && !proStatus.hasMinutesRemaining &&
+        const proExpiredByUsage = isProUser && !proStatus.hasCreditsRemaining &&
           !proExpiredByTime;
 
         // Determine error type and message
@@ -1116,13 +1139,13 @@ export const transcribeAudio = onRequest(
             "Your Pro subscription has expired. Please renew to continue.";
         } else if (proExpiredByUsage) {
           errorCode = "PRO_LIMIT_REACHED";
-          errorMessage = "You have used all your Pro minutes for this month";
+          errorMessage = "You have used all your Pro credits for this month";
         } else if (trialStatus.status === "expired_time") {
           errorCode = "TRIAL_EXPIRED";
           errorMessage = "Your free trial period has ended";
         } else {
           errorCode = "TRIAL_EXPIRED";
-          errorMessage = "You have used all your free trial minutes";
+          errorMessage = "You have used all your free credits";
         }
 
         response.status(403).json({
@@ -1131,15 +1154,16 @@ export const transcribeAudio = onRequest(
           plan: userPlan,
           trialStatus: userPlan === "free" && !hasProSubscription ? {
             status: trialStatus.status,
-            freeSecondsUsed: trialStatus.freeSecondsUsed,
-            freeSecondsRemaining: 0,
+            freeCreditsUsed: trialStatus.freeCreditsUsed,
+            freeCreditsRemaining: 0,
+            freeTierCredits: trialStatus.freeTierCredits,
             trialExpiryDateMs: trialStatus.trialExpiryDateMs,
             warningLevel: "none",
           } : undefined,
           proStatus: isProUser && currentUser.proSubscription ? {
-            proSecondsUsed: currentUser.proSubscription.proSecondsUsed,
-            proSecondsRemaining: 0,
-            proSecondsLimit: limits.proSecondsLimit,
+            proCreditsUsed: currentUser.proSubscription.proCreditsUsed,
+            proCreditsRemaining: 0,
+            proCreditsLimit: limits.proTierCredits,
             resetDateMs:
               currentUser.proSubscription.currentPeriodEnd.toMillis(),
             expired: proExpiredByTime,
@@ -1228,15 +1252,22 @@ export const transcribeAudio = onRequest(
           );
         }
 
-        // === ITERATION 3: Deduct usage from correct quota ===
+        // === Deduct credits from correct quota ===
         // (Whisper succeeded, so we charge the user from trial or Pro)
         let responseStatus: {
           plan: string;
           status: string;
-          secondsRemaining: number;
+          creditsRemaining: number;
+          creditsLimit: number;
           resetDateMs?: number;
           warningLevel: string;
         };
+
+        // Calculate credits to deduct
+        const audioSeconds = Math.ceil(durationMs / 1000);
+        const creditsDeducted = Math.ceil(
+          audioSeconds / limits.secondsPerCredit
+        );
 
         if (uid) {
           if (usageSource === "pro") {
@@ -1245,10 +1276,11 @@ export const transcribeAudio = onRequest(
             responseStatus = {
               plan: "pro",
               status: proStatus.isActive ? "active" : "expired",
-              secondsRemaining: proStatus.proSecondsRemaining,
+              creditsRemaining: proStatus.proCreditsRemaining,
+              creditsLimit: proStatus.proCreditsLimit,
               resetDateMs: proStatus.currentPeriodEndMs,
               warningLevel:
-                proStatus.proSecondsRemaining < limits.proSecondsLimit * 0.1 ?
+                proStatus.proCreditsRemaining < limits.proTierCredits * 0.1 ?
                   "ninety_percent" : "none",
             };
           } else {
@@ -1257,7 +1289,8 @@ export const transcribeAudio = onRequest(
             responseStatus = {
               plan: "free",
               status: trialStatus.status,
-              secondsRemaining: trialStatus.freeSecondsRemaining,
+              creditsRemaining: trialStatus.freeCreditsRemaining,
+              creditsLimit: trialStatus.freeTierCredits,
               warningLevel: trialStatus.warningLevel,
             };
           }
@@ -1267,51 +1300,53 @@ export const transcribeAudio = onRequest(
           responseStatus = {
             plan: "free",
             status: "active",
-            secondsRemaining: 0,
+            creditsRemaining: 0,
+            creditsLimit: limits.freeTierCredits,
             warningLevel: "none",
           };
         }
 
-        // Get total usage this billing period for backward compatibility
-        const totalSecondsThisMonth = uid ?
+        // Get total credits used this billing period
+        const totalCreditsThisMonth = uid ?
           await getTotalUsageThisPeriod(uid) :
-          Math.ceil(durationMs / 1000);
+          creditsDeducted;
 
-        const secondsDeducted = Math.ceil(durationMs / 1000);
         logger.info(
-          `Transcription success: deducted ${secondsDeducted}s ` +
-          `from ${usageSource}, remaining: ${responseStatus.secondsRemaining}s`
+          `Transcription success: deducted ${creditsDeducted} credits ` +
+          `from ${usageSource}, remaining: ${responseStatus.creditsRemaining}`
         );
 
-        // Return transcription with status (Iteration 3 response format)
+        // Return transcription with credits-based status
         response.status(200).json({
           text: transcription.text,
-          secondsUsed: secondsDeducted,
-          totalSecondsThisMonth: totalSecondsThisMonth,
-          // Iteration 3: Unified status format
+          creditsUsed: creditsDeducted,
+          totalCreditsThisMonth: totalCreditsThisMonth,
+          // Unified status format
           plan: responseStatus.plan,
           subscriptionStatus: {
             status: responseStatus.status,
-            secondsRemaining: responseStatus.secondsRemaining,
+            creditsRemaining: responseStatus.creditsRemaining,
+            creditsLimit: responseStatus.creditsLimit,
             resetDateMs: responseStatus.resetDateMs,
             warningLevel: responseStatus.warningLevel,
           },
-          // Backward compatibility for trial-only clients
+          // Trial status for free users
           trialStatus: responseStatus.plan === "free" ? {
             status: responseStatus.status,
-            freeSecondsUsed:
-              limits.freeTrialSeconds - responseStatus.secondsRemaining,
-            freeSecondsRemaining: responseStatus.secondsRemaining,
+            freeCreditsUsed:
+              limits.freeTierCredits - responseStatus.creditsRemaining,
+            freeCreditsRemaining: responseStatus.creditsRemaining,
+            freeTierCredits: limits.freeTierCredits,
             trialExpiryDateMs: currentUser.trialExpiryDate.toMillis(),
             warningLevel: responseStatus.warningLevel,
           } : undefined,
-          // Pro status for Pro users (Iteration 3)
+          // Pro status for Pro users
           proStatus: responseStatus.plan === "pro" ? {
             isActive: responseStatus.status === "active",
-            proSecondsUsed:
-              limits.proSecondsLimit - responseStatus.secondsRemaining,
-            proSecondsRemaining: responseStatus.secondsRemaining,
-            proSecondsLimit: limits.proSecondsLimit,
+            proCreditsUsed:
+              limits.proTierCredits - responseStatus.creditsRemaining,
+            proCreditsRemaining: responseStatus.creditsRemaining,
+            proCreditsLimit: limits.proTierCredits,
             currentPeriodEndMs: responseStatus.resetDateMs,
           } : undefined,
         });
@@ -1448,13 +1483,13 @@ export const transcribeAudioGroq = onRequest(
 
       // Priority 1: Check free trial (if user is on free plan)
       if (userPlan === "free") {
-        const trialStatus = checkTrialStatus(user, limits.freeTrialSeconds);
+        const trialStatus = checkTrialStatus(user, limits.freeTierCredits);
         if (trialStatus.isValid) {
           canProceed = true;
           usageSource = "free";
           logger.info(
             `[Groq] Trial valid for ${uid}: ` +
-            `${trialStatus.freeSecondsRemaining}s remaining`
+            `${trialStatus.freeCreditsRemaining} credits remaining`
           );
         }
       }
@@ -1463,7 +1498,7 @@ export const transcribeAudioGroq = onRequest(
       const hasProSubscription = user.proSubscription?.status === "active";
       let currentUser = user; // Track potentially updated user
       if (!canProceed && (userPlan === "pro" || hasProSubscription)) {
-        let proStatus = checkProStatus(user, limits.proSecondsLimit);
+        let proStatus = checkProStatus(user, limits.proTierCredits);
 
         // If subscription appears expired, try re-verifying with Google Play
         // The subscription might have been auto-renewed
@@ -1474,7 +1509,7 @@ export const transcribeAudioGroq = onRequest(
           const reVerifyResult = await reVerifyProSubscriptionWithGooglePlay(
             uid,
             user,
-            limits.proSecondsLimit
+            limits.proTierCredits
           );
           if (reVerifyResult.renewed) {
             proStatus = reVerifyResult.proStatus;
@@ -1487,12 +1522,12 @@ export const transcribeAudioGroq = onRequest(
           }
         }
 
-        if (proStatus.isActive && proStatus.hasMinutesRemaining) {
+        if (proStatus.isActive && proStatus.hasCreditsRemaining) {
           canProceed = true;
           usageSource = "pro";
           logger.info(
             `[Groq] Pro valid for ${uid}: ` +
-            `${proStatus.proSecondsRemaining}s remaining`
+            `${proStatus.proCreditsRemaining} credits remaining`
           );
         }
       }
@@ -1500,10 +1535,10 @@ export const transcribeAudioGroq = onRequest(
       // Priority 3: Block if no valid quota
       if (!canProceed) {
         const trialStatus = checkTrialStatus(
-          currentUser, limits.freeTrialSeconds
+          currentUser, limits.freeTierCredits
         );
         const proStatus = checkProStatus(
-          currentUser, limits.proSecondsLimit
+          currentUser, limits.proTierCredits
         );
         logger.warn(
           `[Groq] No valid quota for user ${uid}: plan=${userPlan}`
@@ -1514,7 +1549,7 @@ export const transcribeAudioGroq = onRequest(
         const proExpiredByTime = isProUser &&
           currentUser.proSubscription &&
           Date.now() > currentUser.proSubscription.currentPeriodEnd.toMillis();
-        const proExpiredByUsage = isProUser && !proStatus.hasMinutesRemaining &&
+        const proExpiredByUsage = isProUser && !proStatus.hasCreditsRemaining &&
           !proExpiredByTime;
 
         let errorCode: string;
@@ -1526,13 +1561,13 @@ export const transcribeAudioGroq = onRequest(
             "Your Pro subscription has expired. Please renew to continue.";
         } else if (proExpiredByUsage) {
           errorCode = "PRO_LIMIT_REACHED";
-          errorMessage = "You have used all your Pro minutes for this month";
+          errorMessage = "You have used all your Pro credits for this month";
         } else if (trialStatus.status === "expired_time") {
           errorCode = "TRIAL_EXPIRED";
           errorMessage = "Your free trial period has ended";
         } else {
           errorCode = "TRIAL_EXPIRED";
-          errorMessage = "You have used all your free trial minutes";
+          errorMessage = "You have used all your free credits";
         }
 
         response.status(403).json({
@@ -1619,11 +1654,18 @@ export const transcribeAudioGroq = onRequest(
           );
         }
 
-        // Deduct usage from correct quota
+        // Deduct credits from correct quota
+        // Calculate credits to deduct
+        const audioSeconds = Math.ceil(durationMs / 1000);
+        const creditsDeducted = Math.ceil(
+          audioSeconds / limits.secondsPerCredit
+        );
+
         let responseStatus: {
           plan: string;
           status: string;
-          secondsRemaining: number;
+          creditsRemaining: number;
+          creditsLimit: number;
           resetDateMs?: number;
           warningLevel: string;
         };
@@ -1633,10 +1675,11 @@ export const transcribeAudioGroq = onRequest(
           responseStatus = {
             plan: "pro",
             status: proStatus.isActive ? "active" : "expired",
-            secondsRemaining: proStatus.proSecondsRemaining,
+            creditsRemaining: proStatus.proCreditsRemaining,
+            creditsLimit: proStatus.proCreditsLimit,
             resetDateMs: proStatus.currentPeriodEndMs,
             warningLevel:
-              proStatus.proSecondsRemaining < limits.proSecondsLimit * 0.1 ?
+              proStatus.proCreditsRemaining < limits.proTierCredits * 0.1 ?
                 "ninety_percent" : "none",
           };
         } else {
@@ -1644,47 +1687,50 @@ export const transcribeAudioGroq = onRequest(
           responseStatus = {
             plan: "free",
             status: trialStatus.status,
-            secondsRemaining: trialStatus.freeSecondsRemaining,
+            creditsRemaining: trialStatus.freeCreditsRemaining,
+            creditsLimit: trialStatus.freeTierCredits,
             warningLevel: trialStatus.warningLevel,
           };
         }
         await logTranscriptionRequest(uid, true, Date.now() - startTime);
 
-        const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
-        const secondsDeducted = Math.ceil(durationMs / 1000);
+        const totalCreditsThisMonth = await getTotalUsageThisPeriod(uid);
 
         logger.info(
-          `[Groq] Transcription success: deducted ${secondsDeducted}s ` +
-          `from ${usageSource}, remaining: ${responseStatus.secondsRemaining}s`
+          `[Groq] Transcription success: deducted ${creditsDeducted} credits ` +
+          `from ${usageSource}, remaining: ${responseStatus.creditsRemaining}`
         );
 
-        // Return transcription with status
+        // Return transcription with credits-based status
         response.status(200).json({
           text: transcription.text,
-          secondsUsed: secondsDeducted,
-          totalSecondsThisMonth: totalSecondsThisMonth,
+          creditsUsed: creditsDeducted,
+          totalCreditsThisMonth: totalCreditsThisMonth,
           plan: responseStatus.plan,
           subscriptionStatus: {
             status: responseStatus.status,
-            secondsRemaining: responseStatus.secondsRemaining,
+            creditsRemaining: responseStatus.creditsRemaining,
+            creditsLimit: responseStatus.creditsLimit,
             resetDateMs: responseStatus.resetDateMs,
             warningLevel: responseStatus.warningLevel,
           },
-          // Backward compatibility
+          // Trial status for free users
           trialStatus: responseStatus.plan === "free" ? {
             status: responseStatus.status,
-            freeSecondsUsed:
-              limits.freeTrialSeconds - responseStatus.secondsRemaining,
-            freeSecondsRemaining: responseStatus.secondsRemaining,
+            freeCreditsUsed:
+              limits.freeTierCredits - responseStatus.creditsRemaining,
+            freeCreditsRemaining: responseStatus.creditsRemaining,
+            freeTierCredits: limits.freeTierCredits,
             trialExpiryDateMs: currentUser.trialExpiryDate.toMillis(),
             warningLevel: responseStatus.warningLevel,
           } : undefined,
+          // Pro status for Pro users
           proStatus: responseStatus.plan === "pro" ? {
             isActive: responseStatus.status === "active",
-            proSecondsUsed:
-              limits.proSecondsLimit - responseStatus.secondsRemaining,
-            proSecondsRemaining: responseStatus.secondsRemaining,
-            proSecondsLimit: limits.proSecondsLimit,
+            proCreditsUsed:
+              limits.proTierCredits - responseStatus.creditsRemaining,
+            proCreditsRemaining: responseStatus.creditsRemaining,
+            proCreditsLimit: limits.proTierCredits,
             currentPeriodEndMs: responseStatus.resetDateMs,
           } : undefined,
         });
@@ -1720,8 +1766,9 @@ export const transcribeAudioGroq = onRequest(
  * Headers: Authorization: Bearer <firebase_id_token>
  * Response: {
  *   status: "active" | "expired_time" | "expired_usage",
- *   freeSecondsUsed: number,
- *   freeSecondsRemaining: number,
+ *   freeCreditsUsed: number,
+ *   freeCreditsRemaining: number,
+ *   freeTierCredits: number,
  *   trialExpiryDateMs: number,
  *   warningLevel: "none" | "fifty_percent" |
  *     "eighty_percent" | "ninety_five_percent"
@@ -1751,35 +1798,37 @@ export const getTrialStatus = onRequest(
       // Get lifetime usage from logs to check for sync issues
       const lifetimeUsage = await getTotalLifetimeUsage(uid);
 
-      // Sync freeSecondsUsed if there's a mismatch
+      // Sync freeCreditsUsed if there's a mismatch
       // (e.g., from legacy data or missed updates)
-      if (lifetimeUsage > 0 && user.freeSecondsUsed !== lifetimeUsage) {
+      if (lifetimeUsage > 0 && user.freeCreditsUsed !== lifetimeUsage) {
         logger.info(
-          `Syncing freeSecondsUsed for ${uid}: ` +
-          `stored=${user.freeSecondsUsed}, actual=${lifetimeUsage}`
+          `Syncing freeCreditsUsed for ${uid}: ` +
+          `stored=${user.freeCreditsUsed}, actual=${lifetimeUsage}`
         );
         // Update user document with correct lifetime usage
         await db.collection("users").doc(uid).update({
-          freeSecondsUsed: lifetimeUsage,
+          freeCreditsUsed: lifetimeUsage,
         });
         // Update local user object for response
-        user = {...user, freeSecondsUsed: lifetimeUsage};
+        user = {...user, freeCreditsUsed: lifetimeUsage};
       }
 
       // Fetch trial limits and check status
       const trialLimits = await getTrialLimits();
-      const trialStatus = checkTrialStatus(user, trialLimits.freeTrialSeconds);
+      const trialStatus = checkTrialStatus(user, trialLimits.freeTierCredits);
 
-      // Get total usage this billing period for the "Usage This Month" display
-      const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
+      // Get total credits this billing period
+      // for the "Usage This Month" display
+      const totalCreditsThisMonth = await getTotalUsageThisPeriod(uid);
 
       response.status(200).json({
         status: trialStatus.status,
-        freeSecondsUsed: trialStatus.freeSecondsUsed,
-        freeSecondsRemaining: trialStatus.freeSecondsRemaining,
+        freeCreditsUsed: trialStatus.freeCreditsUsed,
+        freeCreditsRemaining: trialStatus.freeCreditsRemaining,
+        freeTierCredits: trialStatus.freeTierCredits,
         trialExpiryDateMs: trialStatus.trialExpiryDateMs,
         warningLevel: trialStatus.warningLevel,
-        totalSecondsThisMonth: totalSecondsThisMonth,
+        totalCreditsThisMonth: totalCreditsThisMonth,
       });
     } catch (error) {
       logger.error("Error getting trial status", error);
@@ -1825,7 +1874,7 @@ export const getSubscriptionStatus = onRequest(
       // Build response based on user's current plan
       if (userPlan === "pro" || hasProSubscription) {
         // Pro user response
-        let proStatus = checkProStatus(user, limits.proSecondsLimit);
+        let proStatus = checkProStatus(user, limits.proTierCredits);
 
         // If subscription appears expired, try re-verifying with Google Play
         // The subscription might have been auto-renewed
@@ -1836,7 +1885,7 @@ export const getSubscriptionStatus = onRequest(
           const reVerifyResult = await reVerifyProSubscriptionWithGooglePlay(
             uid,
             user,
-            limits.proSecondsLimit
+            limits.proTierCredits
           );
           if (reVerifyResult.renewed) {
             proStatus = reVerifyResult.proStatus;
@@ -1852,10 +1901,10 @@ export const getSubscriptionStatus = onRequest(
         response.status(200).json({
           plan: "pro",
           isActive: proStatus.isActive,
-          // Pro-specific fields
-          proSecondsUsed: proStatus.proSecondsUsed,
-          proSecondsRemaining: proStatus.proSecondsRemaining,
-          proSecondsLimit: proStatus.proSecondsLimit,
+          // Pro-specific fields (credits-based)
+          proCreditsUsed: proStatus.proCreditsUsed,
+          proCreditsRemaining: proStatus.proCreditsRemaining,
+          proCreditsLimit: proStatus.proCreditsLimit,
           resetDateMs: proStatus.currentPeriodEndMs,
           subscriptionStartDateMs:
             user.proSubscription?.startDate?.toMillis() ?? null,
@@ -1863,28 +1912,29 @@ export const getSubscriptionStatus = onRequest(
           // For backward compatibility
           status: proStatus.isActive ? "active" : "expired",
           warningLevel:
-            proStatus.proSecondsRemaining < limits.proSecondsLimit * 0.1 ?
+            proStatus.proCreditsRemaining < limits.proTierCredits * 0.1 ?
               "ninety_percent" : "none",
         });
       } else {
         // Free trial user response
-        const trialStatus = checkTrialStatus(user, limits.freeTrialSeconds);
-        const totalSecondsThisMonth = await getTotalUsageThisPeriod(uid);
+        const trialStatus = checkTrialStatus(user, limits.freeTierCredits);
+        const totalCreditsThisMonth = await getTotalUsageThisPeriod(uid);
 
         response.status(200).json({
           plan: "free",
           isActive: trialStatus.isValid,
-          // Trial-specific fields
-          freeSecondsUsed: trialStatus.freeSecondsUsed,
-          freeSecondsRemaining: trialStatus.freeSecondsRemaining,
+          // Trial-specific fields (credits-based)
+          freeCreditsUsed: trialStatus.freeCreditsUsed,
+          freeCreditsRemaining: trialStatus.freeCreditsRemaining,
+          freeTierCredits: trialStatus.freeTierCredits,
           trialExpiryDateMs: trialStatus.trialExpiryDateMs,
-          totalSecondsThisMonth: totalSecondsThisMonth,
+          totalCreditsThisMonth: totalCreditsThisMonth,
           // Common fields
           status: trialStatus.status,
           warningLevel: trialStatus.warningLevel,
           // Pro plan info for upgrade UI
           proPlanEnabled: limits.proPlanEnabled,
-          proSecondsLimit: limits.proSecondsLimit,
+          proCreditsLimit: limits.proTierCredits,
         });
       }
     } catch (error) {
@@ -2042,20 +2092,20 @@ export const verifySubscription = onRequest(
       const existingSub = existingUser?.proSubscription;
 
       // Determine if this is a new period (reset usage)
-      let proSecondsUsed = 0;
+      let proCreditsUsed = 0;
       if (existingSub && existingSub.purchaseToken === purchaseToken) {
         // Same purchase token - keep existing usage
-        proSecondsUsed = existingSub.proSecondsUsed || 0;
+        proCreditsUsed = existingSub.proCreditsUsed || 0;
       } else if (existingSub && existingSub.currentPeriodEnd) {
         // Different token but existing sub - check if new period
         const oldPeriodEnd = existingSub.currentPeriodEnd.toMillis();
         if (now > oldPeriodEnd) {
-          // New period - reset usage
-          proSecondsUsed = 0;
-          logger.info(`New billing period for ${uid}, resetting usage`);
+          // New period - reset credits
+          proCreditsUsed = 0;
+          logger.info(`New billing period for ${uid}, resetting credits`);
         } else {
-          // Same period - keep usage
-          proSecondsUsed = existingSub.proSecondsUsed || 0;
+          // Same period - keep credits
+          proCreditsUsed = existingSub.proCreditsUsed || 0;
         }
       }
 
@@ -2067,7 +2117,7 @@ export const verifySubscription = onRequest(
         startDate: existingSub?.startDate || nowTimestamp,
         currentPeriodStart: nowTimestamp,
         currentPeriodEnd: expiryTimestamp,
-        proSecondsUsed: proSecondsUsed,
+        proCreditsUsed: proCreditsUsed,
       };
 
       // Update the user document
@@ -2084,15 +2134,15 @@ export const verifySubscription = onRequest(
         `expires ${expiryTimestamp.toDate().toISOString()}`
       );
 
-      // Return success with Pro status
+      // Return success with Pro status (credits-based)
       response.status(200).json({
         success: true,
         plan: "pro",
         proStatus: {
           isActive: true,
-          proSecondsUsed: proSecondsUsed,
-          proSecondsRemaining: limits.proSecondsLimit - proSecondsUsed,
-          proSecondsLimit: limits.proSecondsLimit,
+          proCreditsUsed: proCreditsUsed,
+          proCreditsRemaining: limits.proTierCredits - proCreditsUsed,
+          proCreditsLimit: limits.proTierCredits,
           currentPeriodEndMs: expiryTimeMs,
         },
       });

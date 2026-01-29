@@ -223,38 +223,38 @@ class WhisperApiClient {
     private data class TranscribeResponse(
         @SerializedName("text")
         val text: String?,
-        @SerializedName("secondsUsed")
-        val secondsUsed: Int?,
-        @SerializedName("totalSecondsThisMonth")
-        val totalSecondsThisMonth: Int?,
-        // Iteration 2: Trial status fields
+        @SerializedName("creditsUsed")
+        val creditsUsed: Int?,
+        @SerializedName("totalCreditsThisMonth")
+        val totalCreditsThisMonth: Int?,
+        // Trial status fields
         @SerializedName("trialStatus")
         val trialStatus: TrialStatusResponse?,
-        // Iteration 3: Pro status fields
+        // Pro status fields
         @SerializedName("proStatus")
         val proStatus: ProStatusResponse?,
         @SerializedName("plan")
         val plan: String?  // "free" or "pro"
     )
-    
+
     /**
-     * Trial status response nested object
+     * Trial status response nested object (credits-based)
      */
     private data class TrialStatusResponse(
         @SerializedName("status")
         val status: String?,
-        @SerializedName("freeSecondsUsed")
-        val freeSecondsUsed: Int?,
-        @SerializedName("freeSecondsRemaining")
-        val freeSecondsRemaining: Int?,
+        @SerializedName("freeCreditsUsed")
+        val freeCreditsUsed: Int?,
+        @SerializedName("freeCreditsRemaining")
+        val freeCreditsRemaining: Int?,
+        @SerializedName("freeTierCredits")
+        val freeTierCredits: Int?,
         @SerializedName("trialExpiryDateMs")
         val trialExpiryDateMs: Long?,
         @SerializedName("warningLevel")
-        val warningLevel: String?,
-        @SerializedName("totalSecondsThisMonth")
-        val totalSecondsThisMonth: Int?
+        val warningLevel: String?
     )
-    
+
     /**
      * Quota exceeded response (403) - handles both trial and Pro
      */
@@ -272,15 +272,15 @@ class WhisperApiClient {
     )
 
     /**
-     * Pro quota status in 403 response
+     * Pro quota status in 403 response (credits-based)
      */
     private data class ProQuotaStatus(
-        @SerializedName("proSecondsUsed")
-        val proSecondsUsed: Int?,
-        @SerializedName("proSecondsRemaining")
-        val proSecondsRemaining: Int?,
-        @SerializedName("proSecondsLimit")
-        val proSecondsLimit: Int?,
+        @SerializedName("proCreditsUsed")
+        val proCreditsUsed: Int?,
+        @SerializedName("proCreditsRemaining")
+        val proCreditsRemaining: Int?,
+        @SerializedName("proCreditsLimit")
+        val proCreditsLimit: Int?,
         @SerializedName("resetDateMs")
         val resetDateMs: Long?,
         @SerializedName("expired")
@@ -356,54 +356,55 @@ class WhisperApiClient {
                         try {
                             val transcribeResponse = gson.fromJson(responseBody, TranscribeResponse::class.java)
                             val text = transcribeResponse.text
-                            
+
                             if (text.isNullOrBlank()) {
                                 Log.w(TAG, "Empty transcription result")
                                 callback.onError("No speech detected")
                             } else {
-                                // Log usage info (in seconds)
-                                val secondsUsed = transcribeResponse.secondsUsed ?: 0
-                                val totalSecondsThisMonth = transcribeResponse.totalSecondsThisMonth ?: 0
-                                Log.d(TAG, "Usage: ${secondsUsed}s used, ${totalSecondsThisMonth}s total this month")
-                                
-                                // Check if Pro user (Iteration 3)
+                                // Log usage info (credits)
+                                val creditsUsed = transcribeResponse.creditsUsed ?: 0
+                                val totalCreditsThisMonth = transcribeResponse.totalCreditsThisMonth ?: 0
+                                Log.d(TAG, "Usage: $creditsUsed credits used, $totalCreditsThisMonth total this month")
+
+                                // Check if Pro user
                                 val proStatus = transcribeResponse.proStatus
                                 val isPro = transcribeResponse.plan == "pro" || proStatus != null
-                                
+
                                 if (isPro && proStatus != null) {
                                     // Pro user - update Pro status
-                                    Log.d(TAG, "Pro: ${proStatus.proSecondsUsed}s used, ${proStatus.proSecondsRemaining}s remaining")
+                                    Log.d(TAG, "Pro: ${proStatus.proCreditsUsed} credits used, ${proStatus.proCreditsRemaining} remaining")
                                     UsageDataManager.updateProStatus(
-                                        proSecondsUsed = proStatus.proSecondsUsed ?: 0,
-                                        proSecondsRemaining = proStatus.proSecondsRemaining ?: 9000,
-                                        proSecondsLimit = proStatus.proSecondsLimit ?: 9000,
+                                        proCreditsUsed = proStatus.proCreditsUsed ?: 0,
+                                        proCreditsRemaining = proStatus.proCreditsRemaining ?: 10000,
+                                        proCreditsLimit = proStatus.proCreditsLimit ?: 10000,
                                         proResetDateMs = proStatus.currentPeriodEndMs ?: 0
                                     )
-                                    // Also update legacy fields for compatibility
-                                    UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                    // Also update monthly usage
+                                    UsageDataManager.updateUsage(creditsUsed, totalCreditsThisMonth)
                                 } else {
-                                    // Update trial status if present (Iteration 2)
+                                    // Update trial status if present
                                     val trial = transcribeResponse.trialStatus
                                     if (trial != null) {
-                                        Log.d(TAG, "Trial: ${trial.status}, ${trial.freeSecondsRemaining}s remaining")
+                                        Log.d(TAG, "Trial: ${trial.status}, ${trial.freeCreditsRemaining} credits remaining")
                                         UsageDataManager.updateFull(
-                                            secondsUsed = secondsUsed,
-                                            totalSecondsThisMonth = totalSecondsThisMonth,
+                                            creditsUsed = creditsUsed,
+                                            totalCreditsThisMonth = totalCreditsThisMonth,
                                             status = trial.status ?: "active",
-                                            freeSecondsUsed = trial.freeSecondsUsed ?: 0,
-                                            freeSecondsRemaining = trial.freeSecondsRemaining ?: 1200,
+                                            freeCreditsUsed = trial.freeCreditsUsed ?: 0,
+                                            freeCreditsRemaining = trial.freeCreditsRemaining ?: 1000,
                                             trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
-                                            warningLevel = trial.warningLevel ?: "none"
+                                            warningLevel = trial.warningLevel ?: "none",
+                                            freeTierCredits = trial.freeTierCredits ?: 1000
                                         )
                                     } else {
-                                        // Legacy response (pre-Iteration 2)
-                                        UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                        // Legacy response
+                                        UsageDataManager.updateUsage(creditsUsed, totalCreditsThisMonth)
                                     }
                                 }
-                                
+
                                 // Log raw text for debugging
                                 Log.d(TAG, "Raw transcription: '$text'")
-                                
+
                                 // Strip "message" prefix if present (artifact from Whisper API)
                                 // Uses regex for robust matching of any case and formatting
                                 val cleanedText = text.trim().let { t ->
@@ -429,22 +430,22 @@ class WhisperApiClient {
                         Log.w(TAG, "Quota exceeded (403)")
                         try {
                             val errorResponse = gson.fromJson(responseBody, QuotaExceededResponse::class.java)
-                            val message = errorResponse?.message ?: "You have used all your quota"
-                            val isPro = errorResponse?.error == "PRO_LIMIT_REACHED" || 
-                                        errorResponse?.error == "PRO_EXPIRED" || 
+                            val message = errorResponse?.message ?: "You have used all your credits"
+                            val isPro = errorResponse?.error == "PRO_LIMIT_REACHED" ||
+                                        errorResponse?.error == "PRO_EXPIRED" ||
                                         errorResponse?.plan == "pro"
 
                             if (isPro) {
                                 // Pro user - quota exceeded or subscription expired
                                 val proStatus = errorResponse?.proStatus
                                 val isExpired = proStatus?.expired == true || errorResponse?.error == "PRO_EXPIRED"
-                                Log.d(TAG, "Pro blocked: expired=$isExpired, used=${proStatus?.proSecondsUsed}")
-                                
+                                Log.d(TAG, "Pro blocked: expired=$isExpired, used=${proStatus?.proCreditsUsed}")
+
                                 // Use actual values from backend, not hardcoded
                                 UsageDataManager.updateProStatus(
-                                    proSecondsUsed = proStatus?.proSecondsUsed ?: 0,
-                                    proSecondsRemaining = proStatus?.proSecondsRemaining ?: 0,
-                                    proSecondsLimit = proStatus?.proSecondsLimit ?: 9000,
+                                    proCreditsUsed = proStatus?.proCreditsUsed ?: 0,
+                                    proCreditsRemaining = proStatus?.proCreditsRemaining ?: 0,
+                                    proCreditsLimit = proStatus?.proCreditsLimit ?: 10000,
                                     proResetDateMs = proStatus?.resetDateMs ?: (System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)
                                 )
                             } else {
@@ -453,10 +454,11 @@ class WhisperApiClient {
                                 if (trial != null) {
                                     UsageDataManager.updateTrialStatus(
                                         status = trial.status ?: "expired_usage",
-                                        freeSecondsUsed = trial.freeSecondsUsed ?: 1200,
-                                        freeSecondsRemaining = 0,
+                                        freeCreditsUsed = trial.freeCreditsUsed ?: 1000,
+                                        freeCreditsRemaining = 0,
                                         trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
-                                        warningLevel = "none"
+                                        warningLevel = "none",
+                                        freeTierCredits = trial.freeTierCredits ?: 1000
                                     )
                                 } else {
                                     UsageDataManager.markTrialExpired(
@@ -471,7 +473,7 @@ class WhisperApiClient {
                             UsageDataManager.markTrialExpired(
                                 UsageDataManager.TrialStatus.EXPIRED_USAGE
                             )
-                            callback.onTrialExpired("You have used all your quota")
+                            callback.onTrialExpired("You have used all your credits")
                         }
                     }
                     400 -> {
@@ -585,36 +587,36 @@ class WhisperApiClient {
                                 callback.onError("No speech detected")
                             } else {
                                 // Log usage info
-                                val secondsUsed = transcribeResponse.secondsUsed ?: 0
-                                val totalSecondsThisMonth = transcribeResponse.totalSecondsThisMonth ?: 0
-                                Log.d(TAG, "[Groq] Usage: ${secondsUsed}s used, ${totalSecondsThisMonth}s total this month")
-                                
+                                val creditsUsed = transcribeResponse.creditsUsed ?: 0
+                                val totalCreditsThisMonth = transcribeResponse.totalCreditsThisMonth ?: 0
+                                Log.d(TAG, "[Groq] Usage: ${creditsUsed} credits used, ${totalCreditsThisMonth} credits total this month")
+
                                 // Update usage data (same as regular transcribe)
                                 val proStatus = transcribeResponse.proStatus
                                 val isPro = transcribeResponse.plan == "pro" || proStatus != null
-                                
+
                                 if (isPro && proStatus != null) {
                                     UsageDataManager.updateProStatus(
-                                        proSecondsUsed = proStatus.proSecondsUsed ?: 0,
-                                        proSecondsRemaining = proStatus.proSecondsRemaining ?: 9000,
-                                        proSecondsLimit = proStatus.proSecondsLimit ?: 9000,
+                                        proCreditsUsed = proStatus.proCreditsUsed ?: 0,
+                                        proCreditsRemaining = proStatus.proCreditsRemaining ?: 9000,
+                                        proCreditsLimit = proStatus.proCreditsLimit ?: 9000,
                                         proResetDateMs = proStatus.currentPeriodEndMs ?: 0
                                     )
-                                    UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                    UsageDataManager.updateUsage(creditsUsed, totalCreditsThisMonth)
                                 } else {
                                     val trial = transcribeResponse.trialStatus
                                     if (trial != null) {
                                         UsageDataManager.updateFull(
-                                            secondsUsed = secondsUsed,
-                                            totalSecondsThisMonth = totalSecondsThisMonth,
+                                            creditsUsed = creditsUsed,
+                                            totalCreditsThisMonth = totalCreditsThisMonth,
                                             status = trial.status ?: "active",
-                                            freeSecondsUsed = trial.freeSecondsUsed ?: 0,
-                                            freeSecondsRemaining = trial.freeSecondsRemaining ?: 1200,
+                                            freeCreditsUsed = trial.freeCreditsUsed ?: 0,
+                                            freeCreditsRemaining = trial.freeCreditsRemaining ?: 1200,
                                             trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
                                             warningLevel = trial.warningLevel ?: "none"
                                         )
                                     } else {
-                                        UsageDataManager.updateUsage(secondsUsed, totalSecondsThisMonth)
+                                        UsageDataManager.updateUsage(creditsUsed, totalCreditsThisMonth)
                                     }
                                 }
                                 
@@ -790,45 +792,44 @@ class WhisperApiClient {
      */
     fun getTrialStatus(
         authToken: String,
-        onSuccess: (status: String, freeSecondsUsed: Int, freeSecondsRemaining: Int, 
+        onSuccess: (status: String, freeCreditsUsed: Int, freeCreditsRemaining: Int,
                     trialExpiryDateMs: Long, warningLevel: String) -> Unit,
         onError: (error: String) -> Unit
     ) {
         Log.d(TAG, "Fetching trial status")
-        
+
         val request = Request.Builder()
             .url(TRIAL_STATUS_URL)
             .addHeader("Authorization", "Bearer $authToken")
             .get()
             .build()
-        
+
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body?.string()
                 Log.d(TAG, "Trial status response code: ${response.code}")
-                
+
                 when (response.code) {
                     200 -> {
                         try {
                             val trialResponse = gson.fromJson(responseBody, TrialStatusResponse::class.java)
-                            
-                            // Update UsageDataManager with full data including monthly usage
-                            UsageDataManager.updateFull(
-                                secondsUsed = 0, // No new seconds used, just fetching status
-                                totalSecondsThisMonth = trialResponse.totalSecondsThisMonth ?: 0,
+
+                            // Update UsageDataManager with trial status
+                            UsageDataManager.updateTrialStatus(
                                 status = trialResponse.status ?: "active",
-                                freeSecondsUsed = trialResponse.freeSecondsUsed ?: 0,
-                                freeSecondsRemaining = trialResponse.freeSecondsRemaining ?: 1200,
+                                freeCreditsUsed = trialResponse.freeCreditsUsed ?: 0,
+                                freeCreditsRemaining = trialResponse.freeCreditsRemaining ?: 1200,
                                 trialExpiryDateMs = trialResponse.trialExpiryDateMs ?: 0,
-                                warningLevel = trialResponse.warningLevel ?: "none"
+                                warningLevel = trialResponse.warningLevel ?: "none",
+                                freeTierCredits = trialResponse.freeTierCredits ?: 1200
                             )
-                            
-                            Log.d(TAG, "Trial: ${trialResponse.status}, ${trialResponse.freeSecondsRemaining}s remaining, ${trialResponse.totalSecondsThisMonth}s this month")
-                            
+
+                            Log.d(TAG, "Trial: ${trialResponse.status}, ${trialResponse.freeCreditsRemaining} credits remaining")
+
                             onSuccess(
                                 trialResponse.status ?: "active",
-                                trialResponse.freeSecondsUsed ?: 0,
-                                trialResponse.freeSecondsRemaining ?: 1200,
+                                trialResponse.freeCreditsUsed ?: 0,
+                                trialResponse.freeCreditsRemaining ?: 1200,
                                 trialResponse.trialExpiryDateMs ?: 0,
                                 trialResponse.warningLevel ?: "none"
                             )
@@ -874,47 +875,47 @@ class WhisperApiClient {
         authToken: String,
         purchaseToken: String,
         productId: String,
-        onSuccess: (proSecondsRemaining: Int, proSecondsLimit: Int, resetDateMs: Long) -> Unit,
+        onSuccess: (proCreditsRemaining: Int, proCreditsLimit: Int, resetDateMs: Long) -> Unit,
         onError: (error: String) -> Unit
     ) {
         Log.d(TAG, "Verifying subscription: $productId")
-        
+
         val requestBody = mapOf(
             "purchaseToken" to purchaseToken,
             "productId" to productId
         )
         val jsonBody = gson.toJson(requestBody)
-        
+
         val request = Request.Builder()
             .url("https://us-central1-whispertype-1de9f.cloudfunctions.net/verifySubscription")
             .addHeader("Authorization", "Bearer $authToken")
             .post(jsonBody.toRequestBody(JSON_MEDIA_TYPE))
             .build()
-        
+
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body?.string()
                 Log.d(TAG, "Verify subscription response: ${response.code}")
-                
+
                 when (response.code) {
                     200 -> {
                         try {
                             val result = gson.fromJson(responseBody, VerifySubscriptionResponse::class.java)
-                            
+
                             if (result.success == true && result.proStatus != null) {
-                                Log.d(TAG, "Subscription verified: ${result.proStatus.proSecondsRemaining}s remaining")
-                                
+                                Log.d(TAG, "Subscription verified: ${result.proStatus.proCreditsRemaining} credits remaining")
+
                                 // Update UsageDataManager with Pro status
                                 UsageDataManager.updateProStatus(
-                                    proSecondsUsed = result.proStatus.proSecondsUsed ?: 0,
-                                    proSecondsRemaining = result.proStatus.proSecondsRemaining ?: 9000,
-                                    proSecondsLimit = result.proStatus.proSecondsLimit ?: 9000,
+                                    proCreditsUsed = result.proStatus.proCreditsUsed ?: 0,
+                                    proCreditsRemaining = result.proStatus.proCreditsRemaining ?: 9000,
+                                    proCreditsLimit = result.proStatus.proCreditsLimit ?: 9000,
                                     proResetDateMs = result.proStatus.currentPeriodEndMs ?: 0
                                 )
-                                
+
                                 onSuccess(
-                                    result.proStatus.proSecondsRemaining ?: 9000,
-                                    result.proStatus.proSecondsLimit ?: 9000,
+                                    result.proStatus.proCreditsRemaining ?: 9000,
+                                    result.proStatus.proCreditsLimit ?: 9000,
                                     result.proStatus.currentPeriodEndMs ?: 0
                                 )
                             } else {
@@ -968,15 +969,18 @@ class WhisperApiClient {
     /**
      * Pro status nested object
      */
+    /**
+     * Pro status response nested object (credits-based)
+     */
     private data class ProStatusResponse(
         @SerializedName("isActive")
         val isActive: Boolean?,
-        @SerializedName("proSecondsUsed")
-        val proSecondsUsed: Int?,
-        @SerializedName("proSecondsRemaining")
-        val proSecondsRemaining: Int?,
-        @SerializedName("proSecondsLimit")
-        val proSecondsLimit: Int?,
+        @SerializedName("proCreditsUsed")
+        val proCreditsUsed: Int?,
+        @SerializedName("proCreditsRemaining")
+        val proCreditsRemaining: Int?,
+        @SerializedName("proCreditsLimit")
+        val proCreditsLimit: Int?,
         @SerializedName("currentPeriodEndMs")
         val currentPeriodEndMs: Long?
     )

@@ -6,14 +6,14 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * UsageDataManager - Singleton to store and provide usage data from API responses
- * 
+ *
  * This manager:
  * 1. Stores the latest usage data received from transcription API
  * 2. Provides a StateFlow for UI components to observe
- * 3. Manages trial status for Iteration 2 controlled trial
+ * 3. Manages trial and Pro credit status
  */
 object UsageDataManager {
-    
+
     /**
      * Trial status enum matching backend values
      */
@@ -21,7 +21,7 @@ object UsageDataManager {
         ACTIVE,
         EXPIRED_TIME,
         EXPIRED_USAGE;
-        
+
         companion object {
             fun fromString(value: String): TrialStatus {
                 return when (value) {
@@ -33,7 +33,7 @@ object UsageDataManager {
             }
         }
     }
-    
+
     /**
      * Warning level enum for trial warnings
      */
@@ -42,7 +42,7 @@ object UsageDataManager {
         FIFTY_PERCENT,
         EIGHTY_PERCENT,
         NINETY_FIVE_PERCENT;
-        
+
         companion object {
             fun fromString(value: String): WarningLevel {
                 return when (value) {
@@ -50,19 +50,20 @@ object UsageDataManager {
                     "fifty_percent" -> FIFTY_PERCENT
                     "eighty_percent" -> EIGHTY_PERCENT
                     "ninety_five_percent" -> NINETY_FIVE_PERCENT
+                    "ninety_percent" -> NINETY_FIVE_PERCENT // Pro warning level
                     else -> NONE
                 }
             }
         }
     }
-    
+
     /**
-     * User plan enum for Iteration 3
+     * User plan enum
      */
     enum class Plan {
         FREE,
         PRO;
-        
+
         companion object {
             fun fromString(value: String): Plan {
                 return when (value) {
@@ -72,30 +73,30 @@ object UsageDataManager {
             }
         }
     }
-    
+
     /**
-     * Data class representing usage and trial state
+     * Data class representing usage and credit state
      */
     data class UsageState(
         // Loading state - true until first API fetch completes
         val isLoading: Boolean = true,
-        // Current plan (Iteration 3)
+        // Current plan
         val currentPlan: Plan = Plan.FREE,
-        // Existing fields
-        val lastSecondsUsed: Int = 0,           // Seconds used in last transcription
-        val totalSecondsThisMonth: Int = 0,     // Total seconds used this month
+        // Last transcription info
+        val lastCreditsUsed: Int = 0,           // Credits used in last transcription
+        val totalCreditsThisMonth: Int = 0,     // Total credits used this month
         val lastUpdated: Long = 0,              // Timestamp of last update
-        // Trial fields
+        // Trial (free tier) fields
         val trialStatus: TrialStatus = TrialStatus.ACTIVE,
-        val freeSecondsUsed: Int = 0,           // Lifetime usage
-        val freeSecondsRemaining: Int = 1200,   // Remaining seconds
-        val totalTrialSeconds: Int = 1200,      // Total trial limit in seconds (from Remote Config)
+        val freeCreditsUsed: Int = 0,           // Lifetime usage
+        val freeCreditsRemaining: Int = 1000,   // Remaining credits
+        val freeTierCredits: Int = 1000,        // Total free tier limit (from Remote Config)
         val trialExpiryDateMs: Long = 0,        // Trial expiry timestamp
         val warningLevel: WarningLevel = WarningLevel.NONE,
-        // Pro plan fields (Iteration 3)
-        val proSecondsUsed: Int = 0,
-        val proSecondsRemaining: Int = 9000,    // 150 minutes default
-        val proSecondsLimit: Int = 9000,
+        // Pro plan fields
+        val proCreditsUsed: Int = 0,
+        val proCreditsRemaining: Int = 10000,   // Default from Remote Config
+        val proCreditsLimit: Int = 10000,
         val proResetDateMs: Long = 0,           // Next monthly reset date
         val proSubscriptionStartDateMs: Long = 0 // When user first subscribed (for "Member since")
     ) {
@@ -104,153 +105,130 @@ object UsageDataManager {
          */
         val isProUser: Boolean
             get() = currentPlan == Plan.PRO
-        
+
         /**
-         * Current quota seconds remaining (trial or Pro based on plan)
+         * Current credits remaining (trial or Pro based on plan)
          */
-        val currentSecondsRemaining: Int
-            get() = if (isProUser) proSecondsRemaining else freeSecondsRemaining
-        
+        val currentCreditsRemaining: Int
+            get() = if (isProUser) proCreditsRemaining else freeCreditsRemaining
+
         /**
-         * Current quota is valid (has minutes remaining)
+         * Current credits limit (trial or Pro based on plan)
+         */
+        val currentCreditsLimit: Int
+            get() = if (isProUser) proCreditsLimit else freeTierCredits
+
+        /**
+         * Current quota is valid (has credits remaining)
          */
         val isQuotaValid: Boolean
-            get() = if (isProUser) proSecondsRemaining > 0 else isTrialValid
+            get() = if (isProUser) proCreditsRemaining > 0 else isTrialValid
+
         /**
-         * Minutes remaining in trial (calculated)
+         * Formatted credits remaining (e.g., "990 credits")
          */
-        val freeMinutesRemaining: Float
-            get() = freeSecondsRemaining / 60f
-        
+        val formattedCreditsRemaining: String
+            get() = "$currentCreditsRemaining"
+
         /**
-         * Time remaining formatted as M:SS (e.g., "2:50" for 170 seconds)
+         * Formatted credits used (e.g., "10 credits")
          */
-        val formattedTimeRemaining: String
-            get() {
-                val minutes = freeSecondsRemaining / 60
-                val seconds = freeSecondsRemaining % 60
-                return String.format("%d:%02d", minutes, seconds)
-            }
-        
+        val formattedCreditsUsed: String
+            get() = if (isProUser) "$proCreditsUsed" else "$freeCreditsUsed"
+
         /**
-         * Minutes used in trial (calculated)
-         */
-        val freeMinutesUsed: Float
-            get() = freeSecondsUsed / 60f
-        
-        /**
-         * Trial time used formatted as M:SS (e.g., "5:30" for 330 seconds)
-         */
-        val formattedTimeUsed: String
-            get() {
-                val minutes = freeSecondsUsed / 60
-                val seconds = freeSecondsUsed % 60
-                return String.format("%d:%02d", minutes, seconds)
-            }
-        
-        /**
-         * Monthly usage formatted as M:SS (e.g., "3:45" for 225 seconds)
+         * Monthly usage formatted
          */
         val formattedMonthlyUsage: String
-            get() {
-                val minutes = totalSecondsThisMonth / 60
-                val seconds = totalSecondsThisMonth % 60
-                return String.format("%d:%02d", minutes, seconds)
-            }
-        
+            get() = "$totalCreditsThisMonth"
+
         /**
-         * Total trial time formatted as MM:SS (e.g., "20:00" for 1200 seconds)
-         */
-        val formattedTotalTime: String
-            get() {
-                val minutes = totalTrialSeconds / 60
-                val seconds = totalTrialSeconds % 60
-                return String.format("%d:%02d", minutes, seconds)
-            }
-        
-        /**
-         * Percentage of trial used (0-100)
+         * Percentage of credits used (0-100)
          */
         val usagePercentage: Float
-            get() = if (totalTrialSeconds > 0) {
-                (freeSecondsUsed.toFloat() / totalTrialSeconds.toFloat()) * 100f
-            } else {
-                0f
+            get() {
+                val limit = if (isProUser) proCreditsLimit else freeTierCredits
+                val used = if (isProUser) proCreditsUsed else freeCreditsUsed
+                return if (limit > 0) {
+                    (used.toFloat() / limit.toFloat()) * 100f
+                } else {
+                    0f
+                }
             }
-        
+
         /**
          * Whether the trial is still valid
          */
         val isTrialValid: Boolean
             get() = trialStatus == TrialStatus.ACTIVE
     }
-    
+
     private val _usageState = MutableStateFlow(UsageState())
     val usageState: StateFlow<UsageState> = _usageState.asStateFlow()
-    
+
     /**
      * Update usage data after a successful transcription (legacy method)
      * Kept for backward compatibility
      */
-    fun updateUsage(secondsUsed: Int, totalSecondsThisMonth: Int) {
+    fun updateUsage(creditsUsed: Int, totalCreditsThisMonth: Int) {
         _usageState.value = _usageState.value.copy(
-            lastSecondsUsed = secondsUsed,
-            totalSecondsThisMonth = totalSecondsThisMonth,
+            lastCreditsUsed = creditsUsed,
+            totalCreditsThisMonth = totalCreditsThisMonth,
             lastUpdated = System.currentTimeMillis()
         )
     }
-    
+
     /**
-     * Update trial status from API response (Iteration 2)
+     * Update trial status from API response
      */
     fun updateTrialStatus(
         status: String,
-        freeSecondsUsed: Int,
-        freeSecondsRemaining: Int,
+        freeCreditsUsed: Int,
+        freeCreditsRemaining: Int,
         trialExpiryDateMs: Long,
         warningLevel: String,
-        totalTrialSeconds: Int = freeSecondsUsed + freeSecondsRemaining
+        freeTierCredits: Int = freeCreditsUsed + freeCreditsRemaining
     ) {
         _usageState.value = _usageState.value.copy(
             isLoading = false,
             trialStatus = TrialStatus.fromString(status),
-            freeSecondsUsed = freeSecondsUsed,
-            freeSecondsRemaining = freeSecondsRemaining,
-            totalTrialSeconds = totalTrialSeconds,
+            freeCreditsUsed = freeCreditsUsed,
+            freeCreditsRemaining = freeCreditsRemaining,
+            freeTierCredits = freeTierCredits,
             trialExpiryDateMs = trialExpiryDateMs,
             warningLevel = WarningLevel.fromString(warningLevel),
             lastUpdated = System.currentTimeMillis()
         )
     }
-    
+
     /**
      * Full update including both legacy and new trial fields
      * Uses copy() to preserve Pro status and other fields not being updated
      */
     fun updateFull(
-        secondsUsed: Int,
-        totalSecondsThisMonth: Int,
+        creditsUsed: Int,
+        totalCreditsThisMonth: Int,
         status: String,
-        freeSecondsUsed: Int,
-        freeSecondsRemaining: Int,
+        freeCreditsUsed: Int,
+        freeCreditsRemaining: Int,
         trialExpiryDateMs: Long,
         warningLevel: String,
-        totalTrialSeconds: Int = freeSecondsUsed + freeSecondsRemaining
+        freeTierCredits: Int = freeCreditsUsed + freeCreditsRemaining
     ) {
         _usageState.value = _usageState.value.copy(
             isLoading = false,
-            lastSecondsUsed = secondsUsed,
-            totalSecondsThisMonth = totalSecondsThisMonth,
+            lastCreditsUsed = creditsUsed,
+            totalCreditsThisMonth = totalCreditsThisMonth,
             lastUpdated = System.currentTimeMillis(),
             trialStatus = TrialStatus.fromString(status),
-            freeSecondsUsed = freeSecondsUsed,
-            freeSecondsRemaining = freeSecondsRemaining,
-            totalTrialSeconds = totalTrialSeconds,
+            freeCreditsUsed = freeCreditsUsed,
+            freeCreditsRemaining = freeCreditsRemaining,
+            freeTierCredits = freeTierCredits,
             trialExpiryDateMs = trialExpiryDateMs,
             warningLevel = WarningLevel.fromString(warningLevel)
         )
     }
-    
+
     /**
      * Mark trial as expired (called when 403 received)
      */
@@ -258,72 +236,74 @@ object UsageDataManager {
         _usageState.value = _usageState.value.copy(
             isLoading = false,
             trialStatus = status,
-            freeSecondsRemaining = 0,
+            freeCreditsRemaining = 0,
             lastUpdated = System.currentTimeMillis()
         )
     }
-    
+
     /**
-     * Update Pro subscription status (Iteration 3)
+     * Update Pro subscription status
      */
     fun updateProStatus(
-        proSecondsUsed: Int,
-        proSecondsRemaining: Int,
-        proSecondsLimit: Int,
+        proCreditsUsed: Int,
+        proCreditsRemaining: Int,
+        proCreditsLimit: Int,
         proResetDateMs: Long,
         proSubscriptionStartDateMs: Long? = null
     ) {
         _usageState.value = _usageState.value.copy(
             isLoading = false,
             currentPlan = Plan.PRO,
-            proSecondsUsed = proSecondsUsed,
-            proSecondsRemaining = proSecondsRemaining,
-            proSecondsLimit = proSecondsLimit,
+            proCreditsUsed = proCreditsUsed,
+            proCreditsRemaining = proCreditsRemaining,
+            proCreditsLimit = proCreditsLimit,
             proResetDateMs = proResetDateMs,
             proSubscriptionStartDateMs = proSubscriptionStartDateMs ?: _usageState.value.proSubscriptionStartDateMs,
             lastUpdated = System.currentTimeMillis()
         )
     }
-    
+
     /**
-     * Update subscription status from getSubscriptionStatus endpoint (Iteration 3)
+     * Update subscription status from getSubscriptionStatus endpoint
      * Handles both trial and Pro users
      */
     fun updateSubscriptionStatus(
         plan: String,
         status: String,
-        secondsRemaining: Int,
+        creditsRemaining: Int,
         warningLevel: String,
         // Trial-specific
-        freeSecondsUsed: Int? = null,
+        freeCreditsUsed: Int? = null,
+        freeTierCredits: Int? = null,
         trialExpiryDateMs: Long? = null,
         // Pro-specific
-        proSecondsUsed: Int? = null,
-        proSecondsLimit: Int? = null,
+        proCreditsUsed: Int? = null,
+        proCreditsLimit: Int? = null,
         resetDateMs: Long? = null,
         subscriptionStartDateMs: Long? = null
     ) {
         val currentPlan = Plan.fromString(plan)
-        
+
         _usageState.value = _usageState.value.copy(
             isLoading = false,
             currentPlan = currentPlan,
             trialStatus = TrialStatus.fromString(status),
             warningLevel = WarningLevel.fromString(warningLevel),
             // Trial fields
-            freeSecondsUsed = freeSecondsUsed ?: _usageState.value.freeSecondsUsed,
-            freeSecondsRemaining = if (currentPlan == Plan.FREE) secondsRemaining else _usageState.value.freeSecondsRemaining,
+            freeCreditsUsed = freeCreditsUsed ?: _usageState.value.freeCreditsUsed,
+            freeCreditsRemaining = if (currentPlan == Plan.FREE) creditsRemaining else _usageState.value.freeCreditsRemaining,
+            freeTierCredits = freeTierCredits ?: _usageState.value.freeTierCredits,
             trialExpiryDateMs = trialExpiryDateMs ?: _usageState.value.trialExpiryDateMs,
             // Pro fields
-            proSecondsUsed = proSecondsUsed ?: _usageState.value.proSecondsUsed,
-            proSecondsRemaining = if (currentPlan == Plan.PRO) secondsRemaining else _usageState.value.proSecondsRemaining,
-            proSecondsLimit = proSecondsLimit ?: _usageState.value.proSecondsLimit,
+            proCreditsUsed = proCreditsUsed ?: _usageState.value.proCreditsUsed,
+            proCreditsRemaining = if (currentPlan == Plan.PRO) creditsRemaining else _usageState.value.proCreditsRemaining,
+            proCreditsLimit = proCreditsLimit ?: _usageState.value.proCreditsLimit,
             proResetDateMs = resetDateMs ?: _usageState.value.proResetDateMs,
             proSubscriptionStartDateMs = subscriptionStartDateMs ?: _usageState.value.proSubscriptionStartDateMs,
             lastUpdated = System.currentTimeMillis()
         )
     }
-    
+
     /**
      * Mark loading as complete (e.g., when API call fails but we want to show default data)
      */
@@ -338,4 +318,3 @@ object UsageDataManager {
         _usageState.value = UsageState()
     }
 }
-
