@@ -12,6 +12,7 @@ import com.whispertype.app.ShortcutPreferences
 import com.whispertype.app.api.WhisperApiClient
 import com.whispertype.app.audio.AudioProcessor
 import com.whispertype.app.audio.AudioRecorder
+import com.whispertype.app.audio.ParallelOpusRecorder
 import com.whispertype.app.audio.RealtimeRmsRecorder
 import com.whispertype.app.auth.FirebaseAuthManager
 import kotlinx.coroutines.*
@@ -55,6 +56,7 @@ class SpeechRecognitionHelper(
 
     private val audioRecorder = AudioRecorder(context)
     private val realtimeRmsRecorder = RealtimeRmsRecorder(context)
+    private val parallelOpusRecorder = ParallelOpusRecorder(context)
     private val audioProcessor = AudioProcessor(context)
     private val whisperApiClient = WhisperApiClient()
     private val authManager = FirebaseAuthManager()
@@ -121,9 +123,10 @@ class SpeechRecognitionHelper(
      */
     fun setAmplitudeCallback(callback: AudioRecorder.AmplitudeCallback?) {
         this.amplitudeCallback = callback
-        // Set on both recorders to ensure whichever is used reports amplitude
+        // Set on all recorders to ensure whichever is used reports amplitude
         audioRecorder.setAmplitudeCallback(callback)
         realtimeRmsRecorder.setAmplitudeCallback(callback)
+        parallelOpusRecorder.setAmplitudeCallback(callback)
     }
 
     /**
@@ -161,6 +164,40 @@ class SpeechRecognitionHelper(
             }
         }
         whisperApiClient.warmForFlow(context)  // Warm the correct endpoint for selected flow
+
+        // Use ParallelOpusRecorder for PARALLEL_OPUS flow (parallel RMS + Opus encoding)
+        if (selectedFlow == TranscriptionFlow.PARALLEL_OPUS) {
+            if (!ParallelOpusRecorder.isSupported()) {
+                Log.w(TAG, "PARALLEL_OPUS requires Android 10+, falling back to ARAMUS_OPENAI")
+                // Fall through to ARAMUS_OPENAI
+            } else {
+                Log.d(TAG, "PARALLEL_OPUS flow: Using ParallelOpusRecorder with parallel RMS + Opus encoding")
+                parallelOpusRecorder.setAmplitudeCallback(amplitudeCallback)
+                parallelOpusRecorder.startRecording(object : ParallelOpusRecorder.RecordingCallback {
+                    override fun onRecordingStarted() {
+                        mainHandler.post {
+                            isListening = true
+                            callback.onReadyForSpeech()
+                            callback.onBeginningOfSpeech()
+                        }
+                    }
+
+                    override fun onRecordingStopped(trimmedOggBytes: ByteArray, rawOggBytes: ByteArray, metadata: ParallelOpusRecorder.Metadata) {
+                        Log.d(TAG, "PARALLEL_OPUS: Recording stopped. Trimmed: ${trimmedOggBytes.size} bytes (${metadata.trimmedFileSizeBytes}), " +
+                                "Raw: ${rawOggBytes.size} bytes, Speech: ${metadata.speechDurationMs}ms of ${metadata.originalDurationMs}ms")
+                        pendingAudioBytes = trimmedOggBytes
+                    }
+
+                    override fun onRecordingError(error: String) {
+                        mainHandler.post {
+                            isListening = false
+                            callback.onError(error)
+                        }
+                    }
+                })
+                return
+            }
+        }
 
         // Use RealtimeRmsRecorder for ARAMUS flow (parallel RMS analysis)
         if (selectedFlow == TranscriptionFlow.ARAMUS_OPENAI) {
@@ -243,6 +280,33 @@ class SpeechRecognitionHelper(
 
         // Check which flow is selected
         val selectedFlow = TranscriptionFlow.getSelectedFlow(context)
+
+        // Handle PARALLEL_OPUS flow - uses ParallelOpusRecorder
+        if (selectedFlow == TranscriptionFlow.PARALLEL_OPUS && ParallelOpusRecorder.isSupported()) {
+            parallelOpusRecorder.stopRecording()
+            // The callback was registered in startListening(), audio will be in pendingAudioBytes
+            // Wait a brief moment for the callback to be processed
+            mainHandler.postDelayed({
+                val trimmedAudio = pendingAudioBytes
+                if (trimmedAudio == null || trimmedAudio.isEmpty()) {
+                    callback.onError("No audio recorded")
+                    return@postDelayed
+                }
+
+                if (trimmedAudio.size < Constants.MIN_AUDIO_SIZE_BYTES) {
+                    callback.onError("No speech detected")
+                    return@postDelayed
+                }
+
+                // Estimate duration: OGG Opus at 24kbps = 3000 bytes per second
+                val estimatedDurationMs = (trimmedAudio.size.toLong() * 1000 / 3000).coerceAtLeast(1000)
+
+                // PARALLEL_OPUS: Send OGG directly
+                Log.d(TAG, "PARALLEL_OPUS: Sending pre-trimmed OGG audio, size: ${trimmedAudio.size} bytes")
+                transcribeAudio(trimmedAudio, "ogg", estimatedDurationMs)
+            }, 100)
+            return
+        }
 
         // Handle ARAMUS flow separately - uses RealtimeRmsRecorder
         if (selectedFlow == TranscriptionFlow.ARAMUS_OPENAI) {
@@ -399,6 +463,11 @@ class SpeechRecognitionHelper(
                 // Aramus + OpenAI - Parallel RMS (already trimmed) with GPT-4o-mini-transcribe
                 Log.d(TAG, "ARAMUS_OPENAI: sending pre-trimmed WAV to Cloud API with gpt-4o-mini-transcribe, format: $audioFormat")
                 transcribeWithAramusFlow(audioBytes, audioFormat, durationMs)
+            }
+            TranscriptionFlow.PARALLEL_OPUS -> {
+                // Parallel Opus - Parallel RMS + Opus encoding (already trimmed OGG) with GPT-4o-mini-transcribe
+                Log.d(TAG, "PARALLEL_OPUS: sending pre-trimmed OGG to Cloud API with gpt-4o-mini-transcribe, format: $audioFormat")
+                transcribeWithParallelOpusFlow(audioBytes, audioFormat, durationMs)
             }
         }
     }
@@ -672,6 +741,63 @@ class SpeechRecognitionHelper(
 
                 override fun onError(error: String) {
                     Log.e(TAG, "[Aramus+OpenAI] Transcription error: $error")
+                    mainHandler.post {
+                        callback.onError(error)
+                    }
+                }
+            })
+        }
+    }
+
+    /**
+     * Transcribe using Parallel Opus flow (Parallel RMS + Opus Encoding + GPT-4o-mini-transcribe)
+     * Audio is already trimmed and encoded to OGG by ParallelOpusRecorder
+     * This uses OpenAI's gpt-4o-mini-transcribe model
+     */
+    private fun transcribeWithParallelOpusFlow(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
+        processingScope.launch {
+            if (isDestroyed) return@launch
+
+            // Ensure signed in
+            val user = authManager.ensureSignedIn()
+            if (user == null) {
+                mainHandler.post {
+                    callback.onError("Authentication failed. Please restart the app.")
+                }
+                return@launch
+            }
+
+            // Get ID token
+            val token = authManager.getIdToken()
+            if (token == null) {
+                mainHandler.post {
+                    callback.onError("Failed to get authentication token.")
+                }
+                return@launch
+            }
+
+            // Use gpt-4o-mini-transcribe model (same as ARAMUS but with OGG format)
+            val modelId = "gpt-4o-mini-transcribe"
+            Log.d(TAG, "[ParallelOpus] Using model: $modelId, format: $audioFormat, duration: ${durationMs}ms, size: ${audioBytes.size} bytes")
+
+            // Notify UI that transcription is starting
+            mainHandler.post {
+                if (!isDestroyed) {
+                    callback.onTranscribing()
+                }
+            }
+
+            // Make API call with auth token and gpt-4o-mini-transcribe model
+            whisperApiClient.transcribe(audioBytes, token, audioFormat, modelId, durationMs, object : WhisperApiClient.TranscriptionCallback {
+                override fun onSuccess(text: String) {
+                    Log.d(TAG, "[ParallelOpus] Transcription successful: ${text.take(50)}...")
+                    mainHandler.post {
+                        callback.onResults(text)
+                    }
+                }
+
+                override fun onError(error: String) {
+                    Log.e(TAG, "[ParallelOpus] Transcription error: $error")
                     mainHandler.post {
                         callback.onError(error)
                     }

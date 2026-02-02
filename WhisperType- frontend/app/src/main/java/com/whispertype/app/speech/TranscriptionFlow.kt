@@ -50,6 +50,18 @@ enum class TranscriptionFlow(
     ARAMUS_OPENAI(
         displayName = "Aramus + OpenAI (Default)",
         description = "Parallel RMS + GPT-4o-mini-transcribe"
+    ),
+
+    /**
+     * PARALLEL_OPUS - Parallel RMS + Opus encoding + GPT-4o-mini-transcribe
+     * Uses AudioRecord with real-time RMS silence detection AND parallel Opus encoding
+     * Both RMS analysis and Opus encoding run in parallel during recording
+     * Output: OGG format (compressed, ~30KB vs ~320KB WAV)
+     * Requirements: Android 10+ (API 29+)
+     */
+    PARALLEL_OPUS(
+        displayName = "Parallel Encoding [OGG] + Aramus OpenAI",
+        description = "Parallel RMS + Opus encoding, compressed OGG"
     );
     
     companion object {
@@ -91,13 +103,13 @@ enum class TranscriptionFlow(
          * Maps a ModelTier to the corresponding TranscriptionFlow
          * - AUTO (Free): FLOW_3 (Groq Turbo - whisper-large-v3-turbo)
          * - STANDARD (1x credit): GROQ_WHISPER (whisper-large-v3)
-         * - PREMIUM (2x credit): ARAMUS_OPENAI (OpenAI gpt-4o-mini-transcribe)
+         * - PREMIUM (2x credit): PARALLEL_OPUS (Parallel RMS + Opus OGG + OpenAI gpt-4o-mini-transcribe)
          */
         fun fromModelTier(tier: ShortcutPreferences.ModelTier): TranscriptionFlow {
             return when (tier) {
                 ShortcutPreferences.ModelTier.AUTO -> FLOW_3
                 ShortcutPreferences.ModelTier.STANDARD -> GROQ_WHISPER
-                ShortcutPreferences.ModelTier.PREMIUM -> ARAMUS_OPENAI
+                ShortcutPreferences.ModelTier.PREMIUM -> PARALLEL_OPUS
             }
         }
     }
