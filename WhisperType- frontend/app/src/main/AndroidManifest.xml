@@ -52,6 +52,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Debug Activity: Flow comparison testing (debug builds only) -->
+        <activity
+            android:name=".debug.FlowTestActivity"
+            android:exported="false"
+            android:theme="@style/Theme.WhisperType" />
+
         <!-- 
         ACCESSIBILITY SERVICE
         

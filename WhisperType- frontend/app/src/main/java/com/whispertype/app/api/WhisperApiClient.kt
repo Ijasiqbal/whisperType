@@ -762,6 +762,10 @@ class WhisperApiClient {
                 // ARAMUS_OPENAI uses OpenAI endpoint
                 warmTranscribeFunction()
             }
+            com.whispertype.app.speech.TranscriptionFlow.PARALLEL_OPUS -> {
+                // PARALLEL_OPUS uses OpenAI endpoint (same as ARAMUS)
+                warmTranscribeFunction()
+            }
         }
     }
     

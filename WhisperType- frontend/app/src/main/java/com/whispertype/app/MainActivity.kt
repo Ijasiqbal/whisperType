@@ -81,6 +81,8 @@ import kotlinx.coroutines.delay
 import com.whispertype.app.service.WhisperTypeAccessibilityService
 import com.whispertype.app.util.MiuiHelper
 import com.whispertype.app.util.ForceUpdateChecker
+import com.whispertype.app.speech.TranscriptionFlow
+import com.whispertype.app.debug.FlowTestActivity
 import com.whispertype.app.ui.components.ForceUpdateDialog
 import com.whispertype.app.ui.components.SoftUpdateDialog
 import com.whispertype.app.ui.components.AccessibilityDisclosureDialog
@@ -968,7 +970,13 @@ fun MainScreen(
         ) {
             Text("Test Overlay", fontSize = 16.sp)
         }
-        
+
+        // Debug Flow Selector (only in debug builds)
+        if (BuildConfig.DEBUG) {
+            Spacer(modifier = Modifier.height(16.dp))
+            DebugFlowSelector()
+        }
+
         // Accessibility Disclosure Dialog (Google Play compliance)
         if (showAccessibilityDisclosureDialog) {
             android.util.Log.d("AccessibilityDisclosure", "Dialog is being rendered, showAccessibilityDisclosureDialog=true")
@@ -1618,6 +1626,140 @@ fun UsageStep(number: String, text: String) {
             fontSize = 14.sp,
             color = Color(0xFF475569)
         )
+    }
+}
+
+/**
+ * Debug-only flow selector for testing different transcription flows
+ */
+@Composable
+fun DebugFlowSelector() {
+    val context = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    var selectedFlow by remember {
+        mutableStateOf(TranscriptionFlow.getSelectedFlow(context))
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)), // Amber-100
+        border = BorderStroke(1.dp, Color(0xFFFCD34D)) // Amber-300
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "Debug",
+                    tint = Color(0xFFD97706), // Amber-600
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "DEBUG: Flow Selector",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color(0xFF92400E) // Amber-800
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Current: ${selectedFlow.displayName}",
+                fontSize = 12.sp,
+                color = Color(0xFF78350F) // Amber-900
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Box {
+                OutlinedButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF92400E)
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFFD97706))
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(selectedFlow.displayName, fontSize = 14.sp)
+                        Icon(
+                            imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = "Expand"
+                        )
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                ) {
+                    TranscriptionFlow.values().forEach { flow ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(
+                                        flow.displayName,
+                                        fontWeight = if (flow == selectedFlow) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    Text(
+                                        flow.description,
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            },
+                            onClick = {
+                                selectedFlow = flow
+                                TranscriptionFlow.setSelectedFlow(context, flow)
+                                expanded = false
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Flow changed to: ${flow.displayName}",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            leadingIcon = {
+                                if (flow == selectedFlow) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = "Selected",
+                                        tint = Color(0xFF10B981)
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Button to open Flow Test Activity
+            OutlinedButton(
+                onClick = {
+                    val intent = Intent(context, FlowTestActivity::class.java)
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFF6366F1)
+                )
+            ) {
+                Text("Open Flow Test", fontSize = 14.sp)
+            }
+        }
     }
 }
 

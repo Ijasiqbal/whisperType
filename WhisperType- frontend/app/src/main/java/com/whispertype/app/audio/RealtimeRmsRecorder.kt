@@ -83,7 +83,8 @@ class RealtimeRmsRecorder(private val context: Context) {
     data class RmsMetadata(
         val speechDurationMs: Long,
         val originalDurationMs: Long,
-        val speechSegmentCount: Int
+        val speechSegmentCount: Int,
+        val silenceTrimmingApplied: Boolean = false  // True if trimming happened
     )
 
     /**
@@ -513,7 +514,8 @@ class RealtimeRmsRecorder(private val context: Context) {
                 metadata = RmsMetadata(
                     speechDurationMs = 0,
                     originalDurationMs = totalDurationUs / 1000,
-                    speechSegmentCount = 0
+                    speechSegmentCount = 0,
+                    silenceTrimmingApplied = false  // No speech detected, no trimming
                 )
             )
         }
@@ -599,7 +601,8 @@ class RealtimeRmsRecorder(private val context: Context) {
             metadata = RmsMetadata(
                 speechDurationMs = speechDurationUs / 1000,
                 originalDurationMs = totalDurationUs / 1000,
-                speechSegmentCount = speechSegments.size
+                speechSegmentCount = speechSegments.size,
+                silenceTrimmingApplied = true  // Speech detected and trimmed
             )
         )
     }
