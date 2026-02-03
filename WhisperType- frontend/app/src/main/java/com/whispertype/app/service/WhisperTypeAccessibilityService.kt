@@ -400,7 +400,7 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
             Log.w(TAG, "Overlay permission not granted")
             Toast.makeText(
                 this, 
-                "Overlay permission required. Open VoxType app to grant it.",
+                "Overlay permission required. Open WhisperType app to grant it.",
                 Toast.LENGTH_LONG
             ).show()
             return
@@ -600,261 +600,7 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         
         return success
     }
-
-    /**
-     * Auto-send: Find and click the send button after text has been inserted
-     *
-     * Strategy:
-     * 1. Search the entire screen for send buttons and click them (most reliable)
-     * 2. Fallback: Try IME action (Enter key) - but many apps don't respond to this
-     *
-     * @return true if send action was triggered, false otherwise
-     */
-    fun performAutoSend(): Boolean {
-        Log.d(TAG, "performAutoSend: Starting auto-send process")
-
-        // Strategy 1: Search the ENTIRE screen for send buttons FIRST
-        // This is more reliable than IME action which many apps ignore
-        Log.d(TAG, "performAutoSend: Searching entire screen for send button")
-        val rootNode = rootInActiveWindow
-        if (rootNode != null) {
-            Log.d(TAG, "performAutoSend: Got root window, searching for send button")
-
-            // Log the entire tree for debugging
-            logNodeTree(rootNode, 0)
-
-            val sendButton = findSendButtonInTree(rootNode)
-            if (sendButton != null) {
-                Log.d(TAG, "performAutoSend: Found send button! Clicking...")
-                val clicked = sendButton.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                Log.d(TAG, "performAutoSend: Click result = $clicked")
-                sendButton.recycle()
-                rootNode.recycle()
-
-                if (clicked) {
-                    Log.d(TAG, "performAutoSend: Successfully clicked send button")
-                    return true
-                }
-            } else {
-                Log.d(TAG, "performAutoSend: No send button found in tree")
-            }
-            rootNode.recycle()
-        } else {
-            Log.w(TAG, "performAutoSend: rootInActiveWindow is null!")
-        }
-
-        // Strategy 2: Fallback - Try IME action (Enter key)
-        // Note: Many apps report success but don't actually handle this
-        val focusedNode = findFocusedEditableNode()
-        Log.d(TAG, "performAutoSend: focusedNode found = ${focusedNode != null}")
-
-        if (focusedNode != null) {
-            Log.d(TAG, "performAutoSend: Trying IME action as fallback")
-            val imeSuccess = try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val result = focusedNode.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
-                    Log.d(TAG, "performAutoSend: IME_ENTER (R+) result = $result")
-                    result
-                } else {
-                    val result = focusedNode.performAction(0x00200000)
-                    Log.d(TAG, "performAutoSend: IME_ENTER (pre-R) result = $result")
-                    result
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "performAutoSend: IME action threw exception", e)
-                false
-            }
-            focusedNode.recycle()
-
-            if (imeSuccess) {
-                Log.d(TAG, "performAutoSend: IME action reported success (may not actually work)")
-                return true
-            }
-        }
-
-        Log.w(TAG, "performAutoSend: All strategies failed")
-        return false
-    }
-
-    /**
-     * Log the accessibility node tree for debugging
-     */
-    private fun logNodeTree(node: AccessibilityNodeInfo?, depth: Int) {
-        if (node == null || depth > 5) return // Limit depth to prevent too much logging
-
-        val indent = "  ".repeat(depth)
-        val className = node.className?.toString() ?: "null"
-        val contentDesc = node.contentDescription?.toString() ?: ""
-        val text = node.text?.toString() ?: ""
-        val viewId = node.viewIdResourceName ?: ""
-        val isClickable = node.isClickable
-
-        if (isClickable || contentDesc.isNotEmpty() || text.isNotEmpty()) {
-            Log.d(TAG, "${indent}Node: class=$className, clickable=$isClickable, desc='$contentDesc', text='$text', id='$viewId'")
-        }
-
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i)
-            logNodeTree(child, depth + 1)
-            child?.recycle()
-        }
-    }
-
-    /**
-     * Find the send button in the active window
-     *
-     * Searches the entire screen for:
-     * - Clickable buttons with contentDescription containing "send"
-     * - Clickable elements with className containing "Button"
-     * - IconButtons or ImageButtons (common for send buttons)
-     *
-     * @param focusedNode The focused input field (used to get root window)
-     * @return The send button node, or null if not found
-     */
-    private fun findSendButton(focusedNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        // Search the entire window, not just near the input field
-        val rootNode = rootInActiveWindow ?: return null
-
-        val sendButton = findSendButtonInTree(rootNode)
-        rootNode.recycle()
-
-        return sendButton
-    }
-
-    /**
-     * Recursively search for a send button in the accessibility tree
-     * Handles Jetpack Compose apps where content-desc may be on non-clickable child nodes
-     *
-     * @param node The node to search
-     * @param clickableParent The nearest clickable ancestor (for Compose apps)
-     * @return The send button node, or null if not found
-     */
-    private fun findSendButtonInTree(node: AccessibilityNodeInfo?, clickableParent: AccessibilityNodeInfo? = null): AccessibilityNodeInfo? {
-        // Two-pass approach:
-        // 1. First pass: Look for contentDesc matches (most reliable - actual accessibility labels)
-        // 2. Second pass: Look for viewId matches (less reliable but still useful)
-        // Skip text matching entirely - too unreliable, can match message content
-
-        val result = findSendButtonByContentDesc(node, clickableParent)
-        if (result != null) {
-            Log.d(TAG, "findSendButtonInTree: Found via contentDesc")
-            return result
-        }
-
-        val result2 = findSendButtonByViewId(node, clickableParent)
-        if (result2 != null) {
-            Log.d(TAG, "findSendButtonInTree: Found via viewId")
-            return result2
-        }
-
-        Log.d(TAG, "findSendButtonInTree: No send button found")
-        return null
-    }
-
-    /**
-     * First pass: Find send button by contentDescription (most reliable)
-     */
-    private fun findSendButtonByContentDesc(node: AccessibilityNodeInfo?, clickableParent: AccessibilityNodeInfo? = null): AccessibilityNodeInfo? {
-        if (node == null) return null
-
-        val contentDesc = node.contentDescription?.toString()?.lowercase() ?: ""
-
-        // Track the current clickable parent for children
-        val currentClickableParent = if (node.isClickable) node else clickableParent
-
-        // Only match on contentDesc - this is the accessibility label, most reliable
-        val isSendIndicator = contentDesc.contains("send") || contentDesc.contains("submit")
-
-        if (isSendIndicator) {
-            // Negative patterns - things that are definitely NOT send buttons
-            val isNegative = contentDesc.contains("back") ||
-                contentDesc.contains("close") ||
-                contentDesc.contains("cancel") ||
-                contentDesc.contains("resend")
-
-            if (!isNegative) {
-                Log.d(TAG, "findSendButtonByContentDesc: Found! contentDesc='$contentDesc', clickable=${node.isClickable}, hasClickableParent=${currentClickableParent != null}")
-
-                // If this node is clickable, return it
-                if (node.isClickable) {
-                    return node
-                }
-
-                // If we have a clickable parent, return that instead (Compose pattern)
-                if (currentClickableParent != null) {
-                    return currentClickableParent
-                }
-
-                // Last resort: return the node anyway and try to click it
-                return node
-            }
-        }
-
-        // Search children
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
-            val result = findSendButtonByContentDesc(child, currentClickableParent)
-            if (result != null) {
-                if (result != child) child.recycle()
-                return result
-            }
-            child.recycle()
-        }
-
-        return null
-    }
-
-    /**
-     * Second pass: Find send button by viewId (less reliable, used as fallback)
-     */
-    private fun findSendButtonByViewId(node: AccessibilityNodeInfo?, clickableParent: AccessibilityNodeInfo? = null): AccessibilityNodeInfo? {
-        if (node == null) return null
-
-        val viewId = node.viewIdResourceName?.lowercase() ?: ""
-        val className = node.className?.toString()?.lowercase() ?: ""
-
-        // Track the current clickable parent for children
-        val currentClickableParent = if (node.isClickable) node else clickableParent
-
-        // Only match viewId AND require it to look like a button
-        val isSendIndicator = viewId.contains("send") || viewId.contains("submit")
-        val isButtonLike = className.contains("button") ||
-            className.contains("imageview") ||
-            node.isClickable
-
-        if (isSendIndicator && isButtonLike) {
-            // Negative patterns
-            val isNegative = viewId.contains("cancel") || viewId.contains("resend")
-
-            if (!isNegative) {
-                Log.d(TAG, "findSendButtonByViewId: Found! viewId='$viewId', clickable=${node.isClickable}, hasClickableParent=${currentClickableParent != null}")
-
-                if (node.isClickable) {
-                    return node
-                }
-
-                if (currentClickableParent != null) {
-                    return currentClickableParent
-                }
-
-                return node
-            }
-        }
-
-        // Search children
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
-            val result = findSendButtonByViewId(child, currentClickableParent)
-            if (result != null) {
-                if (result != child) child.recycle()
-                return result
-            }
-            child.recycle()
-        }
-
-        return null
-    }
-
+    
     /**
      * Create notification channel for foreground service (API 26+)
      */
@@ -862,10 +608,10 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "VoxType Service",
+                "WhisperType Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Keeps VoxType accessibility service running"
+                description = "Keeps WhisperType accessibility service running"
                 setShowBadge(false)
             }
             
@@ -886,7 +632,7 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         )
         
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("VoxType is active")
+            .setContentTitle("WhisperType is active")
             .setContentText("Ready for voice input shortcuts")
             .setSmallIcon(R.drawable.ic_microphone)
             .setContentIntent(pendingIntent)

@@ -741,7 +741,7 @@ class WhisperApiClient {
     /**
      * Warm up the appropriate function based on selected transcription flow
      * Call this when recording starts for optimal latency.
-     * 
+     *
      * @param context Android context to read the selected flow
      */
     fun warmForFlow(context: android.content.Context) {
@@ -767,6 +767,20 @@ class WhisperApiClient {
                 warmTranscribeFunction()
             }
         }
+    }
+
+    /**
+     * Warm up ALL transcription endpoints
+     *
+     * Use this when the user might switch model tiers during recording.
+     * The unified recording flow allows tier changes mid-recording, so we
+     * warm both endpoints to ensure low latency regardless of which tier
+     * is selected at stop time.
+     */
+    fun warmAllEndpoints() {
+        Log.d(TAG, "Warming up ALL endpoints (region: ${getBestRegion()})")
+        warmTranscribeFunction()  // OpenAI endpoint (PREMIUM)
+        warmGroqFunction()        // Groq endpoint (FREE, STANDARD)
     }
     
     /**
