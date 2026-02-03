@@ -691,7 +691,7 @@ fun MainScreen(
                     PermissionStep(
                         stepNumber = 1,
                         title = "Enable AutoStart",
-                        description = "Keeps VoxType running in the background",
+                        description = "Ensures volume shortcut works reliably",
                         isGranted = false,
                         buttonText = "Enable",
                         onClick = { 
@@ -996,52 +996,52 @@ fun MainScreen(
                 text = {
                     Column {
                         Text(
-                            text = "This feature keeps VoxType running in the background by showing a persistent notification.",
+                            text = "This feature prevents Android from stopping VoxType when the device is idle, ensuring your volume shortcut always works.",
                             fontSize = 14.sp,
                             color = Color(0xFF475569)
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         Text(
                             text = "What you'll see:",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "• A permanent notification in your notification tray",
+                            text = "• A small notification indicating VoxType is ready",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         Text(
-                            text = "Good news:",
+                            text = "Battery impact:",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp,
                             color = Color(0xFF10B981)
                         )
                         Text(
-                            text = "• No battery drain (service is idle until activated)",
+                            text = "• Minimal - the service remains idle until you activate it",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
                         Text(
-                            text = "• No performance impact",
+                            text = "• No continuous processing or network usage",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
                         Text(
-                            text = "• Prevents the service from being killed by Android",
+                            text = "• Only active when you press the volume shortcut",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         Text(
-                            text = "Enable this if you experience issues with the service not responding to volume key shortcuts.",
+                            text = "Recommended if volume shortcut stops responding after your device has been idle.",
                             fontSize = 12.sp,
                             color = Color(0xFFD97706),
                             fontWeight = FontWeight.Medium
@@ -1108,31 +1108,31 @@ fun MainScreen(
                 text = {
                     Column {
                         Text(
-                            text = "This setting prevents Android from putting VoxType to sleep to save battery.",
+                            text = "Android may stop VoxType to save battery, which can cause the volume shortcut to stop responding.",
                             fontSize = 14.sp,
                             color = Color(0xFF475569)
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         Text(
-                            text = "What happens:",
+                            text = "What this does:",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "• VoxType can run in the background without restrictions",
+                            text = "• Prevents Android from stopping VoxType when idle",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
                         Text(
-                            text = "• The service won't be killed by Android's battery saver",
+                            text = "• Ensures volume shortcut remains responsive",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         Text(
                             text = "Battery impact:",
                             fontWeight = FontWeight.SemiBold,
@@ -1140,25 +1140,25 @@ fun MainScreen(
                             color = Color(0xFF10B981)
                         )
                         Text(
-                            text = "• Minimal - The service is idle most of the time",
+                            text = "• Minimal - VoxType stays idle until you activate it",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
                         Text(
-                            text = "• Uses resources only when you activate it",
+                            text = "• No continuous processing or network activity",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
                         Text(
-                            text = "• No background tasks or polling",
+                            text = "• Only uses resources when you press the shortcut",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         Text(
-                            text = "Enable this if the volume shortcut stops working after your phone has been idle for a while.",
+                            text = "Recommended if volume shortcut stops responding after your device has been idle.",
                             fontSize = 12.sp,
                             color = Color(0xFFD97706),
                             fontWeight = FontWeight.Medium

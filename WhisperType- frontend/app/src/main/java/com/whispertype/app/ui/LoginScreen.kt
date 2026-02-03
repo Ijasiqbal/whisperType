@@ -135,7 +135,7 @@ fun LoginScreen(
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_microphone),
-                        contentDescription = "WhisperType Icon",
+                        contentDescription = "VoxType Icon",
                         tint = Color.White,
                         modifier = Modifier.size(48.dp)
                     )
@@ -154,7 +154,7 @@ fun LoginScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "WhisperType",
+                        text = "VoxType",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)

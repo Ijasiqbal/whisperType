@@ -34,7 +34,7 @@ fun TrialExpiredScreen(
     trialStatus: UsageDataManager.TrialStatus,
     priceDisplay: String = "₹79/month",
     creditsLimit: Int = 10000,
-    planName: String = "WhisperType Pro",
+    planName: String = "VoxType Pro",
     isLoading: Boolean = false,
     onUpgrade: () -> Unit = {},
     onContactSupport: () -> Unit = {}
@@ -233,7 +233,7 @@ private fun ProUpgradeCard(
                 horizontalAlignment = Alignment.Start
             ) {
                 BenefitRow("$creditsLimit credits resets monthly")
-                BenefitRow("No trial expiry anxiety")
+                BenefitRow("Higher limits for premium models")
                 BenefitRow("Cancel anytime")
             }
             

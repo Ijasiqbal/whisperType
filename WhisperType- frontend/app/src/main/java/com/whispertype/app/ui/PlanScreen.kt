@@ -38,7 +38,7 @@ import java.util.*
 fun PlanScreen(
     priceDisplay: String = "₹79/month",
     creditsLimit: Int = 10000,
-    planName: String = "WhisperType Pro",
+    planName: String = "VoxType Pro",
     isLoading: Boolean = false,
     onUpgrade: () -> Unit = {},
     onContactSupport: () -> Unit = {}
@@ -253,7 +253,7 @@ private fun UpgradeCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = if (isExpired) "Continue Using WhisperType" else "Upgrade to Pro",
+                text = if (isExpired) "Continue Using VoxType" else "Upgrade to Pro",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1E293B),
@@ -286,7 +286,7 @@ private fun UpgradeCard(
                 horizontalAlignment = Alignment.Start
             ) {
                 BenefitItem("$creditsLimit credits resets monthly")
-                BenefitItem("No trial expiry worries")
+                BenefitItem("Higher limits for premium models")
                 BenefitItem("Cancel anytime")
             }
             

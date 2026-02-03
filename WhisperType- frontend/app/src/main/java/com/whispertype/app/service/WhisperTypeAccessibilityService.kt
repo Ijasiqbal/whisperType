@@ -602,6 +602,68 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     }
     
     /**
+     * Perform auto-send by finding and clicking the send button in the current app
+     * Returns true if successful, false otherwise
+     */
+    fun performAutoSend(): Boolean {
+        Log.d(TAG, "performAutoSend: Starting auto-send attempt")
+        
+        val rootNode = rootInActiveWindow
+        if (rootNode == null) {
+            Log.w(TAG, "performAutoSend: No active window, cannot auto-send")
+            return false
+        }
+        
+        // Try to find and click the send button
+        val sendButton = findSendButton(rootNode)
+        if (sendButton != null) {
+            Log.d(TAG, "performAutoSend: Found send button, clicking...")
+            val success = sendButton.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            sendButton.recycle()
+            Log.d(TAG, "performAutoSend: Click action result: $success")
+            rootNode.recycle()
+            return success
+        }
+        
+        Log.w(TAG, "performAutoSend: Could not find send button")
+        rootNode.recycle()
+        return false
+    }
+    
+    /**
+     * Recursively search for a send button in the node tree
+     * Looks for buttons with text like "Send", "Post", "Submit", etc.
+     */
+    private fun findSendButton(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        // Check if this node is a clickable button-like element
+        if (node.isClickable) {
+            val text = node.text?.toString()?.lowercase()
+            val contentDesc = node.contentDescription?.toString()?.lowercase()
+            
+            // Check for send-like text
+            val sendKeywords = listOf("send", "post", "submit", "share")
+            if (sendKeywords.any { keyword ->
+                    text?.contains(keyword) == true || contentDesc?.contains(keyword) == true
+                }) {
+                Log.d(TAG, "findSendButton: Found potential send button with text='$text' contentDesc='$contentDesc'")
+                return node
+            }
+        }
+        
+        // Recursively search children
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findSendButton(child)
+            child.recycle()
+            if (result != null) {
+                return result
+            }
+        }
+        
+        return null
+    }
+    
+    /**
      * Create notification channel for foreground service (API 26+)
      */
     private fun createNotificationChannel() {
