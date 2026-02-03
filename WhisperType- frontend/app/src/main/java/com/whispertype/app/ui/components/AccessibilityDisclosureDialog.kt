@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -67,8 +67,8 @@ fun AccessibilityDisclosureDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Info,
-                        contentDescription = "Accessibility Information",
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = "Voice Input",
                         tint = Color(0xFF6366F1), // Indigo-500
                         modifier = Modifier.size(36.dp)
                     )
@@ -78,7 +78,7 @@ fun AccessibilityDisclosureDialog(
                 
                 // Title
                 Text(
-                    text = "Accessibility Access Required",
+                    text = "Enable Voice Input",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E293B),
@@ -87,31 +87,32 @@ fun AccessibilityDisclosureDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Why we need it
+                // Description
                 Text(
-                    text = "Why VoxType needs this permission:",
+                    text = "To type using your voice in any app, VoxType uses Android's Accessibility Service to:",
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     color = Color(0xFF1E293B),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    lineHeight = 20.sp
                 )
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 
                 Text(
-                    text = "• Detect active text input fields across all apps",
+                    text = "• Place transcribed text into text fields",
                     fontSize = 13.sp,
                     color = Color(0xFF64748B),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "• Insert your voice transcriptions into text fields",
+                    text = "• Enable quick activation via volume buttons",
                     fontSize = 13.sp,
                     color = Color(0xFF64748B),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "• Respond to volume button shortcuts",
+                    text = "• Work seamlessly across your favorite apps",
                     fontSize = 13.sp,
                     color = Color(0xFF64748B),
                     modifier = Modifier.fillMaxWidth()
@@ -119,12 +120,12 @@ fun AccessibilityDisclosureDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Privacy section with highlight
+                // Privacy note
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFF0FDF4) // Green-50
+                        containerColor = Color(0xFFF8FAFC) // Slate-50
                     )
                 ) {
                     Row(
@@ -132,22 +133,22 @@ fun AccessibilityDisclosureDialog(
                         verticalAlignment = Alignment.Top
                     ) {
                         Text(
-                            text = "🔒",
+                            text = "ℹ️",
                             fontSize = 16.sp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
-                                text = "Your Privacy is Protected",
+                                text = "How it works",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF166534) // Green-800
+                                color = Color(0xFF334155) // Slate-700
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "VoxType does NOT collect, store, or share any personal data from other applications. We only access text fields to insert your transcriptions.",
+                                text = "VoxType only interacts with text fields when you activate voice input. Your transcribed speech is inserted directly where you're typing.",
                                 fontSize = 12.sp,
-                                color = Color(0xFF15803D), // Green-700
+                                color = Color(0xFF64748B), // Slate-500
                                 lineHeight = 18.sp
                             )
                         }
@@ -168,7 +169,7 @@ fun AccessibilityDisclosureDialog(
                     )
                 ) {
                     Text(
-                        text = "Continue to Settings",
+                        text = "Open Settings",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )

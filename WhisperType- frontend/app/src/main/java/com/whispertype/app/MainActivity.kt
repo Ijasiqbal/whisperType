@@ -634,7 +634,7 @@ fun MainScreen(
                         android.util.Log.d("AccessibilityDisclosure", "Enable button clicked, showing disclosure dialog")
                         showAccessibilityDisclosureDialog = true 
                     },
-                    enabled = !isAccessibilityEnabled
+                    enabled = true
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -647,7 +647,7 @@ fun MainScreen(
                     isGranted = isOverlayGranted,
                     buttonText = if (isOverlayGranted) "Granted" else "Grant",
                     onClick = onGrantOverlay,
-                    enabled = !isOverlayGranted
+                    enabled = true
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -660,7 +660,7 @@ fun MainScreen(
                     isGranted = isMicrophoneGranted,
                     buttonText = if (isMicrophoneGranted) "Granted" else "Grant",
                     onClick = onGrantMicrophone,
-                    enabled = !isMicrophoneGranted
+                    enabled = true
                 )
             }
         }
