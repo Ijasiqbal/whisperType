@@ -402,6 +402,10 @@ fun MainScreen(
     // State for showing accessibility disclosure dialog (Google Play compliance)
     var showAccessibilityDisclosureDialog by remember { mutableStateOf(false) }
     
+    // Get guide video URL from Remote Config
+    val guideVideoUrl by RemoteConfigManager.guideVideoUrl.collectAsStateWithLifecycle()
+    val guideVideoId = remember(guideVideoUrl) { RemoteConfigManager.extractVideoId(guideVideoUrl) }
+    
     // Check if this is a MIUI device and show prompt if needed
     val isMiuiDevice = remember { MiuiHelper.isMiuiDevice() }
     var showMiuiCard by remember { mutableStateOf(MiuiHelper.shouldShowSetupPrompt(context)) }
@@ -973,12 +977,40 @@ fun MainScreen(
         if (showAccessibilityDisclosureDialog) {
             android.util.Log.d("AccessibilityDisclosure", "Dialog is being rendered, showAccessibilityDisclosureDialog=true")
             AccessibilityDisclosureDialog(
+                guideVideoId = guideVideoId,
                 onContinue = {
                     showAccessibilityDisclosureDialog = false
                     onEnableAccessibility()
                 },
                 onDismiss = {
                     showAccessibilityDisclosureDialog = false
+                },
+                onShowGuide = {
+                    // Open YouTube app directly via deeplink
+                    guideVideoId?.let { videoId ->
+                        val youtubeDeeplink = "vnd.youtube://$videoId"
+                        val youtubeWebUrl = "https://www.youtube.com/watch?v=$videoId"
+
+                        try {
+                            // Try YouTube app deeplink first
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(youtubeDeeplink)
+                            )
+                            context.startActivity(intent)
+                        } catch (e: android.content.ActivityNotFoundException) {
+                            // Fallback to web URL if YouTube app not installed
+                            try {
+                                val webIntent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(youtubeWebUrl)
+                                )
+                                context.startActivity(webIntent)
+                            } catch (e2: android.content.ActivityNotFoundException) {
+                                android.util.Log.w("MainActivity", "No app available to open YouTube URL")
+                            }
+                        }
+                    }
                 }
             )
         }

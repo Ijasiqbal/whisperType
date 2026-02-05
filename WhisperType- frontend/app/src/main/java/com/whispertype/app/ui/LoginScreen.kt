@@ -246,41 +246,45 @@ fun LoginScreen(
                             }
                         }
                         
-                        Spacer(modifier = Modifier.height(16.dp))
                         
-                        // Divider
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Divider(modifier = Modifier.weight(1f))
-                            Text(
-                                text = "  or  ",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 14.sp
-                            )
-                            Divider(modifier = Modifier.weight(1f))
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        // Anonymous Sign-In button
-                        OutlinedButton(
-                            onClick = { handleAnonymousSignIn() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF64748B)
-                            ),
-                            enabled = !isLoading
-                        ) {
-                            Text(
-                                text = "Continue as Guest",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                        // Guest login - only available in debug builds
+                        if (com.whispertype.app.BuildConfig.ENABLE_GUEST_LOGIN) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // Divider
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Divider(modifier = Modifier.weight(1f))
+                                Text(
+                                    text = "  or  ",
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 14.sp
+                                )
+                                Divider(modifier = Modifier.weight(1f))
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // Anonymous Sign-In button
+                            OutlinedButton(
+                                onClick = { handleAnonymousSignIn() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF64748B)
+                                ),
+                                enabled = !isLoading
+                            ) {
+                                Text(
+                                    text = "Continue as Guest",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }

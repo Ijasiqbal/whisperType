@@ -58,12 +58,18 @@ android {
             
             // Performance optimization: Enable code optimization
             isMinifyEnabled = true
+            
+            // Disable guest login in production builds
+            buildConfigField("Boolean", "ENABLE_GUEST_LOGIN", "false")
         }
         
         debug {
             // Keep debug builds fast - no optimization
             isMinifyEnabled = false
             isShrinkResources = false
+            
+            // Enable guest login in debug builds
+            buildConfigField("Boolean", "ENABLE_GUEST_LOGIN", "true")
         }
     }
     

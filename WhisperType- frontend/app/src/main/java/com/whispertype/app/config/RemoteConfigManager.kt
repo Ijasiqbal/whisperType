@@ -36,6 +36,9 @@ object RemoteConfigManager {
     private const val KEY_SOFT_UPDATE_MIN_VERSION = "soft_update_min_version_code"
     private const val KEY_SOFT_UPDATE_BLOCKED_VERSIONS = "soft_update_blocked_versions"
     
+    // Guide video URL key
+    private const val KEY_GUIDE_VIDEO_URL = "guide_video_url"
+    
     // Default values (fallback if Remote Config fails)
     private const val DEFAULT_PRO_PRICE_DISPLAY = "₹79/month"
     private const val DEFAULT_PRO_PLAN_NAME = "WhisperType Pro"
@@ -52,6 +55,9 @@ object RemoteConfigManager {
     private const val DEFAULT_SOFT_UPDATE_ENABLED = false
     private const val DEFAULT_SOFT_UPDATE_MIN_VERSION = 1
     private const val DEFAULT_SOFT_UPDATE_BLOCKED_VERSIONS = ""
+    
+    // Guide video default (empty = button hidden)
+    private const val DEFAULT_GUIDE_VIDEO_URL = ""
     
     // Minimum fetch interval (5 minutes for production, 0 for debug/testing)
     private val FETCH_INTERVAL_SECONDS: Long
@@ -88,6 +94,10 @@ object RemoteConfigManager {
     
     private val _updateConfig = MutableStateFlow(UpdateConfig())
     val updateConfig: StateFlow<UpdateConfig> = _updateConfig.asStateFlow()
+    
+    // Guide video URL - button shown only when non-empty
+    private val _guideVideoUrl = MutableStateFlow(DEFAULT_GUIDE_VIDEO_URL)
+    val guideVideoUrl: StateFlow<String> = _guideVideoUrl.asStateFlow()
     
     // Loading state - true until first fetch completes
     private val _isLoading = MutableStateFlow(true)
@@ -132,7 +142,10 @@ object RemoteConfigManager {
             // Soft update defaults
             KEY_SOFT_UPDATE_ENABLED to DEFAULT_SOFT_UPDATE_ENABLED,
             KEY_SOFT_UPDATE_MIN_VERSION to DEFAULT_SOFT_UPDATE_MIN_VERSION,
-            KEY_SOFT_UPDATE_BLOCKED_VERSIONS to DEFAULT_SOFT_UPDATE_BLOCKED_VERSIONS
+            KEY_SOFT_UPDATE_BLOCKED_VERSIONS to DEFAULT_SOFT_UPDATE_BLOCKED_VERSIONS,
+            
+            // Guide video default
+            KEY_GUIDE_VIDEO_URL to DEFAULT_GUIDE_VIDEO_URL
         )
         remoteConfig.setDefaultsAsync(defaults)
         
@@ -221,6 +234,37 @@ object RemoteConfigManager {
         )
         
         Log.d(TAG, "Update config: forceEnabled=$forceUpdateEnabled, minVersion=$forceUpdateMinVersion, blocked=$forceUpdateBlockedVersions")
+        
+        // Update guide video URL
+        val guideVideoUrl = remoteConfig.getString(KEY_GUIDE_VIDEO_URL)
+        _guideVideoUrl.value = guideVideoUrl
+        Log.d(TAG, "Guide video URL: $guideVideoUrl")
+    }
+    
+    /**
+     * Extract YouTube video ID from a YouTube URL
+     * Supports formats:
+     * - https://www.youtube.com/watch?v=VIDEO_ID
+     * - https://youtu.be/VIDEO_ID
+     * - https://youtube.com/watch?v=VIDEO_ID
+     */
+    fun extractVideoId(url: String): String? {
+        if (url.isBlank()) return null
+        
+        return try {
+            when {
+                url.contains("youtu.be/") -> {
+                    url.substringAfter("youtu.be/").substringBefore("?")
+                }
+                url.contains("watch?v=") -> {
+                    url.substringAfter("watch?v=").substringBefore("&")
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to extract video ID from URL: $url", e)
+            null
+        }
     }
     
     /**

@@ -31,6 +31,22 @@
     <!-- Keep device awake during recording to prevent interruption -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- 
+    QUERIES - Required for Android 11+ (API 30+)
+    Allows the app to interact with YouTube player and web browsers
+    -->
+    <queries>
+        <!-- YouTube app for in-app player -->
+        <package android:name="com.google.android.youtube" />
+        
+        <!-- Web browser for fallback -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:name=".WhisperTypeApplication"
         android:allowBackup="true"
