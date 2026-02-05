@@ -13,6 +13,7 @@ import * as functions from "firebase-functions";
 import {onRequest} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
+import {Response} from "express";
 import OpenAI from "openai";
 import * as fs from "fs";
 import * as os from "os";
@@ -79,6 +80,60 @@ async function verifyAuthToken(
 }
 
 /**
+ * Check if a Firebase user is anonymous
+ * Anonymous users have firebase.sign_in_provider === "anonymous"
+ * or their identities object is empty
+ * @param {admin.auth.DecodedIdToken} decodedToken - The decoded Firebase token
+ * @return {boolean} True if user is anonymous
+ */
+function isAnonymousUser(decodedToken: admin.auth.DecodedIdToken): boolean {
+  // Check the sign_in_provider in firebase claim
+  const firebase = decodedToken.firebase;
+  if (firebase?.sign_in_provider === "anonymous") {
+    return true;
+  }
+
+  // Also check if identities is empty (backup check)
+  const identities = firebase?.identities;
+  if (!identities || Object.keys(identities).length === 0) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if guest/anonymous access is allowed for a user.
+ * If the user is anonymous and guest login is disabled, sends 403 response.
+ * Returns PlanLimits if access is allowed, null if blocked.
+ * @param {admin.auth.DecodedIdToken} decodedToken - The decoded Firebase token
+ * @param {Response} response - The HTTP response object
+ * @param {string} endpoint - Endpoint name for logging (e.g., "transcribe", "Groq")
+ * @return {Promise<PlanLimits | null>} PlanLimits if allowed, null if blocked
+ */
+async function checkGuestAccessAndGetLimits(
+  decodedToken: admin.auth.DecodedIdToken,
+  response: Response,
+  endpoint: string
+): Promise<PlanLimits | null> {
+  const limits = await getPlanLimits();
+
+  if (isAnonymousUser(decodedToken) && !limits.guestLoginEnabled) {
+    logger.warn(
+      `[${endpoint}] Anonymous user ${decodedToken.uid} blocked: guest login disabled`
+    );
+    response.status(403).json({
+      error: "GUEST_LOGIN_DISABLED",
+      message: "Guest access is currently disabled. " +
+        "Please sign in with Google to continue.",
+    });
+    return null;
+  }
+
+  return limits;
+}
+
+/**
  * Log transcription request to Firestore
  * @param {string} uid - User ID
  * @param {boolean} success - Whether the transcription was successful
@@ -124,6 +179,8 @@ interface PlanLimits {
   // Pro config
   proProductId: string;
   proPlanEnabled: boolean;
+  // Guest/Anonymous login
+  guestLoginEnabled: boolean; // Whether anonymous users are allowed
 }
 
 // Cache for Remote Config values (5 minute TTL)
@@ -137,6 +194,7 @@ const DEFAULT_PRO_TIER_CREDITS = 10000;
 const DEFAULT_SECONDS_PER_CREDIT = 6;
 const DEFAULT_TRIAL_DURATION_MONTHS = 3;
 const DEFAULT_PRO_PRODUCT_ID = "whispertype_pro_monthly";
+const DEFAULT_GUEST_LOGIN_ENABLED = false;
 
 /**
  * Get plan limits from Remote Config with caching
@@ -199,6 +257,13 @@ async function getPlanLimits(): Promise<PlanLimits> {
       String(proPlanEnabledParam.defaultValue.value) === "true" :
       true;
 
+    const guestLoginEnabledParam = template.parameters?.guest_login_enabled;
+    const guestLoginEnabled = guestLoginEnabledParam &&
+      guestLoginEnabledParam.defaultValue &&
+      "value" in guestLoginEnabledParam.defaultValue ?
+      String(guestLoginEnabledParam.defaultValue.value) === "true" :
+      DEFAULT_GUEST_LOGIN_ENABLED;
+
     // Cache the values
     cachedPlanLimits = {
       freeTierCredits: freeTierCredits,
@@ -207,6 +272,7 @@ async function getPlanLimits(): Promise<PlanLimits> {
       trialDurationMonths: trialDurationMonths,
       proProductId: proProductId,
       proPlanEnabled: proPlanEnabled,
+      guestLoginEnabled: guestLoginEnabled,
     };
     cacheTimestamp = now;
 
@@ -231,6 +297,7 @@ async function getPlanLimits(): Promise<PlanLimits> {
       trialDurationMonths: DEFAULT_TRIAL_DURATION_MONTHS,
       proProductId: DEFAULT_PRO_PRODUCT_ID,
       proPlanEnabled: true,
+      guestLoginEnabled: DEFAULT_GUEST_LOGIN_ENABLED,
     };
 
     // Cache fallback values
@@ -1086,6 +1153,14 @@ export const transcribeAudio = onRequest(
       uid = decodedToken.uid;
       logger.info(`Authenticated request from user: ${uid}`);
 
+      // Check guest access and get plan limits (single fetch, reused below)
+      const limits = await checkGuestAccessAndGetLimits(
+        decodedToken, response, "transcribe"
+      );
+      if (!limits) {
+        return; // Response already sent by helper
+      }
+
       // Validate request body
       const {
         audioBase64,
@@ -1122,7 +1197,6 @@ export const transcribeAudio = onRequest(
 
       // === ITERATION 3: Check validity with priority: Trial → Pro → Block ===
       const user = await getOrCreateUser(uid);
-      const limits = await getPlanLimits();
 
       let canProceed = false;
       let usageSource: "free" | "pro" = "free";
@@ -1526,6 +1600,14 @@ export const transcribeAudioGroq = onRequest(
       uid = decodedToken.uid;
       logger.info(`[Groq] Authenticated request from user: ${uid}`);
 
+      // Check guest access and get plan limits (single fetch, reused below)
+      const limits = await checkGuestAccessAndGetLimits(
+        decodedToken, response, "Groq"
+      );
+      if (!limits) {
+        return; // Response already sent by helper
+      }
+
       // Validate request body
       const {
         audioBase64,
@@ -1561,7 +1643,6 @@ export const transcribeAudioGroq = onRequest(
 
       // === Check validity with priority: Trial → Pro → Block ===
       const user = await getOrCreateUser(uid);
-      const limits = await getPlanLimits();
 
       let canProceed = false;
       let usageSource: "free" | "pro" = "free";
@@ -1962,8 +2043,15 @@ export const getSubscriptionStatus = onRequest(
       const uid = decodedToken.uid;
       logger.info(`Getting subscription status for user: ${uid}`);
 
+      // Check guest access and get plan limits (single fetch, reused below)
+      const limits = await checkGuestAccessAndGetLimits(
+        decodedToken, response, "getSubscriptionStatus"
+      );
+      if (!limits) {
+        return; // Response already sent by helper
+      }
+
       let user = await getOrCreateUser(uid);
-      const limits = await getPlanLimits();
 
       // Normalize plan field (default to 'free' if undefined)
       const userPlan = user.plan ?? "free";

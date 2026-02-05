@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.whispertype.app.R
 import com.whispertype.app.auth.AuthResult
 import com.whispertype.app.auth.FirebaseAuthManager
+import com.whispertype.app.config.RemoteConfigManager
 import kotlinx.coroutines.launch
 
 /**
@@ -39,11 +40,14 @@ fun LoginScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    
+
+    // Remote Config: Guest login enabled state
+    val guestLoginEnabled by RemoteConfigManager.guestLoginEnabled.collectAsState()
+
     // UI State
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    
+
     // Animation states
     var isVisible by remember { mutableStateOf(false) }
     
@@ -247,8 +251,8 @@ fun LoginScreen(
                         }
                         
                         
-                        // Guest login - only available in debug builds
-                        if (com.whispertype.app.BuildConfig.ENABLE_GUEST_LOGIN) {
+                        // Guest login - controlled by Firebase Remote Config
+                        if (guestLoginEnabled) {
                             Spacer(modifier = Modifier.height(16.dp))
                             
                             // Divider

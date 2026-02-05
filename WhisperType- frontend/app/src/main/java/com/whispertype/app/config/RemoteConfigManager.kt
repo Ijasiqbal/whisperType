@@ -38,7 +38,10 @@ object RemoteConfigManager {
     
     // Guide video URL key
     private const val KEY_GUIDE_VIDEO_URL = "guide_video_url"
-    
+
+    // Guest login key
+    private const val KEY_GUEST_LOGIN_ENABLED = "guest_login_enabled"
+
     // Default values (fallback if Remote Config fails)
     private const val DEFAULT_PRO_PRICE_DISPLAY = "₹79/month"
     private const val DEFAULT_PRO_PLAN_NAME = "WhisperType Pro"
@@ -58,7 +61,10 @@ object RemoteConfigManager {
     
     // Guide video default (empty = button hidden)
     private const val DEFAULT_GUIDE_VIDEO_URL = ""
-    
+
+    // Guest login default (false = disabled, only Google sign-in allowed)
+    private const val DEFAULT_GUEST_LOGIN_ENABLED = false
+
     // Minimum fetch interval (5 minutes for production, 0 for debug/testing)
     private val FETCH_INTERVAL_SECONDS: Long
         get() = if (BuildConfig.DEBUG) 0L else 300L
@@ -98,7 +104,11 @@ object RemoteConfigManager {
     // Guide video URL - button shown only when non-empty
     private val _guideVideoUrl = MutableStateFlow(DEFAULT_GUIDE_VIDEO_URL)
     val guideVideoUrl: StateFlow<String> = _guideVideoUrl.asStateFlow()
-    
+
+    // Guest login enabled - controls whether guest/anonymous login is allowed
+    private val _guestLoginEnabled = MutableStateFlow(DEFAULT_GUEST_LOGIN_ENABLED)
+    val guestLoginEnabled: StateFlow<Boolean> = _guestLoginEnabled.asStateFlow()
+
     // Loading state - true until first fetch completes
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -145,7 +155,10 @@ object RemoteConfigManager {
             KEY_SOFT_UPDATE_BLOCKED_VERSIONS to DEFAULT_SOFT_UPDATE_BLOCKED_VERSIONS,
             
             // Guide video default
-            KEY_GUIDE_VIDEO_URL to DEFAULT_GUIDE_VIDEO_URL
+            KEY_GUIDE_VIDEO_URL to DEFAULT_GUIDE_VIDEO_URL,
+
+            // Guest login default
+            KEY_GUEST_LOGIN_ENABLED to DEFAULT_GUEST_LOGIN_ENABLED
         )
         remoteConfig.setDefaultsAsync(defaults)
         
@@ -239,6 +252,11 @@ object RemoteConfigManager {
         val guideVideoUrl = remoteConfig.getString(KEY_GUIDE_VIDEO_URL)
         _guideVideoUrl.value = guideVideoUrl
         Log.d(TAG, "Guide video URL: $guideVideoUrl")
+
+        // Update guest login enabled
+        val guestLoginEnabled = remoteConfig.getBoolean(KEY_GUEST_LOGIN_ENABLED)
+        _guestLoginEnabled.value = guestLoginEnabled
+        Log.d(TAG, "Guest login enabled: $guestLoginEnabled")
     }
     
     /**
