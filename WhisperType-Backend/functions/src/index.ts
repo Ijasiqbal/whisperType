@@ -1788,18 +1788,31 @@ export const transcribeAudioGroq = onRequest(
           baseURL: "https://api.groq.com/openai/v1",
         });
 
+        // Context-style prompt to guide Whisper's punctuation style
+        // Whisper mimics the style of provided context rather than following instructions
+        const transcriptionPrompt =
+          "Hello, how are you? I'm doing well, thanks! What time is the meeting?";
+
         // Call Groq Whisper API
         logger.info(
           `[Groq] Calling Whisper API (format: ${format}, ` +
-          `model: ${selectedModel})`
+          `model: ${selectedModel}, with punctuation prompt)`
         );
         const transcription = await groq.audio.transcriptions.create({
           file: fs.createReadStream(tempFilePath),
           model: selectedModel,
+          prompt: transcriptionPrompt,
         });
 
         // Clean up temporary file
         fs.unlinkSync(tempFilePath);
+
+        // Strip prompt from output if Whisper echoed it back (rare with context-style prompts)
+        let cleanedText = transcription.text;
+        if (cleanedText && cleanedText.toLowerCase().startsWith(transcriptionPrompt.toLowerCase())) {
+          cleanedText = cleanedText.slice(transcriptionPrompt.length).trim();
+        }
+        const finalText = cleanedText || transcription.text;
 
         // Calculate duration for usage deduction
         const isValidDuration =
@@ -1883,7 +1896,7 @@ export const transcribeAudioGroq = onRequest(
 
         // Return transcription with credits-based status
         response.status(200).json({
-          text: transcription.text,
+          text: finalText,
           creditsUsed: creditsDeducted,
           totalCreditsThisMonth: totalCreditsThisMonth,
           plan: responseStatus.plan,
