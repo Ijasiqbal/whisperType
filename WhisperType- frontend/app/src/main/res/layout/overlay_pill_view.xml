@@ -36,7 +36,7 @@ Layout (left to right):
         android:layout_height="wrap_content"
         android:minHeight="52dp"
         android:minWidth="220dp"
-        android:maxWidth="320dp"
+        android:maxWidth="380dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/pill_liquid_glass_background"
@@ -100,7 +100,7 @@ Layout (left to right):
                     android:textColor="#F0FFFFFF"
                     android:textSize="13sp"
                     android:textStyle="bold"
-                    android:maxLines="1"
+                    android:maxLines="2"
                     android:ellipsize="end"
                     android:gravity="start|center_vertical" />
 
