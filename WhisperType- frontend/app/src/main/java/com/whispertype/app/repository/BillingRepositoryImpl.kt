@@ -45,10 +45,10 @@ class BillingRepositoryImpl @Inject constructor(
     }
     
     override suspend fun querySubscription() {
-        billingManager.queryProSubscription()
+        billingManager.queryProducts()
         updateSubscriptionStatus()
     }
-    
+
     private fun updateSubscriptionStatus() {
         _subscriptionStatus.value = if (isProUser.value) {
             BillingManager.SubscriptionStatus.Active
@@ -56,14 +56,16 @@ class BillingRepositoryImpl @Inject constructor(
             BillingManager.SubscriptionStatus.NotSubscribed
         }
     }
-    
+
     override fun launchPurchase(
         activity: Activity,
+        productId: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         billingManager.launchPurchaseFlow(
             activity = activity,
+            productId = productId,
             onSuccess = {
                 updateSubscriptionStatus()
                 onSuccess()
@@ -71,9 +73,9 @@ class BillingRepositoryImpl @Inject constructor(
             onError = onError
         )
     }
-    
-    override fun getFormattedPrice(): String? {
-        return billingManager.getFormattedPrice()
+
+    override fun getFormattedPrice(productId: String): String? {
+        return billingManager.getFormattedPrice(productId)
     }
     
     override fun setAuthTokenProvider(provider: () -> String?) {

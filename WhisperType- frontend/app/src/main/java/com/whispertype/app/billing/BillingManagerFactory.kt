@@ -43,17 +43,21 @@ object BillingManagerFactory {
  */
 interface IBillingManager {
     val isProUser: StateFlow<Boolean>
-    
+
     fun initialize(onReady: () -> Unit = {})
-    suspend fun queryProSubscription(): Any?
+    suspend fun queryProducts(): Map<String, Any?>
     fun launchPurchaseFlow(
-        activity: Activity, 
+        activity: Activity,
+        productId: String,
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     )
-    fun getFormattedPrice(): String?
+    fun getFormattedPrice(productId: String): String?
     fun setAuthTokenProvider(provider: () -> String?)
     fun release()
+
+    // Legacy compat
+    suspend fun queryProSubscription(): Any? = queryProducts().values.firstOrNull()
 }
 
 /**
@@ -61,17 +65,18 @@ interface IBillingManager {
  */
 class MockBillingWrapper : IBillingManager {
     private val mock = MockBillingManager()
-    
+
     override val isProUser: StateFlow<Boolean> = mock.isProUser
-    
+
     override fun initialize(onReady: () -> Unit) = mock.initialize(onReady)
-    override suspend fun queryProSubscription() = mock.queryProSubscription()
+    override suspend fun queryProducts(): Map<String, Any?> = mock.queryProducts()
     override fun launchPurchaseFlow(
-        activity: Activity, 
+        activity: Activity,
+        productId: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
-    ) = mock.launchPurchaseFlow(activity, onSuccess, onError)
-    override fun getFormattedPrice(): String = mock.getFormattedPrice()
+    ) = mock.launchPurchaseFlow(activity, productId, onSuccess, onError)
+    override fun getFormattedPrice(productId: String): String = mock.getFormattedPrice(productId)
     override fun setAuthTokenProvider(provider: () -> String?) {
         // Mock doesn't need auth token
     }
@@ -83,17 +88,18 @@ class MockBillingWrapper : IBillingManager {
  */
 class RealBillingWrapper(context: Context) : IBillingManager {
     private val real = BillingManager(context)
-    
+
     override val isProUser: StateFlow<Boolean> = real.isProUser
-    
+
     override fun initialize(onReady: () -> Unit) = real.initialize(onReady)
-    override suspend fun queryProSubscription() = real.queryProSubscription()
+    override suspend fun queryProducts(): Map<String, Any?> = real.queryAllProducts()
     override fun launchPurchaseFlow(
-        activity: Activity, 
+        activity: Activity,
+        productId: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
-    ) = real.launchPurchaseFlow(activity, onSuccess, onError)
-    override fun getFormattedPrice(): String? = real.getFormattedPrice()
+    ) = real.launchPurchaseFlow(activity, productId, onSuccess, onError)
+    override fun getFormattedPrice(productId: String): String? = real.getFormattedPrice(productId)
     override fun setAuthTokenProvider(provider: () -> String?) = real.setAuthTokenProvider(provider)
     override fun release() = real.release()
 }

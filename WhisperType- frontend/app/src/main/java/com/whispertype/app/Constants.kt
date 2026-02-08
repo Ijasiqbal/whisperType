@@ -66,4 +66,20 @@ object Constants {
     
     // Preferences
     const val PREFS_NAME = "whispertype_prefs"
+
+    // Billing - Product IDs (must match Google Play Console)
+    // Google Play handles regional pricing (INR/USD) automatically via country-specific overrides
+    const val PRODUCT_ID_STARTER = "voxtype_starter_monthly"
+    const val PRODUCT_ID_PRO = "voxtype_pro_monthly"
+    const val PRODUCT_ID_UNLIMITED = "voxtype_unlimited_monthly"
+
+    // Billing - Credits per plan
+    const val CREDITS_STARTER = 2000
+    const val CREDITS_PRO = 6000
+    const val CREDITS_UNLIMITED = 15000
+
+    // Billing - Prices (fallback if Google Play price query fails)
+    const val PRICE_STARTER_FALLBACK = "$1.99"
+    const val PRICE_PRO_FALLBACK = "$6.99"
+    const val PRICE_UNLIMITED_FALLBACK = "$16.99"
 }

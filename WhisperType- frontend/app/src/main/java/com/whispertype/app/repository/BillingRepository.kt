@@ -34,22 +34,24 @@ interface BillingRepository {
     suspend fun querySubscription()
     
     /**
-     * Launch purchase flow
-     * 
+     * Launch purchase flow for a specific product
+     *
      * @param activity Activity context for billing UI
+     * @param productId Google Play product ID to purchase
      * @param onSuccess Called when purchase completes successfully
      * @param onError Called when purchase fails or is cancelled
      */
     fun launchPurchase(
-        activity: Activity, 
+        activity: Activity,
+        productId: String,
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     )
-    
+
     /**
-     * Get formatted price string for display
+     * Get formatted price string for a specific product
      */
-    fun getFormattedPrice(): String?
+    fun getFormattedPrice(productId: String): String?
     
     /**
      * Set auth token provider for backend verification

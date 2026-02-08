@@ -135,58 +135,82 @@ fun ProfileScreenSkeleton(
 }
 
 /**
- * Plan screen skeleton - shows while loading plan data
+ * Plan screen skeleton - shows while loading plan data (3-tier pricing)
  */
 @Composable
 fun PlanScreenSkeleton(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(24.dp),
+        modifier = modifier.padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Current plan card skeleton
-        SkeletonCard(height = 180.dp)
-        
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Current status card skeleton
+        SkeletonCard(height = 70.dp)
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Title skeleton
+        SkeletonText(width = 180.dp, height = 24.dp)
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SkeletonText(width = 220.dp, height = 14.dp)
+
         Spacer(modifier = Modifier.height(24.dp))
-        
-        // Upgrade section skeleton
-        SkeletonCard(height = 280.dp)
+
+        // 3 Plan cards skeleton
+        repeat(3) {
+            SkeletonCard(height = 200.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
     }
 }
 
 /**
- * Trial expired screen skeleton - shows while loading remote config
+ * Trial expired screen skeleton - shows while loading remote config (3-tier pricing)
  */
 @Composable
 fun TrialExpiredScreenSkeleton(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(40.dp))
-        
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Icon skeleton
-        SkeletonCircle(size = 80.dp)
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
+        SkeletonCircle(size = 72.dp)
+
+        Spacer(modifier = Modifier.height(20.dp))
+
         // Title skeleton
-        SkeletonText(width = 200.dp, height = 28.dp)
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
+        SkeletonText(width = 200.dp, height = 26.dp)
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         // Reason text skeleton
-        SkeletonText(width = 260.dp, height = 16.dp)
-        
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        // Pro card skeleton
-        SkeletonCard(height = 300.dp)
+        SkeletonText(width = 240.dp, height = 15.dp)
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        SkeletonText(width = 200.dp, height = 14.dp)
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // 3 Compact plan cards skeleton
+        repeat(3) {
+            SkeletonCard(height = 140.dp)
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Free tier reminder skeleton
+        SkeletonCard(height = 45.dp)
     }
 }
 

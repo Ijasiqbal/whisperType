@@ -74,6 +74,9 @@ class WhisperApiClient {
         private val TRIAL_STATUS_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/getTrialStatus"
         
+        private val VERIFY_SUBSCRIPTION_URL: String
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/verifySubscription"
+
         private val HEALTH_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/health"
         
@@ -288,6 +291,36 @@ class WhisperApiClient {
     )
 
     /**
+     * Response from getTrialStatus endpoint - handles both free and Pro users
+     */
+    private data class UserStatusResponse(
+        @SerializedName("plan")
+        val plan: String?,
+        @SerializedName("status")
+        val status: String?,
+        @SerializedName("warningLevel")
+        val warningLevel: String?,
+        // Trial fields (when plan == "free")
+        @SerializedName("freeCreditsUsed")
+        val freeCreditsUsed: Int?,
+        @SerializedName("freeCreditsRemaining")
+        val freeCreditsRemaining: Int?,
+        @SerializedName("freeTierCredits")
+        val freeTierCredits: Int?,
+        @SerializedName("trialExpiryDateMs")
+        val trialExpiryDateMs: Long?,
+        // Pro fields (when plan == "pro")
+        @SerializedName("proCreditsUsed")
+        val proCreditsUsed: Int?,
+        @SerializedName("proCreditsRemaining")
+        val proCreditsRemaining: Int?,
+        @SerializedName("proCreditsLimit")
+        val proCreditsLimit: Int?,
+        @SerializedName("resetDateMs")
+        val resetDateMs: Long?
+    )
+
+    /**
      * Error response from the API
      */
     private data class ErrorResponse(
@@ -375,8 +408,8 @@ class WhisperApiClient {
                                     Log.d(TAG, "Pro: ${proStatus.proCreditsUsed} credits used, ${proStatus.proCreditsRemaining} remaining")
                                     UsageDataManager.updateProStatus(
                                         proCreditsUsed = proStatus.proCreditsUsed ?: 0,
-                                        proCreditsRemaining = proStatus.proCreditsRemaining ?: 10000,
-                                        proCreditsLimit = proStatus.proCreditsLimit ?: 10000,
+                                        proCreditsRemaining = proStatus.proCreditsRemaining ?: Constants.CREDITS_PRO,
+                                        proCreditsLimit = proStatus.proCreditsLimit ?: Constants.CREDITS_PRO,
                                         proResetDateMs = proStatus.currentPeriodEndMs ?: 0
                                     )
                                     // Also update monthly usage
@@ -391,10 +424,10 @@ class WhisperApiClient {
                                             totalCreditsThisMonth = totalCreditsThisMonth,
                                             status = trial.status ?: "active",
                                             freeCreditsUsed = trial.freeCreditsUsed ?: 0,
-                                            freeCreditsRemaining = trial.freeCreditsRemaining ?: 1000,
+                                            freeCreditsRemaining = trial.freeCreditsRemaining ?: 500,
                                             trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
                                             warningLevel = trial.warningLevel ?: "none",
-                                            freeTierCredits = trial.freeTierCredits ?: 1000
+                                            freeTierCredits = trial.freeTierCredits ?: 500
                                         )
                                     } else {
                                         // Legacy response
@@ -445,7 +478,7 @@ class WhisperApiClient {
                                 UsageDataManager.updateProStatus(
                                     proCreditsUsed = proStatus?.proCreditsUsed ?: 0,
                                     proCreditsRemaining = proStatus?.proCreditsRemaining ?: 0,
-                                    proCreditsLimit = proStatus?.proCreditsLimit ?: 10000,
+                                    proCreditsLimit = proStatus?.proCreditsLimit ?: Constants.CREDITS_PRO,
                                     proResetDateMs = proStatus?.resetDateMs ?: (System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)
                                 )
                             } else {
@@ -454,11 +487,11 @@ class WhisperApiClient {
                                 if (trial != null) {
                                     UsageDataManager.updateTrialStatus(
                                         status = trial.status ?: "expired_usage",
-                                        freeCreditsUsed = trial.freeCreditsUsed ?: 1000,
+                                        freeCreditsUsed = trial.freeCreditsUsed ?: 500,
                                         freeCreditsRemaining = 0,
                                         trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
                                         warningLevel = "none",
-                                        freeTierCredits = trial.freeTierCredits ?: 1000
+                                        freeTierCredits = trial.freeTierCredits ?: 500
                                     )
                                 } else {
                                     UsageDataManager.markTrialExpired(
@@ -598,8 +631,8 @@ class WhisperApiClient {
                                 if (isPro && proStatus != null) {
                                     UsageDataManager.updateProStatus(
                                         proCreditsUsed = proStatus.proCreditsUsed ?: 0,
-                                        proCreditsRemaining = proStatus.proCreditsRemaining ?: 9000,
-                                        proCreditsLimit = proStatus.proCreditsLimit ?: 9000,
+                                        proCreditsRemaining = proStatus.proCreditsRemaining ?: Constants.CREDITS_PRO,
+                                        proCreditsLimit = proStatus.proCreditsLimit ?: Constants.CREDITS_PRO,
                                         proResetDateMs = proStatus.currentPeriodEndMs ?: 0
                                     )
                                     UsageDataManager.updateUsage(creditsUsed, totalCreditsThisMonth)
@@ -611,7 +644,7 @@ class WhisperApiClient {
                                             totalCreditsThisMonth = totalCreditsThisMonth,
                                             status = trial.status ?: "active",
                                             freeCreditsUsed = trial.freeCreditsUsed ?: 0,
-                                            freeCreditsRemaining = trial.freeCreditsRemaining ?: 1200,
+                                            freeCreditsRemaining = trial.freeCreditsRemaining ?: 500,
                                             trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
                                             warningLevel = trial.warningLevel ?: "none"
                                         )
@@ -830,26 +863,36 @@ class WhisperApiClient {
                 when (response.code) {
                     200 -> {
                         try {
-                            val trialResponse = gson.fromJson(responseBody, TrialStatusResponse::class.java)
+                            val statusResponse = gson.fromJson(responseBody, UserStatusResponse::class.java)
 
-                            // Update UsageDataManager with trial status
-                            UsageDataManager.updateTrialStatus(
-                                status = trialResponse.status ?: "active",
-                                freeCreditsUsed = trialResponse.freeCreditsUsed ?: 0,
-                                freeCreditsRemaining = trialResponse.freeCreditsRemaining ?: 1200,
-                                trialExpiryDateMs = trialResponse.trialExpiryDateMs ?: 0,
-                                warningLevel = trialResponse.warningLevel ?: "none",
-                                freeTierCredits = trialResponse.freeTierCredits ?: 1200
-                            )
-
-                            Log.d(TAG, "Trial: ${trialResponse.status}, ${trialResponse.freeCreditsRemaining} credits remaining")
+                            if (statusResponse.plan == "pro") {
+                                // Pro subscriber - update Pro status
+                                Log.d(TAG, "Pro user: ${statusResponse.proCreditsRemaining}/${statusResponse.proCreditsLimit} credits remaining")
+                                UsageDataManager.updateProStatus(
+                                    proCreditsUsed = statusResponse.proCreditsUsed ?: 0,
+                                    proCreditsRemaining = statusResponse.proCreditsRemaining ?: Constants.CREDITS_PRO,
+                                    proCreditsLimit = statusResponse.proCreditsLimit ?: Constants.CREDITS_PRO,
+                                    proResetDateMs = statusResponse.resetDateMs ?: 0
+                                )
+                            } else {
+                                // Free trial user - update trial status
+                                Log.d(TAG, "Trial: ${statusResponse.status}, ${statusResponse.freeCreditsRemaining} credits remaining")
+                                UsageDataManager.updateTrialStatus(
+                                    status = statusResponse.status ?: "active",
+                                    freeCreditsUsed = statusResponse.freeCreditsUsed ?: 0,
+                                    freeCreditsRemaining = statusResponse.freeCreditsRemaining ?: 500,
+                                    trialExpiryDateMs = statusResponse.trialExpiryDateMs ?: 0,
+                                    warningLevel = statusResponse.warningLevel ?: "none",
+                                    freeTierCredits = statusResponse.freeTierCredits ?: 500
+                                )
+                            }
 
                             onSuccess(
-                                trialResponse.status ?: "active",
-                                trialResponse.freeCreditsUsed ?: 0,
-                                trialResponse.freeCreditsRemaining ?: 1200,
-                                trialResponse.trialExpiryDateMs ?: 0,
-                                trialResponse.warningLevel ?: "none"
+                                statusResponse.status ?: "active",
+                                statusResponse.freeCreditsUsed ?: 0,
+                                statusResponse.freeCreditsRemaining ?: 0,
+                                statusResponse.trialExpiryDateMs ?: 0,
+                                statusResponse.warningLevel ?: "none"
                             )
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to parse trial status response", e)
@@ -905,7 +948,7 @@ class WhisperApiClient {
         val jsonBody = gson.toJson(requestBody)
 
         val request = Request.Builder()
-            .url("https://us-central1-whispertype-1de9f.cloudfunctions.net/verifySubscription")
+            .url(VERIFY_SUBSCRIPTION_URL)
             .addHeader("Authorization", "Bearer $authToken")
             .post(jsonBody.toRequestBody(JSON_MEDIA_TYPE))
             .build()
@@ -926,14 +969,14 @@ class WhisperApiClient {
                                 // Update UsageDataManager with Pro status
                                 UsageDataManager.updateProStatus(
                                     proCreditsUsed = result.proStatus.proCreditsUsed ?: 0,
-                                    proCreditsRemaining = result.proStatus.proCreditsRemaining ?: 9000,
-                                    proCreditsLimit = result.proStatus.proCreditsLimit ?: 9000,
+                                    proCreditsRemaining = result.proStatus.proCreditsRemaining ?: Constants.CREDITS_PRO,
+                                    proCreditsLimit = result.proStatus.proCreditsLimit ?: Constants.CREDITS_PRO,
                                     proResetDateMs = result.proStatus.currentPeriodEndMs ?: 0
                                 )
 
                                 onSuccess(
-                                    result.proStatus.proCreditsRemaining ?: 9000,
-                                    result.proStatus.proCreditsLimit ?: 9000,
+                                    result.proStatus.proCreditsRemaining ?: Constants.CREDITS_PRO,
+                                    result.proStatus.proCreditsLimit ?: Constants.CREDITS_PRO,
                                     result.proStatus.currentPeriodEndMs ?: 0
                                 )
                             } else {

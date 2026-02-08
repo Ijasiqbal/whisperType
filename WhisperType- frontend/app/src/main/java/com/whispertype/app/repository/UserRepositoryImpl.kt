@@ -41,7 +41,7 @@ class UserRepositoryImpl @Inject constructor(
             
             apiClient.getTrialStatus(
                 authToken = authToken,
-                onSuccess = { status, freeSecondsUsed, freeSecondsRemaining, trialExpiryDateMs, warningLevel ->
+                onSuccess = { status, _, _, _, _ ->
                     Log.d(TAG, "Status refresh successful: $status")
                     continuation.resume(Result.success(Unit))
                 },

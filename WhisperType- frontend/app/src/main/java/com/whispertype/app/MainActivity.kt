@@ -131,9 +131,9 @@ class MainActivity : ComponentActivity() {
         billingManager.setAuthTokenProvider { authManager.getCachedIdToken() }
         
         billingManager.initialize {
-            // Billing ready - query product details
+            // Billing ready - query all product details
             lifecycleScope.launch {
-                billingManager.queryProSubscription()
+                billingManager.queryProducts()
             }
         }
         
@@ -238,7 +238,8 @@ class MainActivity : ComponentActivity() {
                     onTestOverlay = { testOverlay() },
                     onSignOut = { authManager.signOut() },
                     userEmail = authState.user.email ?: "",
-                    onUpgrade = { launchBillingFlow() }
+                    onSelectPlan = { planId -> launchBillingFlow(planId) },
+                    getFormattedPrice = { productId -> billingManager.getFormattedPrice(productId) }
                 )
             }
             is AuthState.Error -> {
@@ -259,11 +260,12 @@ class MainActivity : ComponentActivity() {
     }
     
     /**
-     * Launch the billing purchase flow
+     * Launch the billing purchase flow for a specific plan
      */
-    private fun launchBillingFlow() {
+    private fun launchBillingFlow(productId: String) {
         billingManager.launchPurchaseFlow(
             activity = this,
+            productId = productId,
             onSuccess = {
                 Toast.makeText(this, "Welcome to VoxType Pro!", Toast.LENGTH_LONG).show()
             },
@@ -1277,7 +1279,8 @@ fun AppWithBottomNav(
     onTestOverlay: () -> Unit,
     onSignOut: () -> Unit,
     userEmail: String?,
-    onUpgrade: () -> Unit = {}
+    onSelectPlan: (String) -> Unit = {},
+    getFormattedPrice: (String) -> String? = { null }
 ) {
     var selectedTab by remember { mutableStateOf(BottomNavTab.HOME) }
     
@@ -1331,16 +1334,9 @@ fun AppWithBottomNav(
                 if (token != null) {
                     com.whispertype.app.api.WhisperApiClient().getTrialStatus(
                         authToken = token,
-                        onSuccess = { status, freeCreditsUsed, freeCreditsRemaining, trialExpiryDateMs, warningLevel ->
-                            android.util.Log.d("MainActivity", "Trial status fetched: $status, $freeCreditsRemaining credits remaining")
-                            // Update UsageDataManager with the fetched status
-                            UsageDataManager.updateTrialStatus(
-                                status = status,
-                                freeCreditsUsed = freeCreditsUsed,
-                                freeCreditsRemaining = freeCreditsRemaining,
-                                trialExpiryDateMs = trialExpiryDateMs,
-                                warningLevel = warningLevel
-                            )
+                        onSuccess = { status, _, _, _, _ ->
+                            android.util.Log.d("MainActivity", "User status fetched: $status")
+                            // UsageDataManager already updated by the API client
                         },
                         onError = { error ->
                             android.util.Log.e("MainActivity", "Failed to fetch trial status: $error")
@@ -1467,11 +1463,12 @@ fun AppWithBottomNav(
                 }
                 BottomNavTab.PLAN -> {
                     PlanScreen(
-                        priceDisplay = planConfig.proPriceDisplay,
-                        creditsLimit = planConfig.proMinutesLimit,
-                        planName = planConfig.proPlanName,
                         isLoading = isConfigLoading,
-                        onUpgrade = onUpgrade,
+                        getFormattedPrice = getFormattedPrice,
+                        onSelectPlan = { planId ->
+                            android.util.Log.d("MainActivity", "Selected plan: $planId")
+                            onSelectPlan(planId)
+                        },
                         onContactSupport = {
                             // TODO: Open support link
                             android.util.Log.d("MainActivity", "Contact support clicked")
@@ -1488,7 +1485,7 @@ fun AppWithBottomNav(
                                 val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
                                     data = android.net.Uri.parse(
                                         "https://play.google.com/store/account/subscriptions" +
-                                        "?sku=whispertype_pro_monthly&package=${context.packageName}"
+                                        "?package=${context.packageName}"
                                     )
                                 }
                                 context.startActivity(intent)

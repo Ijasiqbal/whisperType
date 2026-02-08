@@ -49,21 +49,22 @@ class PlanViewModel @Inject constructor(
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
     
     /**
-     * Get formatted price for UI
+     * Get formatted price for a specific product
      */
-    fun getFormattedPrice(): String {
-        return billingRepository.getFormattedPrice() ?: "₹79/month"
+    fun getFormattedPrice(productId: String): String? {
+        return billingRepository.getFormattedPrice(productId)
     }
-    
+
     /**
-     * Launch upgrade purchase flow
+     * Launch purchase flow for a specific plan
      */
-    fun upgrade(activity: Activity) {
+    fun upgrade(activity: Activity, productId: String) {
         _isPurchasing.value = true
         _errorMessage.value = null
-        
+
         billingRepository.launchPurchase(
             activity = activity,
+            productId = productId,
             onSuccess = {
                 _isPurchasing.value = false
                 // Refresh user status after successful purchase

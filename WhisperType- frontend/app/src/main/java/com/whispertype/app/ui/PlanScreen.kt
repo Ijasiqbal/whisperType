@@ -3,7 +3,8 @@ package com.whispertype.app.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,56 +12,104 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.whispertype.app.R
+import com.whispertype.app.Constants
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.ui.components.PlanScreenSkeleton
-import com.whispertype.app.ui.components.SkeletonText
-import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.*
 
 /**
- * PlanScreen - Shows current plan status and upgrade option
+ * Plan tier data class
+ */
+data class PlanTier(
+    val id: String,
+    val name: String,
+    val price: String,
+    val credits: Int,
+    val isPopular: Boolean = false,
+    val features: List<String>
+)
+
+/**
+ * PlanScreen - Shows current plan status and 3-tier upgrade options
  */
 @Composable
 fun PlanScreen(
-    priceDisplay: String = "₹79/month",
-    creditsLimit: Int = 10000,
-    planName: String = "VoxType Pro",
     isLoading: Boolean = false,
-    onUpgrade: () -> Unit = {},
+    getFormattedPrice: (productId: String) -> String? = { null },
+    onSelectPlan: (planId: String) -> Unit = {},
     onContactSupport: () -> Unit = {}
 ) {
     val usageState by UsageDataManager.usageState.collectAsState()
     val isExpired = !usageState.isTrialValid && usageState.currentPlan == UsageDataManager.Plan.FREE
-    
-    // Animation state - trigger on first composition
+
+    // Animation state
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isVisible = true }
-    
-    // Show skeleton while loading remote config
+
+    // Plan tiers — Google Play handles regional pricing automatically
+    val plans = remember {
+        listOf(
+            PlanTier(
+                id = Constants.PRODUCT_ID_STARTER,
+                name = "Starter",
+                price = Constants.PRICE_STARTER_FALLBACK,
+                credits = Constants.CREDITS_STARTER,
+                features = listOf(
+                    "${Constants.CREDITS_STARTER} credits/month",
+                    "~200 min STANDARD",
+                    "~100 min PREMIUM",
+                    "Unlimited AUTO"
+                )
+            ),
+            PlanTier(
+                id = Constants.PRODUCT_ID_PRO,
+                name = "Pro",
+                price = Constants.PRICE_PRO_FALLBACK,
+                credits = Constants.CREDITS_PRO,
+                isPopular = true,
+                features = listOf(
+                    "${Constants.CREDITS_PRO} credits/month",
+                    "~600 min STANDARD",
+                    "~300 min PREMIUM",
+                    "Unlimited AUTO"
+                )
+            ),
+            PlanTier(
+                id = Constants.PRODUCT_ID_UNLIMITED,
+                name = "Unlimited",
+                price = Constants.PRICE_UNLIMITED_FALLBACK,
+                credits = Constants.CREDITS_UNLIMITED,
+                features = listOf(
+                    "${Constants.CREDITS_UNLIMITED} credits/month",
+                    "~1500 min STANDARD",
+                    "~750 min PREMIUM",
+                    "Unlimited AUTO"
+                )
+            )
+        )
+    }
+
+    // Show skeleton while loading
     if (isLoading) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFEEF2FF),
-                            Color(0xFFF8FAFC)
-                        ),
+                        colors = listOf(Color(0xFFEEF2FF), Color(0xFFF8FAFC)),
                         center = Offset(0.5f, 0f),
                         radius = 1500f
                     )
@@ -70,61 +119,78 @@ fun PlanScreen(
         }
         return
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFEEF2FF),
-                        Color(0xFFF8FAFC)
-                    ),
+                    colors = listOf(Color(0xFFEEF2FF), Color(0xFFF8FAFC)),
                     center = Offset(0.5f, 0f),
                     radius = 1500f
                 )
             )
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Animated Current Plan Card
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = fadeIn(animationSpec = tween(150)) + slideInHorizontally(
-                animationSpec = tween(150),
-                initialOffsetX = { -30 }
-            )
-        ) {
-            CurrentPlanCard(usageState, planName, isExpired)
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Animated Upgrade section (only for non-Pro users)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Current Plan Status (for non-Pro users)
         AnimatedVisibility(
             visible = isVisible && !usageState.isProUser,
-            enter = fadeIn(animationSpec = tween(150, delayMillis = 60)) + slideInHorizontally(
-                animationSpec = tween(150, delayMillis = 60),
-                initialOffsetX = { -35 }
-            )
+            enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -20 }
         ) {
-            UpgradeCard(
-                isExpired = isExpired,
-                creditsLimit = creditsLimit,
-                priceDisplay = priceDisplay,
-                onUpgrade = onUpgrade
-            )
+            CurrentStatusCard(usageState, isExpired)
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Contact support - animated to appear after other elements
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Title
         AnimatedVisibility(
             visible = isVisible,
-            enter = fadeIn(animationSpec = tween(150, delayMillis = 90))
+            enter = fadeIn(tween(200, delayMillis = 50))
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = if (usageState.isProUser) "Manage Your Plan" else "Choose Your Plan",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "AUTO model is always free, unlimited",
+                    fontSize = 14.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Plan Cards
+        plans.forEachIndexed { index, plan ->
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(tween(200, delayMillis = 100 + (index * 50))) +
+                        slideInVertically(tween(200, delayMillis = 100 + (index * 50))) { 30 }
+            ) {
+                PlanCard(
+                    plan = plan.copy(price = getFormattedPrice(plan.id) ?: plan.price),
+                    isCurrentPlan = usageState.isProUser && usageState.proCreditsLimit == plan.credits,
+                    onSelect = { onSelectPlan(plan.id) }
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Contact support
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(tween(200, delayMillis = 300))
         ) {
             TextButton(onClick = onContactSupport) {
                 Text(
@@ -134,101 +200,57 @@ fun PlanScreen(
                 )
             }
         }
-        
-        Spacer(modifier = Modifier.height(32.dp))
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
-private fun CurrentPlanCard(
+private fun CurrentStatusCard(
     usageState: UsageDataManager.UsageState,
-    planName: String,
     isExpired: Boolean
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (usageState.isProUser) Color(0xFF6366F1) else Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            containerColor = if (isExpired) Color(0xFFFEF2F2) else Color(0xFFF0FDF4)
+        )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = if (usageState.isProUser) planName else "Free Trial",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (usageState.isProUser) Color.White else Color(0xFF1E293B),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Status badge
-            val statusText = when {
-                usageState.isProUser -> "Active"
-                isExpired -> "Expired"
-                else -> "Active"
+            Column {
+                Text(
+                    text = "Free Trial",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isExpired) Color(0xFFDC2626) else Color(0xFF16A34A)
+                )
+                Text(
+                    text = if (isExpired) "Expired" else "${usageState.freeCreditsRemaining} credits left",
+                    fontSize = 14.sp,
+                    color = if (isExpired) Color(0xFFDC2626).copy(alpha = 0.8f) else Color(0xFF64748B)
+                )
             }
-            val statusColor = when {
-                usageState.isProUser -> Color(0xFF10B981)
-                isExpired -> Color(0xFFDC2626)
-                else -> Color(0xFF10B981)
-            }
-            
             Box(
                 modifier = Modifier
                     .background(
-                        color = statusColor.copy(alpha = 0.2f),
+                        color = if (isExpired) Color(0xFFDC2626).copy(alpha = 0.1f)
+                               else Color(0xFF16A34A).copy(alpha = 0.1f),
                         shape = RoundedCornerShape(8.dp)
                     )
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = statusText,
-                    fontSize = 14.sp,
+                    text = if (isExpired) "Upgrade Now" else "Active",
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = statusColor,
-                    textAlign = TextAlign.Center
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Usage info (credits-based)
-            if (usageState.isProUser) {
-                Text(
-                    text = "${usageState.proCreditsRemaining} credits remaining",
-                    fontSize = 18.sp,
-                    color = Color.White.copy(alpha = 0.9f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (usageState.proResetDateMs > 0) {
-                    val resetDate = SimpleDateFormat(
-                        "MMM d", Locale.getDefault()
-                    ).format(Date(usageState.proResetDateMs))
-                    Text(
-                        text = "Resets on $resetDate",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.7f),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            } else {
-                Text(
-                    text = "${usageState.freeCreditsRemaining} credits remaining",
-                    fontSize = 18.sp,
-                    color = if (isExpired) Color(0xFFDC2626) else Color(0xFF1E293B),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    color = if (isExpired) Color(0xFFDC2626) else Color(0xFF16A34A)
                 )
             }
         }
@@ -236,75 +258,147 @@ private fun CurrentPlanCard(
 }
 
 @Composable
-private fun UpgradeCard(
-    isExpired: Boolean,
-    creditsLimit: Int,
-    priceDisplay: String,
-    onUpgrade: () -> Unit
+private fun PlanCard(
+    plan: PlanTier,
+    isCurrentPlan: Boolean,
+    onSelect: () -> Unit
 ) {
+    val borderColor = when {
+        isCurrentPlan -> Color(0xFF16A34A)
+        plan.isPopular -> Color(0xFF6366F1)
+        else -> Color(0xFFE2E8F0)
+    }
+
+    val backgroundColor = when {
+        plan.isPopular -> Color(0xFFFAFAFF)
+        else -> Color.White
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        border = BorderStroke(
+            width = if (plan.isPopular || isCurrentPlan) 2.dp else 1.dp,
+            color = borderColor
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (plan.isPopular) 4.dp else 2.dp
+        )
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.padding(20.dp)
         ) {
-            Text(
-                text = if (isExpired) "Continue Using VoxType" else "Upgrade to Pro",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "$creditsLimit credits every month",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF6366F1)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = priceDisplay,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Benefits with icons
-            Column(
+            // Header row with name and badge
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.Start
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                BenefitItem("$creditsLimit credits resets monthly")
-                BenefitItem("Higher limits for premium models")
-                BenefitItem("Cancel anytime")
+                Text(
+                    text = plan.name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
+                )
+
+                if (plan.isPopular) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Popular",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
+                if (isCurrentPlan) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = Color(0xFF16A34A),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "Current",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                    }
+                }
             }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Price
+            Row(
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text(
+                    text = plan.price,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
+                )
+                Text(
+                    text = "/month",
+                    fontSize = 14.sp,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Features
+            plan.features.forEach { feature ->
+                FeatureRow(feature)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // CTA Button
             Button(
-                onClick = onUpgrade,
+                onClick = onSelect,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6366F1)
-                )
+                    containerColor = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFF1E293B),
+                    disabledContainerColor = Color(0xFFE2E8F0)
+                ),
+                enabled = !isCurrentPlan
             ) {
                 Text(
-                    text = if (isExpired) "Upgrade Now" else "Upgrade to Pro",
-                    fontSize = 18.sp,
+                    text = when {
+                        isCurrentPlan -> "Current Plan"
+                        else -> "Select ${plan.name}"
+                    },
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
             }
         }
@@ -312,16 +406,15 @@ private fun UpgradeCard(
 }
 
 @Composable
-private fun BenefitItem(text: String) {
+private fun FeatureRow(text: String) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 4.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Filled.Check,
-            contentDescription = "Check",
+            contentDescription = null,
             tint = Color(0xFF22C55E),
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(16.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
