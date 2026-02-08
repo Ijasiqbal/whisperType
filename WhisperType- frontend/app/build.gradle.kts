@@ -192,6 +192,9 @@ dependencies {
     
     // Firebase Remote Config for dynamic plan configuration
     implementation("com.google.firebase:firebase-config-ktx")
+
+    // Firebase Firestore for issue reporting
+    implementation("com.google.firebase:firebase-firestore-ktx")
     
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

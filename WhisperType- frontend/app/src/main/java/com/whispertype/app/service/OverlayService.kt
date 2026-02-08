@@ -1,5 +1,7 @@
 package com.whispertype.app.service
 
+import android.animation.AnimatorListenerAdapter
+import android.animation.Animator
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
 import android.annotation.SuppressLint
@@ -427,15 +429,19 @@ class OverlayService : Service() {
     }
     
     /**
-     * Hide the overlay from screen and clean up resources
+     * Hide the overlay from screen and clean up resources.
+     * Animates the pill with a smooth scale-down + fade-out before removing.
      */
     fun hideOverlay() {
         if (!isOverlayVisible) {
             return
         }
-        
+
+        // Prevent multiple close calls during animation
+        isOverlayVisible = false
+
         Log.d(TAG, "Hiding overlay")
-        
+
         // Stop any ongoing speech recognition
         if (isListening) {
             try {
@@ -445,11 +451,11 @@ class OverlayService : Service() {
             }
             isListening = false
         }
-        
+
         // Stop pulse animation to prevent leaks
         stopPulseAnimation()
         stopRecordingPulseAnimation()
-        
+
         // Hide options menu if visible
         hideOptionsMenu()
 
@@ -464,14 +470,48 @@ class OverlayService : Service() {
         }
         layoutListener = null
         lastOverlayWidth = 0
-        
+
+        // Animate the pill container before removing the view
+        val container = pillContainer
+        if (container != null && container.isAttachedToWindow) {
+            // Disable layout transitions so the close animation isn't fighting them
+            (container as? LinearLayout)?.layoutTransition = null
+
+            val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 0.85f)
+            val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 0.85f)
+            val alpha = PropertyValuesHolder.ofFloat(View.ALPHA, 1f, 0f)
+
+            ObjectAnimator.ofPropertyValuesHolder(container, scaleX, scaleY, alpha).apply {
+                duration = 180L
+                interpolator = AccelerateDecelerateInterpolator()
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        removeOverlayAndCleanup()
+                    }
+                })
+                start()
+            }
+        } else {
+            // Fallback: no container or not attached, remove immediately
+            removeOverlayAndCleanup()
+        }
+    }
+
+    /**
+     * Actually remove the overlay view and clean up all resources.
+     * Called after the close animation finishes (or immediately if no animation).
+     */
+    private fun removeOverlayAndCleanup() {
         // Remove view from window manager
         overlayView?.let { view ->
             try {
-                windowManager?.removeView(view)
+                if (view.isAttachedToWindow) {
+                    windowManager?.removeView(view)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error removing overlay view", e)
             }
+            Unit
         }
 
         // Clean up all view references
@@ -482,8 +522,6 @@ class OverlayService : Service() {
             ShortcutPreferences.setAutoSendEnabled(this, false)
         }
 
-        isOverlayVisible = false
-        
         // Stop the service when overlay is hidden
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)

@@ -45,7 +45,8 @@ import java.util.*
 fun ProfileScreen(
     userEmail: String?,
     onSignOut: () -> Unit,
-    onManageSubscription: () -> Unit = {}
+    onManageSubscription: () -> Unit = {},
+    onReportIssue: () -> Unit = {}
 ) {
     val usageState by UsageDataManager.usageState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
@@ -294,8 +295,32 @@ fun ProfileScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
-        
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Report an Issue button
+        OutlinedButton(
+            onClick = onReportIssue,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = Color(0xFF6366F1)
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = "Report",
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Report an Issue",
+                fontSize = 16.sp,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         // Sign out button
         OutlinedButton(
             onClick = onSignOut,

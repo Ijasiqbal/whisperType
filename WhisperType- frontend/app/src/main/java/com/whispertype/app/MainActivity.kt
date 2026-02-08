@@ -69,6 +69,7 @@ import com.whispertype.app.service.OverlayService
 import com.whispertype.app.ui.LoginScreen
 import com.whispertype.app.ui.ProfileScreen
 import com.whispertype.app.ui.PlanScreen
+import com.whispertype.app.ui.ReportIssueBottomSheet
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.config.RemoteConfigManager
 import com.whispertype.app.billing.BillingManagerFactory
@@ -1283,7 +1284,8 @@ fun AppWithBottomNav(
     getFormattedPrice: (String) -> String? = { null }
 ) {
     var selectedTab by remember { mutableStateOf(BottomNavTab.HOME) }
-    
+    var showReportIssue by remember { mutableStateOf(false) }
+
     // Observe usage/trial state from UsageDataManager
     val usageState by UsageDataManager.usageState.collectAsStateWithLifecycle()
     
@@ -1469,10 +1471,7 @@ fun AppWithBottomNav(
                             android.util.Log.d("MainActivity", "Selected plan: $planId")
                             onSelectPlan(planId)
                         },
-                        onContactSupport = {
-                            // TODO: Open support link
-                            android.util.Log.d("MainActivity", "Contact support clicked")
-                        }
+                        onContactSupport = { showReportIssue = true }
                     )
                 }
                 BottomNavTab.PROFILE -> {
@@ -1493,11 +1492,17 @@ fun AppWithBottomNav(
                                 android.util.Log.e("MainActivity", "Failed to open subscriptions", e)
                                 Toast.makeText(context, "Could not open subscriptions", Toast.LENGTH_SHORT).show()
                             }
-                        }
+                        },
+                        onReportIssue = { showReportIssue = true }
                     )
                 }
             }
         }
+    }
+
+    // Report an Issue bottom sheet
+    if (showReportIssue) {
+        ReportIssueBottomSheet(onDismiss = { showReportIssue = false })
     }
 }
 

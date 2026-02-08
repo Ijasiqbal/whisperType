@@ -25,7 +25,9 @@ Layout (left to right):
     android:id="@+id/overlay_root"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:padding="8dp">
+    android:padding="8dp"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <!-- Main pill container - Liquid Glass effect -->
     <LinearLayout
@@ -42,7 +44,9 @@ Layout (left to right):
         android:paddingEnd="6dp"
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
-        android:elevation="8dp">
+        android:elevation="8dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
         <!-- Close button (left side - less used) -->
         <ImageButton

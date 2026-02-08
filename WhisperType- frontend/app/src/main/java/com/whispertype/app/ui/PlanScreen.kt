@@ -17,18 +17,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.whispertype.app.Constants
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.ui.components.PlanScreenSkeleton
+import java.text.NumberFormat
 
 /**
  * Plan tier data class
@@ -39,6 +38,7 @@ data class PlanTier(
     val price: String,
     val credits: Int,
     val isPopular: Boolean = false,
+    val tagline: String = "",
     val features: List<String>
 )
 
@@ -59,6 +59,8 @@ fun PlanScreen(
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isVisible = true }
 
+    val numberFormat = remember { NumberFormat.getNumberInstance() }
+
     // Plan tiers — Google Play handles regional pricing automatically
     val plans = remember {
         listOf(
@@ -67,11 +69,12 @@ fun PlanScreen(
                 name = "Starter",
                 price = Constants.PRICE_STARTER_FALLBACK,
                 credits = Constants.CREDITS_STARTER,
+                tagline = "For everyday use",
                 features = listOf(
-                    "${Constants.CREDITS_STARTER} credits/month",
-                    "~200 min STANDARD",
-                    "~100 min PREMIUM",
-                    "Unlimited AUTO"
+                    "${numberFormat.format(Constants.CREDITS_STARTER)} credits/month",
+                    "~200 min standard quality",
+                    "~100 min premium quality",
+                    "Unlimited AUTO mode"
                 )
             ),
             PlanTier(
@@ -80,11 +83,12 @@ fun PlanScreen(
                 price = Constants.PRICE_PRO_FALLBACK,
                 credits = Constants.CREDITS_PRO,
                 isPopular = true,
+                tagline = "Best for power users",
                 features = listOf(
-                    "${Constants.CREDITS_PRO} credits/month",
-                    "~600 min STANDARD",
-                    "~300 min PREMIUM",
-                    "Unlimited AUTO"
+                    "${numberFormat.format(Constants.CREDITS_PRO)} credits/month",
+                    "~600 min standard quality",
+                    "~300 min premium quality",
+                    "Unlimited AUTO mode"
                 )
             ),
             PlanTier(
@@ -92,11 +96,12 @@ fun PlanScreen(
                 name = "Unlimited",
                 price = Constants.PRICE_UNLIMITED_FALLBACK,
                 credits = Constants.CREDITS_UNLIMITED,
+                tagline = "For professionals",
                 features = listOf(
-                    "${Constants.CREDITS_UNLIMITED} credits/month",
-                    "~1500 min STANDARD",
-                    "~750 min PREMIUM",
-                    "Unlimited AUTO"
+                    "${numberFormat.format(Constants.CREDITS_UNLIMITED)} credits/month",
+                    "~1,500 min standard quality",
+                    "~750 min premium quality",
+                    "Unlimited AUTO mode"
                 )
             )
         )
@@ -158,11 +163,12 @@ fun PlanScreen(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E293B)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "AUTO model is always free, unlimited",
+                    text = "Unlock premium transcription. AUTO mode is always free.",
                     fontSize = 14.sp,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B),
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -182,10 +188,12 @@ fun PlanScreen(
                     onSelect = { onSelectPlan(plan.id) }
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            if (index < plans.lastIndex) {
+                Spacer(modifier = Modifier.height(14.dp))
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Contact support
         AnimatedVisibility(
@@ -269,158 +277,187 @@ private fun PlanCard(
         else -> Color(0xFFE2E8F0)
     }
 
-    val backgroundColor = when {
-        plan.isPopular -> Color(0xFFFAFAFF)
-        else -> Color.White
-    }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(
             width = if (plan.isPopular || isCurrentPlan) 2.dp else 1.dp,
             color = borderColor
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (plan.isPopular) 4.dp else 2.dp
+            defaultElevation = if (plan.isPopular) 6.dp else 1.dp
         )
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            // Header row with name and badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = plan.name,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B)
-                )
-
-                if (plan.isPopular) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
-                                ),
-                                shape = RoundedCornerShape(12.dp)
+        Column {
+            // Full-width banner for Popular plan
+            if (plan.isPopular && !isCurrentPlan) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
                             )
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Star,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Popular",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-
-                if (isCurrentPlan) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = Color(0xFF16A34A),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
+                        )
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Current",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                            text = "MOST POPULAR",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            letterSpacing = 1.sp
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Price
-            Row(
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Text(
-                    text = plan.price,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B)
-                )
-                Text(
-                    text = "/month",
-                    fontSize = 14.sp,
-                    color = Color(0xFF64748B),
-                    modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
-                )
+            // Full-width banner for Current plan
+            if (isCurrentPlan) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF16A34A))
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "YOUR CURRENT PLAN",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = 1.sp
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Features
-            plan.features.forEach { feature ->
-                FeatureRow(feature)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // CTA Button
-            Button(
-                onClick = onSelect,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFF1E293B),
-                    disabledContainerColor = Color(0xFFE2E8F0)
-                ),
-                enabled = !isCurrentPlan
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
             ) {
-                Text(
-                    text = when {
-                        isCurrentPlan -> "Current Plan"
-                        else -> "Select ${plan.name}"
-                    },
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(vertical = 4.dp)
+                // Header: name + tagline on left, price on right
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = plan.name,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                        if (plan.tagline.isNotEmpty()) {
+                            Text(
+                                text = plan.tagline,
+                                fontSize = 12.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = plan.price,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFF1E293B)
+                        )
+                        Text(
+                            text = "/mo",
+                            fontSize = 12.sp,
+                            color = Color(0xFF94A3B8),
+                            modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Divider between header and features
+                Divider(
+                    color = Color(0xFFF1F5F9),
+                    thickness = 1.dp
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Features
+                plan.features.forEach { feature ->
+                    FeatureRow(
+                        text = feature,
+                        accentColor = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFF22C55E)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // CTA Button
+                Button(
+                    onClick = onSelect,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFF1E293B),
+                        disabledContainerColor = Color(0xFFE2E8F0)
+                    ),
+                    enabled = !isCurrentPlan,
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = if (plan.isPopular) 4.dp else 0.dp
+                    )
+                ) {
+                    Text(
+                        text = when {
+                            isCurrentPlan -> "Current Plan"
+                            else -> "Get ${plan.name}"
+                        },
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun FeatureRow(text: String) {
+private fun FeatureRow(text: String, accentColor: Color = Color(0xFF22C55E)) {
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = Icons.Filled.Check,
-            contentDescription = null,
-            tint = Color(0xFF22C55E),
-            modifier = Modifier.size(16.dp)
-        )
+        Box(
+            modifier = Modifier
+                .size(18.dp)
+                .background(
+                    color = accentColor.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(5.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(12.dp)
+            )
+        }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = text,
-            fontSize = 14.sp,
-            color = Color(0xFF64748B)
+            fontSize = 13.sp,
+            color = Color(0xFF475569)
         )
     }
 }

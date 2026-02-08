@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Issues collection: authenticated users can create issues
+    match /issues/{issueId} {
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // Default: deny all other direct client access
+    // (existing collections are accessed via Cloud Functions)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

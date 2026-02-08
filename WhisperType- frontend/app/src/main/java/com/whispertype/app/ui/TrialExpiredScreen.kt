@@ -55,6 +55,8 @@ fun TrialExpiredScreen(
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isVisible = true }
 
+    val numberFormat = remember { java.text.NumberFormat.getNumberInstance() }
+
     // Plan tiers — Google Play handles regional pricing automatically
     val plans = remember {
         listOf(
@@ -64,9 +66,9 @@ fun TrialExpiredScreen(
                 price = Constants.PRICE_STARTER_FALLBACK,
                 credits = Constants.CREDITS_STARTER,
                 features = listOf(
-                    "${Constants.CREDITS_STARTER} credits/month",
-                    "~200 min STANDARD",
-                    "Unlimited AUTO"
+                    "${numberFormat.format(Constants.CREDITS_STARTER)} credits/month",
+                    "~200 min standard quality",
+                    "Unlimited AUTO mode"
                 )
             ),
             PlanTier(
@@ -76,9 +78,9 @@ fun TrialExpiredScreen(
                 credits = Constants.CREDITS_PRO,
                 isPopular = true,
                 features = listOf(
-                    "${Constants.CREDITS_PRO} credits/month",
-                    "~600 min STANDARD",
-                    "Unlimited AUTO"
+                    "${numberFormat.format(Constants.CREDITS_PRO)} credits/month",
+                    "~600 min standard quality",
+                    "Unlimited AUTO mode"
                 )
             ),
             PlanTier(
@@ -87,9 +89,9 @@ fun TrialExpiredScreen(
                 price = Constants.PRICE_UNLIMITED_FALLBACK,
                 credits = Constants.CREDITS_UNLIMITED,
                 features = listOf(
-                    "${Constants.CREDITS_UNLIMITED} credits/month",
-                    "~1500 min STANDARD",
-                    "Unlimited AUTO"
+                    "${numberFormat.format(Constants.CREDITS_UNLIMITED)} credits/month",
+                    "~1,500 min standard quality",
+                    "Unlimited AUTO mode"
                 )
             )
         )
