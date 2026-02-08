@@ -108,7 +108,7 @@ function isAnonymousUser(decodedToken: admin.auth.DecodedIdToken): boolean {
  * Returns PlanLimits if access is allowed, null if blocked.
  * @param {admin.auth.DecodedIdToken} decodedToken - The decoded Firebase token
  * @param {Response} response - The HTTP response object
- * @param {string} endpoint - Endpoint name for logging (e.g., "transcribe", "Groq")
+ * @param {string} endpoint - Endpoint name for logging
  * @return {Promise<PlanLimits | null>} PlanLimits if allowed, null if blocked
  */
 async function checkGuestAccessAndGetLimits(
@@ -120,7 +120,8 @@ async function checkGuestAccessAndGetLimits(
 
   if (isAnonymousUser(decodedToken) && !limits.guestLoginEnabled) {
     logger.warn(
-      `[${endpoint}] Anonymous user ${decodedToken.uid} blocked: guest login disabled`
+      `[${endpoint}] Anonymous user ${decodedToken.uid} blocked: ` +
+      "guest login disabled"
     );
     response.status(403).json({
       error: "GUEST_LOGIN_DISABLED",
@@ -1789,9 +1790,10 @@ export const transcribeAudioGroq = onRequest(
         });
 
         // Context-style prompt to guide Whisper's punctuation style
-        // Whisper mimics the style of provided context rather than following instructions
+        // Whisper mimics the style of provided context
         const transcriptionPrompt =
-          "Hello, how are you? I'm doing well, thanks! What time is the meeting?";
+          "Hello, how are you? I'm doing well, thanks! " +
+          "What time is the meeting?";
 
         // Call Groq Whisper API
         logger.info(
@@ -1807,9 +1809,10 @@ export const transcribeAudioGroq = onRequest(
         // Clean up temporary file
         fs.unlinkSync(tempFilePath);
 
-        // Strip prompt from output if Whisper echoed it back (rare with context-style prompts)
+        // Strip prompt if Whisper echoed it (rare with context-style)
         let cleanedText = transcription.text;
-        if (cleanedText && cleanedText.toLowerCase().startsWith(transcriptionPrompt.toLowerCase())) {
+        const promptLower = transcriptionPrompt.toLowerCase();
+        if (cleanedText && cleanedText.toLowerCase().startsWith(promptLower)) {
           cleanedText = cleanedText.slice(transcriptionPrompt.length).trim();
         }
         const finalText = cleanedText || transcription.text;
