@@ -431,19 +431,23 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
      */
     fun findFocusedEditableNode(): AccessibilityNodeInfo? {
         // Try to get the input-focused node first
-        var focusedNode = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        
+        val inputFocusNode = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+
         // Check if it's editable
-        if (focusedNode?.isEditable == true) {
-            return focusedNode
+        if (inputFocusNode?.isEditable == true) {
+            return inputFocusNode
         }
-        
+        // Not editable — recycle before trying next approach
+        inputFocusNode?.recycle()
+
         // If not found, try accessibility focus
-        focusedNode = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
-        if (focusedNode?.isEditable == true) {
-            return focusedNode
+        val accessibilityFocusNode = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+        if (accessibilityFocusNode?.isEditable == true) {
+            return accessibilityFocusNode
         }
-        
+        // Not editable — recycle before tree search
+        accessibilityFocusNode?.recycle()
+
         // Search through the tree for any focused editable node
         return findEditableInTree(rootInActiveWindow)
     }
@@ -453,20 +457,24 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
      */
     private fun findEditableInTree(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
         if (node == null) return null
-        
+
         if (node.isEditable && node.isFocused) {
             return node
         }
-        
+
         for (i in 0 until node.childCount) {
             val child = node.getChild(i)
             val result = findEditableInTree(child)
             if (result != null) {
+                // Recycle the intermediate child if it's not the result itself
+                if (child != null && child !== result) {
+                    child.recycle()
+                }
                 return result
             }
             child?.recycle()
         }
-        
+
         return null
     }
     
@@ -482,23 +490,27 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
      */
     fun insertText(text: String): Boolean {
         val focusedNode = findFocusedEditableNode()
-        
+
         if (focusedNode == null) {
             Log.w(TAG, "No focused editable node found")
             Toast.makeText(this, "No text field focused", Toast.LENGTH_SHORT).show()
             return false
         }
-        
-        // Try primary strategy: ACTION_SET_TEXT
-        val success = insertTextWithAction(focusedNode, text)
-        
-        if (!success) {
-            // Fallback: Use clipboard
-            Log.d(TAG, "ACTION_SET_TEXT failed, trying clipboard fallback")
-            return insertTextWithClipboard(focusedNode, text)
+
+        try {
+            // Try primary strategy: ACTION_SET_TEXT
+            val success = insertTextWithAction(focusedNode, text)
+
+            if (!success) {
+                // Fallback: Use clipboard
+                Log.d(TAG, "ACTION_SET_TEXT failed, trying clipboard fallback")
+                return insertTextWithClipboard(focusedNode, text)
+            }
+
+            return true
+        } finally {
+            focusedNode.recycle()
         }
-        
-        return true
     }
     
     /**
@@ -531,46 +543,53 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
         
         val existingText: String
         var targetNode: AccessibilityNodeInfo = node
-        
+        var updatedNode: AccessibilityNodeInfo? = null
+
         if (hasPotentialPlaceholderIssue) {
             // Use paste-space workaround for apps with placeholder detection issues
             Log.d(TAG, "Potential placeholder issue detected, using paste-space workaround")
-            
+
             // Paste a space to clear placeholder (while preserving any real content)
             val clipboardManager = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
             val spaceClip = android.content.ClipData.newPlainText("WhisperType", " ")
             clipboardManager.setPrimaryClip(spaceClip)
             node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
-            
+
             // Re-find the focused node to get updated text
-            val updatedNode = findFocusedEditableNode()
+            updatedNode = findFocusedEditableNode()
             existingText = updatedNode?.text?.toString() ?: ""
             targetNode = updatedNode ?: node
-            
+
             Log.d(TAG, "After paste space: existingText='$existingText'")
         } else {
             // Simple approach for apps where placeholder detection works correctly
             // If nodeText matches hintText, the field is empty (showing placeholder)
             // If nodeText is empty, the field is empty
             existingText = if (nodeText == hintText || nodeText.isEmpty()) "" else nodeText
-            
+
             Log.d(TAG, "Simple approach: existingText='$existingText'")
         }
-        
+
         // Compose final text = existing content + transcript, trimmed
         val finalText = (existingText + text).trim()
-        
+
         Log.d(TAG, "Final text (trimmed): '$finalText'")
-        
+
         // Set the final text
         val arguments = android.os.Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, finalText)
         }
-        
-        val success = targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-        Log.d(TAG, "ACTION_SET_TEXT result: $success, finalText='$finalText'")
-        
-        return success
+
+        try {
+            val success = targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            Log.d(TAG, "ACTION_SET_TEXT result: $success, finalText='$finalText'")
+            return success
+        } finally {
+            // Recycle the updatedNode if it's a different node than the original
+            if (updatedNode != null && updatedNode !== node) {
+                updatedNode.recycle()
+            }
+        }
     }
     
     /**

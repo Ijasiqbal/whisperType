@@ -11,7 +11,9 @@ VoxType (WhisperType) is a voice-to-text Android app with a Firebase backend. Us
 ```
 whisperType/
 ├── WhisperType- frontend/     # Android app (Kotlin, Jetpack Compose)
-└── WhisperType-Backend/       # Firebase Cloud Functions (TypeScript)
+├── WhisperType-Backend/       # Firebase Cloud Functions (TypeScript)
+├── VoxType-Mac/               # macOS app (Swift, SwiftUI)
+└── whispertype-admin/         # Admin dashboard (Next.js, React)
 ```
 
 ## Frontend (Android)
@@ -79,6 +81,30 @@ firebase deploy --only functions # Deploy to production
 ### Firestore Collections
 - `users/{uid}` - User profile, subscription status
 - `usage_logs/{uid}/entries` - Credit usage tracking
+
+## macOS App
+
+**Location**: `VoxType-Mac/`
+
+- Swift + SwiftUI
+- Xcode project: `VoxType-Mac/VoxType.xcodeproj`
+- Build via Xcode (open `.xcodeproj`)
+
+## Admin Dashboard
+
+**Location**: `whispertype-admin/`
+
+### Build Commands
+```bash
+cd whispertype-admin
+npm install
+npm run dev                      # Local dev server
+npm run build                    # Production build
+```
+
+- Next.js 16 + React 19 + Tailwind CSS 4
+- Firebase integration for user/analytics management
+- Radix UI + shadcn components
 
 ## Common Patterns
 

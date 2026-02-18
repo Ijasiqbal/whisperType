@@ -76,3 +76,6 @@ lib/
 # Crash reports
 crashlytics-build.properties
 fabric.properties
+
+# macOS App - Firebase Config (contains API keys)
+VoxType-Mac/VoxType/GoogleService-Info.plist

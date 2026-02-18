@@ -18,6 +18,7 @@ import OpenAI from "openai";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import * as crypto from "crypto";
 import {google} from "googleapis";
 
 // Initialize Firebase Admin
@@ -1582,7 +1583,7 @@ export const transcribeAudio = onRequest(
       const tempDir = os.tmpdir();
       const tempFilePath = path.join(
         tempDir,
-        `audio-${Date.now()}.${format}`
+        `audio-${Date.now()}-${crypto.randomUUID()}.${format}`
       );
 
       try {
@@ -1815,7 +1816,7 @@ export const transcribeAudioGroq = onRequest(
       const tempDir = os.tmpdir();
       const tempFilePath = path.join(
         tempDir,
-        `audio-groq-${Date.now()}.${format}`
+        `audio-groq-${Date.now()}-${crypto.randomUUID()}.${format}`
       );
 
       try {

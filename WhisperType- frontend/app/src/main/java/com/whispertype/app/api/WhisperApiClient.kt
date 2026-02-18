@@ -381,6 +381,7 @@ class WhisperApiClient {
         // Execute request asynchronously
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
+                response.use {
                 val responseBody = response.body?.string()
                 Log.d(TAG, "Response code: ${response.code}")
 
@@ -540,6 +541,7 @@ class WhisperApiClient {
                         callback.onError("Unexpected error (${response.code})")
                     }
                 }
+                } // response.use
             }
 
             override fun onFailure(call: Call, e: IOException) {
@@ -606,6 +608,7 @@ class WhisperApiClient {
         // Execute request asynchronously
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
+                response.use {
                 val responseBody = response.body?.string()
                 Log.d(TAG, "[Groq] Response code: ${response.code}")
 
@@ -692,6 +695,7 @@ class WhisperApiClient {
                         callback.onError("Unexpected error (${response.code})")
                     }
                 }
+                } // response.use
             }
 
             override fun onFailure(call: Call, e: IOException) {
@@ -857,6 +861,7 @@ class WhisperApiClient {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
+                response.use {
                 val responseBody = response.body?.string()
                 Log.d(TAG, "Trial status response code: ${response.code}")
 
@@ -908,8 +913,9 @@ class WhisperApiClient {
                         onError("Failed to get trial status")
                     }
                 }
+                } // response.use
             }
-            
+
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "Trial status request failed after retries", e)
                 val errorMessage = when (e) {
@@ -955,6 +961,7 @@ class WhisperApiClient {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
+                response.use {
                 val responseBody = response.body?.string()
                 Log.d(TAG, "Verify subscription response: ${response.code}")
 
@@ -1001,8 +1008,9 @@ class WhisperApiClient {
                         onError("Verification failed")
                     }
                 }
+                } // response.use
             }
-            
+
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "Subscription verification request failed after retries", e)
                 val errorMessage = when (e) {
