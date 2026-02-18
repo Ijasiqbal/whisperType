@@ -2495,6 +2495,8 @@ export const deleteAccount = functions.https.onRequest(
 const ADMIN_CORS_ORIGINS = [
   "https://whispertype-admin.web.app",
   "https://whispertype-admin.firebaseapp.com",
+  "https://whispertype-1de9f.web.app",
+  "https://whispertype-1de9f.firebaseapp.com",
   "http://localhost:3000",
 ];
 
@@ -2543,7 +2545,7 @@ function setAdminCorsHeaders(response: Response, origin: string | undefined) {
  * Query params: limit, pageToken, search, plan
  */
 export const adminListUsers = onRequest(
-  {region: ["us-central1"]},
+  {region: ["asia-south1"]},
   async (request, response) => {
     const origin = request.headers.origin;
     setAdminCorsHeaders(response, origin);
@@ -2636,7 +2638,7 @@ export const adminListUsers = onRequest(
  * GET /adminGetUserDetails?uid=xxx
  */
 export const adminGetUserDetails = onRequest(
-  {region: ["us-central1"]},
+  {region: ["asia-south1"]},
   async (request, response) => {
     const origin = request.headers.origin;
     setAdminCorsHeaders(response, origin);
@@ -2763,7 +2765,7 @@ export const adminGetUserDetails = onRequest(
  * Body: { uid, adjustment, reason }
  */
 export const adminAdjustCredits = onRequest(
-  {region: ["us-central1"]},
+  {region: ["asia-south1"]},
   async (request, response) => {
     const origin = request.headers.origin;
     setAdminCorsHeaders(response, origin);
@@ -2866,7 +2868,7 @@ export const adminAdjustCredits = onRequest(
  * Body: { uid, plan, resetCredits?, extendTrialDays?, proCreditsLimit? }
  */
 export const adminUpdateUserPlan = onRequest(
-  {region: ["us-central1"]},
+  {region: ["asia-south1"]},
   async (request, response) => {
     const origin = request.headers.origin;
     setAdminCorsHeaders(response, origin);
@@ -2973,7 +2975,7 @@ export const adminUpdateUserPlan = onRequest(
  * GET /adminGetAnalytics?period=30d
  */
 export const adminGetAnalytics = onRequest(
-  {region: ["us-central1"]},
+  {region: ["asia-south1"]},
   async (request, response) => {
     const origin = request.headers.origin;
     setAdminCorsHeaders(response, origin);
@@ -3111,7 +3113,7 @@ export const adminGetAnalytics = onRequest(
  * Body: { uid, isAdmin }
  */
 export const adminSetAdminClaim = onRequest(
-  {region: ["us-central1"]},
+  {region: ["asia-south1"]},
   async (request, response) => {
     const origin = request.headers.origin;
     setAdminCorsHeaders(response, origin);

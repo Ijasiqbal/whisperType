@@ -79,3 +79,9 @@ fabric.properties
 
 # macOS App - Firebase Config (contains API keys)
 VoxType-Mac/VoxType/GoogleService-Info.plist
+
+# macOS App - Build artifacts
+VoxType-Mac/build/
+
+# Xcode user state
+*.xcuserstate
