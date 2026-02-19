@@ -204,7 +204,7 @@ fun SoftUpdateDialog(
         },
         text = {
             Text(
-                text = "A new version of WhisperType is available. We recommend updating for the best experience and latest features.",
+                text = "A new version of Wozcribe is available. We recommend updating for the best experience and latest features.",
                 textAlign = TextAlign.Center,
                 color = Color(0xFF64748B)
             )

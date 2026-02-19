@@ -4,7 +4,7 @@ Project context for Claude Code sessions.
 
 ## Project Overview
 
-VoxType (WhisperType) is a voice-to-text Android app with a Firebase backend. Users trigger recording via volume button shortcuts, speak, and transcribed text is inserted into any focused text field.
+Wozcribe (WhisperType) is a voice-to-text Android app with a Firebase backend. Users trigger recording via volume button shortcuts, speak, and transcribed text is inserted into any focused text field. The app uses batch processing for audio transcription—the entire recording is sent to the AI model at once, giving it full context of the complete audio rather than just 4–5 second chunks as in live/streaming transcription, which significantly improves accuracy.
 
 ## Repository Structure
 

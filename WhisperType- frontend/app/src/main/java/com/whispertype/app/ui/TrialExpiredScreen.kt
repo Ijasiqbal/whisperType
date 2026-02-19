@@ -183,7 +183,7 @@ fun TrialExpiredScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Choose a plan to keep using VoxType",
+                    text = "Choose a plan to keep using Wozcribe",
                     fontSize = 14.sp,
                     color = Color(0xFF94A3B8),
                     textAlign = TextAlign.Center

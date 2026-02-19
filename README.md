@@ -1,17 +1,17 @@
-# VoxType (WhisperType)
+# Wozcribe (WhisperType)
 
 Voice-to-text input for any Android text field. Speak anywhere, type nowhere.
 
 ## Overview
 
-VoxType is a complete voice input solution consisting of:
+Wozcribe is a complete voice input solution consisting of:
 
 1. **Android App** - Accessibility service that detects volume shortcuts and inserts transcribed text
 2. **Firebase Backend** - Cloud Functions for audio transcription via Groq and OpenAI APIs
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           VoxType System Architecture                        │
+│                          Wozcribe System Architecture                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │   ┌───────────────────────────────────────────────────────────────────────┐ │

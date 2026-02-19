@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * 
  * Fetches plan configuration:
  * - pro_price_display: Display price (e.g., "₹79/month")
- * - pro_plan_name: Plan name (e.g., "WhisperType Pro")
+ * - pro_plan_name: Plan name (e.g., "Wozcribe Pro")
  * - pro_minutes_limit: Monthly minutes limit (e.g., 150)
  */
 object RemoteConfigManager {
@@ -44,7 +44,7 @@ object RemoteConfigManager {
 
     // Default values (fallback if Remote Config fails)
     private const val DEFAULT_PRO_PRICE_DISPLAY = "₹79/month"
-    private const val DEFAULT_PRO_PLAN_NAME = "WhisperType Pro"
+    private const val DEFAULT_PRO_PLAN_NAME = "Wozcribe Pro"
     private const val DEFAULT_PRO_MINUTES_LIMIT = 150
     
     // Force update defaults
@@ -52,7 +52,7 @@ object RemoteConfigManager {
     private const val DEFAULT_FORCE_UPDATE_MIN_VERSION = 1
     private const val DEFAULT_FORCE_UPDATE_BLOCKED_VERSIONS = ""
     private const val DEFAULT_FORCE_UPDATE_TITLE = "Update Required"
-    private const val DEFAULT_FORCE_UPDATE_MESSAGE = "A critical security update is available. Please update to continue using WhisperType."
+    private const val DEFAULT_FORCE_UPDATE_MESSAGE = "A critical security update is available. Please update to continue using Wozcribe."
     
     // Soft update defaults
     private const val DEFAULT_SOFT_UPDATE_ENABLED = false

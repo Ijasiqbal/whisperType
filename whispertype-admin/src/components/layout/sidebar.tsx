@@ -32,7 +32,7 @@ export function Sidebar() {
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
           <Mic className="h-4 w-4 text-primary-foreground" />
         </div>
-        <span className="font-semibold">VoxType Admin</span>
+        <span className="font-semibold">Wozcribe Admin</span>
       </div>
       <nav className="flex-1 space-y-1 p-4">
         {navItems.map((item) => {

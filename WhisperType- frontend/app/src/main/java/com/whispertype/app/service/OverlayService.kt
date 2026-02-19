@@ -757,7 +757,7 @@ class OverlayService : Service() {
             Log.w(TAG, "Force update required, blocking transcription")
             Toast.makeText(
                 this,
-                "Please update VoxType to continue using voice typing.",
+                "Please update Wozcribe to continue using voice typing.",
                 Toast.LENGTH_LONG
             ).show()
             hideOverlay()
@@ -803,7 +803,7 @@ class OverlayService : Service() {
         if (!speechHelper!!.hasPermission()) {
             Toast.makeText(
                 this,
-                "Microphone permission required. Open VoxType to grant it.",
+                "Microphone permission required. Open Wozcribe to grant it.",
                 Toast.LENGTH_LONG
             ).show()
             return

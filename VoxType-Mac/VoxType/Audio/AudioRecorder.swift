@@ -163,7 +163,7 @@ final class AudioRecorder: ObservableObject {
 
     private func compressToAAC(from pcmData: Data) -> Data? {
         let tempDir = FileManager.default.temporaryDirectory
-        let m4aURL = tempDir.appendingPathComponent("voxtype_\(UUID().uuidString).m4a")
+        let m4aURL = tempDir.appendingPathComponent("wozcribe_\(UUID().uuidString).m4a")
 
         defer {
             try? FileManager.default.removeItem(at: m4aURL)

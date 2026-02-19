@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wozcribe — Voice to Text, Perfected</title>
+  <meta name="description" content="Speak naturally. Wozcribe captures your full audio and transcribes with context-aware AI for unmatched accuracy.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<div class="grain"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">wozcribe</a>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#accuracy">Accuracy</a>
+    <a href="#download" class="nav-cta">Download</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg">
+    <canvas id="blobCanvas"></canvas>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge hero-anim hero-anim-1">
+      <span class="dot"></span> Now on Android & macOS
+    </div>
+    <h1 class="hero-anim hero-anim-2">
+      Voice to text,<br><span class="gradient-text">perfected.</span>
+    </h1>
+    <p class="hero-anim hero-anim-3">
+      Speak naturally. Wozcribe captures your full audio and transcribes it with context-aware AI — no choppy real-time guessing.
+    </p>
+    <div class="hero-buttons hero-anim hero-anim-4">
+      <a href="#download" class="btn-primary">Get Wozcribe</a>
+      <a href="#how" class="btn-secondary">See how it works</a>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">How it works</div>
+      <div class="section-title">Three steps. Zero friction.</div>
+      <div class="section-subtitle">Works in any text field on your device. No switching apps, no copy-pasting.</div>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card reveal reveal-d1">
+        <div class="step-num">01</div>
+        <div class="step-icon">🎙️</div>
+        <h3>Record</h3>
+        <p>Press your volume buttons to start. Speak naturally — pauses, filler words, rambling. Wozcribe handles it all.</p>
+      </div>
+      <div class="step-card reveal reveal-d2">
+        <div class="step-num">02</div>
+        <div class="step-icon">⚡</div>
+        <h3>Process</h3>
+        <p>Your complete audio goes to AI in one batch. Full context means dramatically better accuracy than live transcription.</p>
+      </div>
+      <div class="step-card reveal reveal-d3">
+        <div class="step-num">03</div>
+        <div class="step-icon">✨</div>
+        <h3>Done</h3>
+        <p>Clean, accurate text appears right where your cursor is. WhatsApp, Notes, Email — wherever you're typing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ACCURACY / ZOOM SECTION -->
+<div class="zoom-section" id="accuracy">
+  <div class="zoom-sticky">
+    <div class="zoom-inner">
+      <div class="section-label">Accuracy</div>
+      <div class="section-title">Built different.<br>Literally.</div>
+      <p class="section-subtitle" style="margin: 1rem auto 0; text-align: center;">
+        Batch processing gives AI the full picture — not 4-second fragments.
+      </p>
+      <div class="zoom-stats">
+        <div class="stat">
+          <div class="stat-number">98%</div>
+          <div class="stat-label">Accuracy rate</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">30+</div>
+          <div class="stat-label">Languages</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">&lt;3s</div>
+          <div class="stat-label">Processing time</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Features</div>
+      <div class="section-title">Everything you need.<br>Nothing you don't.</div>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal reveal-d1">
+        <div class="feature-icon">🎯</div>
+        <h3>Batch Processing</h3>
+        <p>Full audio context means the AI understands what you said, not what it guessed from a 4-second clip.</p>
+      </div>
+      <div class="feature-card reveal reveal-d2">
+        <div class="feature-icon">📱</div>
+        <h3>Works Everywhere</h3>
+        <p>Any text field. WhatsApp, Slack, Gmail, Notes — if you can type there, Wozcribe can transcribe there.</p>
+      </div>
+      <div class="feature-card reveal reveal-d3">
+        <div class="feature-icon">🌍</div>
+        <h3>Multi-language</h3>
+        <p>Speak in 30+ languages and dialects. Auto-detection means you don't need to switch settings.</p>
+      </div>
+      <div class="feature-card reveal reveal-d4">
+        <div class="feature-icon">🔒</div>
+        <h3>Private & Secure</h3>
+        <p>Audio is processed and immediately discarded. We never store your recordings or transcriptions.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section>
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Comparison</div>
+      <div class="section-title">Why batch beats live.</div>
+      <div class="section-subtitle">Live transcription guesses in real-time. We wait, listen to everything, then get it right.</div>
+    </div>
+    <div class="comparison reveal" id="compBars">
+      <div class="comp-row">
+        <div class="comp-label">Accuracy</div>
+        <div class="comp-bars">
+          <div class="bar-row">
+            <div class="bar-name">Wozcribe</div>
+            <div class="bar-track"><div class="bar-fill ours" data-w="98"></div></div>
+            <div class="bar-val">98%</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name">Live STT</div>
+            <div class="bar-track"><div class="bar-fill theirs" data-w="72"></div></div>
+            <div class="bar-val">72%</div>
+          </div>
+        </div>
+      </div>
+      <div class="comp-row">
+        <div class="comp-label">Context awareness</div>
+        <div class="comp-bars">
+          <div class="bar-row">
+            <div class="bar-name">Wozcribe</div>
+            <div class="bar-track"><div class="bar-fill ours" data-w="95"></div></div>
+            <div class="bar-val">95%</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name">Live STT</div>
+            <div class="bar-track"><div class="bar-fill theirs" data-w="35"></div></div>
+            <div class="bar-val">35%</div>
+          </div>
+        </div>
+      </div>
+      <div class="comp-row">
+        <div class="comp-label">Handles accents</div>
+        <div class="comp-bars">
+          <div class="bar-row">
+            <div class="bar-name">Wozcribe</div>
+            <div class="bar-track"><div class="bar-fill ours" data-w="92"></div></div>
+            <div class="bar-val">92%</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name">Live STT</div>
+            <div class="bar-track"><div class="bar-fill theirs" data-w="50"></div></div>
+            <div class="bar-val">50%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta" id="download">
+  <div class="container">
+    <div class="cta-glow"></div>
+    <div class="reveal">
+      <div class="section-label">Get started</div>
+      <div class="section-title">Stop typing.<br>Start speaking.</div>
+      <div class="section-subtitle">Available on Android and macOS. Free to try.</div>
+    </div>
+    <div class="dl-buttons reveal reveal-d2">
+      <a href="#" class="dl-btn android">
+        <span class="dl-icon">▶</span>
+        <span class="dl-text"><small>Get it on</small>Google Play</span>
+      </a>
+      <a href="#" class="dl-btn mac">
+        <span class="dl-icon">🍎</span>
+        <span class="dl-text"><small>Download for</small>macOS</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>&copy; 2026 Wozcribe. Built for people who'd rather talk than type.</p>
+</footer>
+
+<script src="js/main.js"></script>
+<script src="js/morph.js"></script>
+</body>
+</html>

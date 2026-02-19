@@ -76,7 +76,7 @@ struct OnboardingView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.accentColor)
 
-            Text("Welcome to VoxType")
+            Text("Welcome to Wozcribe")
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
@@ -148,7 +148,7 @@ struct OnboardingView: View {
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("VoxType needs two permissions to work:")
+            Text("Wozcribe needs two permissions to work:")
                 .foregroundColor(.secondary)
 
             VStack(alignment: .leading, spacing: 12) {
@@ -177,7 +177,7 @@ struct OnboardingView: View {
                     Button("Grant Microphone Access") {
                         Task {
                             let granted = await PermissionChecker.requestMicrophone()
-                            print("[VoxType] Microphone permission: \(granted)")
+                            print("[Wozcribe] Microphone permission: \(granted)")
                             // Update state on main thread
                             await MainActor.run {
                                 microphoneGranted = granted
@@ -196,7 +196,7 @@ struct OnboardingView: View {
             }
 
             if AVCaptureDevice.authorizationStatus(for: .audio) == .denied {
-                Text("Microphone was denied. Go to **System Settings > Privacy & Security > Microphone** and enable VoxType.")
+                Text("Microphone was denied. Go to **System Settings > Privacy & Security > Microphone** and enable Wozcribe.")
                     .font(.caption)
                     .foregroundColor(.orange)
                     .multilineTextAlignment(.center)

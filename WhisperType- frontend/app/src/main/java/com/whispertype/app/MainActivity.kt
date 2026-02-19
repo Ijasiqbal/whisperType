@@ -268,7 +268,7 @@ class MainActivity : ComponentActivity() {
             activity = this,
             productId = productId,
             onSuccess = {
-                Toast.makeText(this, "Welcome to VoxType Pro!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Welcome to Wozcribe Pro!", Toast.LENGTH_LONG).show()
             },
             onError = { errorMessage ->
                 Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
@@ -280,7 +280,7 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
         startActivity(intent)
-        Toast.makeText(this, "Find and enable 'VoxType Voice Input'", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Find and enable 'Wozcribe Voice Input'", Toast.LENGTH_LONG).show()
     }
     
     private fun openOverlaySettings() {
@@ -511,7 +511,7 @@ fun MainScreen(
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_microphone),
-                    contentDescription = "VoxType Icon",
+                    contentDescription = "Wozcribe Icon",
                     tint = Color.White,
                     modifier = Modifier.size(50.dp)
                 )
@@ -530,7 +530,7 @@ fun MainScreen(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "VoxType",
+                    text = "Wozcribe",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E293B)
@@ -897,7 +897,7 @@ fun MainScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Choose how to activate VoxType:",
+                    text = "Choose how to activate Wozcribe:",
                     fontSize = 14.sp,
                     color = Color(0xFF64748B)
                 )
@@ -1031,7 +1031,7 @@ fun MainScreen(
                 text = {
                     Column {
                         Text(
-                            text = "This feature prevents Android from stopping VoxType when the device is idle, ensuring your volume shortcut always works.",
+                            text = "This feature prevents Android from stopping Wozcribe when the device is idle, ensuring your volume shortcut always works.",
                             fontSize = 14.sp,
                             color = Color(0xFF475569)
                         )
@@ -1044,7 +1044,7 @@ fun MainScreen(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "• A small notification indicating VoxType is ready",
+                            text = "• A small notification indicating Wozcribe is ready",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
@@ -1143,7 +1143,7 @@ fun MainScreen(
                 text = {
                     Column {
                         Text(
-                            text = "Android may stop VoxType to save battery, which can cause the volume shortcut to stop responding.",
+                            text = "Android may stop Wozcribe to save battery, which can cause the volume shortcut to stop responding.",
                             fontSize = 14.sp,
                             color = Color(0xFF475569)
                         )
@@ -1156,7 +1156,7 @@ fun MainScreen(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "• Prevents Android from stopping VoxType when idle",
+                            text = "• Prevents Android from stopping Wozcribe when idle",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
@@ -1175,7 +1175,7 @@ fun MainScreen(
                             color = Color(0xFF10B981)
                         )
                         Text(
-                            text = "• Minimal - VoxType stays idle until you activate it",
+                            text = "• Minimal - Wozcribe stays idle until you activate it",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
@@ -1436,7 +1436,7 @@ fun AppWithBottomNav(
                                     context.startActivity(intent)
                                     Toast.makeText(
                                         context,
-                                        "Please allow VoxType to run unrestricted",
+                                        "Please allow Wozcribe to run unrestricted",
                                         Toast.LENGTH_LONG
                                     ).show()
                                 } else {

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# VoxType macOS — Build, Sign, Package, Notarize
+# Wozcribe macOS — Build, Sign, Package, Notarize
 #
 # Prerequisites:
 #   1. "Developer ID Application" certificate installed in Keychain
@@ -20,11 +20,11 @@ set -euo pipefail
 # --- Configuration ---
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
-SCHEME="VoxType"
-PROJECT="$PROJECT_DIR/VoxType.xcodeproj"
+SCHEME="Wozcribe"
+PROJECT="$PROJECT_DIR/Wozcribe.xcodeproj"
 EXPORT_OPTIONS="$PROJECT_DIR/ExportOptions.plist"
 BUILD_DIR="$PROJECT_DIR/build"
-ARCHIVE_PATH="$BUILD_DIR/VoxType.xcarchive"
+ARCHIVE_PATH="$BUILD_DIR/Wozcribe.xcarchive"
 EXPORT_PATH="$BUILD_DIR/export"
 DMG_DIR="$BUILD_DIR/dmg"
 NOTARY_PROFILE="notary"
@@ -40,7 +40,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-log()  { echo -e "${BLUE}[VoxType]${NC} $1"; }
+log()  { echo -e "${BLUE}[Wozcribe]${NC} $1"; }
 ok()   { echo -e "${GREEN}[✓]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err()  { echo -e "${RED}[✗]${NC} $1"; exit 1; }
@@ -133,7 +133,7 @@ if [ "$HAS_DEV_ID" = true ]; then
         -exportOptionsPlist "$EXPORT_OPTIONS" \
         -exportPath "$EXPORT_PATH" \
         -quiet
-    APP_PATH="$EXPORT_PATH/VoxType.app"
+    APP_PATH="$EXPORT_PATH/Wozcribe.app"
     if [ ! -d "$APP_PATH" ]; then
         err "Export failed — no .app produced"
     fi
@@ -144,10 +144,10 @@ if [ "$HAS_DEV_ID" = true ]; then
     ok "Code signature valid"
 else
     log "Step 2/5: Skipping export (no Developer ID). Using build output directly."
-    APP_PATH="$ARCHIVE_PATH/Products/Applications/VoxType.app"
+    APP_PATH="$ARCHIVE_PATH/Products/Applications/Wozcribe.app"
     if [ ! -d "$APP_PATH" ]; then
         # Fallback to derived data path
-        APP_PATH="$(find "$ARCHIVE_PATH" -name "VoxType.app" -type d | head -1)"
+        APP_PATH="$(find "$ARCHIVE_PATH" -name "Wozcribe.app" -type d | head -1)"
     fi
     if [ ! -d "$APP_PATH" ]; then
         err "No .app found in archive"
@@ -164,19 +164,19 @@ if [ -n "$VERSION" ]; then
 else
     DMG_VERSION=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleShortVersionString" "$ARCHIVE_PATH/Info.plist" 2>/dev/null || echo "1.0")
 fi
-DMG_NAME="VoxType-${DMG_VERSION}.dmg"
+DMG_NAME="Wozcribe-${DMG_VERSION}.dmg"
 DMG_PATH="$BUILD_DIR/$DMG_NAME"
 
 # Background image for DMG (generate if missing)
 BG_IMAGE="$PROJECT_DIR/dmg-background.png"
 if [ "$HAS_CREATE_DMG" = true ] && [ -f "$BG_IMAGE" ]; then
     create-dmg \
-        --volname "VoxType" \
+        --volname "Wozcribe" \
         --background "$BG_IMAGE" \
         --window-pos 200 120 \
         --window-size 660 400 \
         --icon-size 100 \
-        --icon "VoxType.app" 170 180 \
+        --icon "Wozcribe.app" 170 180 \
         --app-drop-link 490 180 \
         --no-internet-enable \
         "$DMG_PATH" \
@@ -186,7 +186,7 @@ else
     mkdir -p "$DMG_DIR"
     cp -R "$APP_PATH" "$DMG_DIR/"
     ln -s /Applications "$DMG_DIR/Applications"
-    hdiutil create -volname "VoxType" -srcfolder "$DMG_DIR" -ov -format UDZO -imagekey zlib-level=9 "$DMG_PATH"
+    hdiutil create -volname "Wozcribe" -srcfolder "$DMG_DIR" -ov -format UDZO -imagekey zlib-level=9 "$DMG_PATH"
 fi
 
 if [ ! -f "$DMG_PATH" ]; then
@@ -223,7 +223,7 @@ fi
 # --- Done ---
 echo ""
 echo -e "${GREEN}════════════════════════════════════════${NC}"
-echo -e "${GREEN}  VoxType $DMG_VERSION — Ready for distribution${NC}"
+echo -e "${GREEN}  Wozcribe $DMG_VERSION — Ready for distribution${NC}"
 echo -e "${GREEN}════════════════════════════════════════${NC}"
 echo ""
 echo "  DMG: $DMG_PATH"

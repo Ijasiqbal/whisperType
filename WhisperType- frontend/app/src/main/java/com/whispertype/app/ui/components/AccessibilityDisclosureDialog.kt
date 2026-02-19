@@ -22,7 +22,7 @@ import androidx.compose.ui.window.DialogProperties
  * AccessibilityDisclosureDialog - Prominent disclosure for Google Play compliance
  * 
  * This dialog explains to users:
- * 1. Why VoxType needs accessibility service access
+ * 1. Why Wozcribe needs accessibility service access
  * 2. How the accessibility service is used
  * 3. What data is (not) collected
  * 
@@ -114,7 +114,7 @@ private fun MainDialogContent(
 
         // Description
         Text(
-            text = "To type using your voice in any app, VoxType uses Android's Accessibility Service to:",
+            text = "To type using your voice in any app, Wozcribe uses Android's Accessibility Service to:",
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFF1E293B),
@@ -171,7 +171,7 @@ private fun MainDialogContent(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "VoxType only interacts with text fields when you activate voice input. Your transcribed speech is inserted directly where you're typing.",
+                        text = "Wozcribe only interacts with text fields when you activate voice input. Your transcribed speech is inserted directly where you're typing.",
                         fontSize = 12.sp,
                         color = Color(0xFF64748B), // Slate-500
                         lineHeight = 18.sp

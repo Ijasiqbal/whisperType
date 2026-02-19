@@ -179,7 +179,7 @@ object MiuiHelper {
                     "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"
                 )
                 putExtra("package_name", context.packageName)
-                putExtra("package_label", "WhisperType")
+                putExtra("package_label", "Wozcribe")
             },
             // Alternative battery settings
             Intent("miui.intent.action.POWER_HIDE_MODE_APP_LIST").apply {
@@ -212,7 +212,7 @@ object MiuiHelper {
      */
     fun getLockAppInstructions(): String {
         return "1. Open Recent Apps (swipe up from bottom)\n" +
-               "2. Find WhisperType card\n" +
+               "2. Find Wozcribe card\n" +
                "3. Long press on the card\n" +
                "4. Tap the Lock icon (🔒)"
     }

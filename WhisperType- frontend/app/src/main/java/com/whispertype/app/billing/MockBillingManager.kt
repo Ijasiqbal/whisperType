@@ -26,15 +26,15 @@ class MockBillingManager {
     // Mock product catalog
     private val mockProducts = mapOf(
         Constants.PRODUCT_ID_STARTER to MockProductDetails(
-            Constants.PRODUCT_ID_STARTER, "VoxType Starter (Mock)",
+            Constants.PRODUCT_ID_STARTER, "Wozcribe Starter (Mock)",
             "${Constants.PRICE_STARTER_FALLBACK}/month", Constants.CREDITS_STARTER
         ),
         Constants.PRODUCT_ID_PRO to MockProductDetails(
-            Constants.PRODUCT_ID_PRO, "VoxType Pro (Mock)",
+            Constants.PRODUCT_ID_PRO, "Wozcribe Pro (Mock)",
             "${Constants.PRICE_PRO_FALLBACK}/month", Constants.CREDITS_PRO
         ),
         Constants.PRODUCT_ID_UNLIMITED to MockProductDetails(
-            Constants.PRODUCT_ID_UNLIMITED, "VoxType Unlimited (Mock)",
+            Constants.PRODUCT_ID_UNLIMITED, "Wozcribe Unlimited (Mock)",
             "${Constants.PRICE_UNLIMITED_FALLBACK}/month", Constants.CREDITS_UNLIMITED
         )
     )

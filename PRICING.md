@@ -1,4 +1,4 @@
-# VoxType Pricing Strategy
+# Wozcribe Pricing Strategy
 
 ## Free Tier
 
@@ -66,9 +66,9 @@ Google Play handles regional pricing (INR/USD) automatically via country-specifi
 
 | Plan | Product ID |
 |------|------------|
-| VoxType Starter | `voxtype_starter_monthly` |
-| VoxType Pro | `voxtype_pro_monthly` |
-| VoxType Unlimited | `voxtype_unlimited_monthly` |
+| Wozcribe Starter | `wozcribe_starter_monthly` |
+| Wozcribe Pro | `wozcribe_pro_monthly` |
+| Wozcribe Unlimited | `wozcribe_unlimited_monthly` |
 
 ---
 

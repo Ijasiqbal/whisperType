@@ -6,7 +6,7 @@
     <true/>
     <key>keychain-access-groups</key>
     <array>
-        <string>$(AppIdentifierPrefix)com.voxtype.VoxType</string>
+        <string>$(AppIdentifierPrefix)com.wozcribe.mac</string>
     </array>
 </dict>
 </plist>

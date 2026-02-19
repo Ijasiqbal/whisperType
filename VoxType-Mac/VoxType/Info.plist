@@ -11,7 +11,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>VoxType</string>
+    <string>Wozcribe</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -23,8 +23,8 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>VoxType needs microphone access to record your voice for transcription.</string>
+    <string>Wozcribe needs microphone access to record your voice for transcription.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>VoxType needs permission to insert transcribed text into other applications.</string>
+    <string>Wozcribe needs permission to insert transcribed text into other applications.</string>
 </dict>
 </plist>
