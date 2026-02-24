@@ -1346,24 +1346,41 @@ class OverlayService : Service() {
         val tierAuto = menuView.findViewById<LinearLayout>(R.id.tier_auto)
         val tierStandard = menuView.findViewById<LinearLayout>(R.id.tier_standard)
         val tierPremium = menuView.findViewById<LinearLayout>(R.id.tier_premium)
+        val tierNewAuto = menuView.findViewById<LinearLayout>(R.id.tier_new_auto)
+        val tierNewStandard = menuView.findViewById<LinearLayout>(R.id.tier_new_standard)
+        val tierNewPremium = menuView.findViewById<LinearLayout>(R.id.tier_new_premium)
 
         val radioAuto = menuView.findViewById<RadioButton>(R.id.radio_auto)
         val radioStandard = menuView.findViewById<RadioButton>(R.id.radio_standard)
         val radioPremium = menuView.findViewById<RadioButton>(R.id.radio_premium)
+        val radioNewAuto = menuView.findViewById<RadioButton>(R.id.radio_new_auto)
+        val radioNewStandard = menuView.findViewById<RadioButton>(R.id.radio_new_standard)
+        val radioNewPremium = menuView.findViewById<RadioButton>(R.id.radio_new_premium)
+
+        val allRadios = arrayOf(radioAuto, radioStandard, radioPremium, radioNewAuto, radioNewStandard, radioNewPremium)
 
         // Set initial state based on current preference
         val currentTier = ShortcutPreferences.getModelTier(this)
-        updateTierSelection(currentTier, radioAuto, radioStandard, radioPremium)
+        updateTierSelectionAll(currentTier, allRadios)
 
         // Handle tier selection
         tierAuto.setOnClickListener {
-            selectModelTier(ShortcutPreferences.ModelTier.AUTO, radioAuto, radioStandard, radioPremium)
+            selectModelTierAll(ShortcutPreferences.ModelTier.AUTO, allRadios)
         }
         tierStandard.setOnClickListener {
-            selectModelTier(ShortcutPreferences.ModelTier.STANDARD, radioAuto, radioStandard, radioPremium)
+            selectModelTierAll(ShortcutPreferences.ModelTier.STANDARD, allRadios)
         }
         tierPremium.setOnClickListener {
-            selectModelTier(ShortcutPreferences.ModelTier.PREMIUM, radioAuto, radioStandard, radioPremium)
+            selectModelTierAll(ShortcutPreferences.ModelTier.PREMIUM, allRadios)
+        }
+        tierNewAuto.setOnClickListener {
+            selectModelTierAll(ShortcutPreferences.ModelTier.NEW_AUTO, allRadios)
+        }
+        tierNewStandard.setOnClickListener {
+            selectModelTierAll(ShortcutPreferences.ModelTier.NEW_STANDARD, allRadios)
+        }
+        tierNewPremium.setOnClickListener {
+            selectModelTierAll(ShortcutPreferences.ModelTier.NEW_PREMIUM, allRadios)
         }
 
         /* ============================================================
@@ -1468,6 +1485,48 @@ class OverlayService : Service() {
 
         // Update UI
         updateTierSelection(tier, radioAuto, radioStandard, radioPremium)
+
+        // Show feedback
+        Toast.makeText(this, "${tier.displayName} selected", Toast.LENGTH_SHORT).show()
+
+        // Auto-hide menu after selection
+        uiHandler.postDelayed({
+            hideOptionsMenu()
+        }, 300)
+    }
+
+    /**
+     * Update radio button selection state for all 6 model tiers
+     */
+    private fun updateTierSelectionAll(
+        tier: ShortcutPreferences.ModelTier,
+        allRadios: Array<RadioButton>
+    ) {
+        val tiers = ShortcutPreferences.ModelTier.values()
+        for (i in allRadios.indices) {
+            allRadios[i].isChecked = (i < tiers.size && tiers[i] == tier)
+        }
+    }
+
+    /**
+     * Handle model tier selection for all 6 tiers
+     */
+    private fun selectModelTierAll(
+        tier: ShortcutPreferences.ModelTier,
+        allRadios: Array<RadioButton>
+    ) {
+        Log.d(TAG, "Selecting model tier: ${tier.name}")
+
+        // Update preference
+        ShortcutPreferences.setModelTier(this, tier)
+
+        // Update the underlying TranscriptionFlow
+        val flow = TranscriptionFlow.fromModelTier(tier)
+        TranscriptionFlow.setSelectedFlow(this, flow)
+        Log.d(TAG, "TranscriptionFlow set to: ${flow.name}")
+
+        // Update UI
+        updateTierSelectionAll(tier, allRadios)
 
         // Show feedback
         Toast.makeText(this, "${tier.displayName} selected", Toast.LENGTH_SHORT).show()

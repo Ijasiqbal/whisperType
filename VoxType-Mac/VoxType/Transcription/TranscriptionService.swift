@@ -72,10 +72,11 @@ final class TranscriptionService: ObservableObject {
             return
         }
 
-        let durationMs = audioRecorder.audioDurationMs
+        let meta = audioResult.metadata
+        let durationMs = meta.silenceTrimmingApplied ? meta.speechDurationMs : meta.originalDurationMs
         let model = selectedModel
 
-        print("[Transcription] Audio recorded: \(audioResult.data.count) bytes (\(audioResult.format)), \(durationMs)ms")
+        print("[Transcription] Audio: \(audioResult.data.count) bytes (\(audioResult.format)), speech: \(meta.speechDurationMs)ms of \(meta.originalDurationMs)ms, segments: \(meta.speechSegmentCount), trimmed: \(meta.silenceTrimmingApplied)")
 
         Task {
             await transcribeAndInsert(audioData: audioResult.data, format: audioResult.format, durationMs: durationMs, model: model)

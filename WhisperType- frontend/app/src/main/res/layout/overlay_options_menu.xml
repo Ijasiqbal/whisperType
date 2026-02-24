@@ -141,6 +141,134 @@ Layout:
             android:textSize="10sp" />
     </LinearLayout>
 
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="4dp"
+        android:layout_marginHorizontal="6dp"
+        android:background="#20FFFFFF" />
+
+    <!-- New Auto (Two-Stage) tier -->
+    <LinearLayout
+        android:id="@+id/tier_new_auto"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingVertical="6dp"
+        android:paddingHorizontal="6dp"
+        android:background="@drawable/menu_item_background"
+        android:gravity="center_vertical"
+        android:clickable="true"
+        android:focusable="true">
+
+        <RadioButton
+            android:id="@+id/radio_new_auto"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:clickable="false"
+            android:focusable="false"
+            android:buttonTint="#F59E0B" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="New Auto"
+            android:textColor="#F0FFFFFF"
+            android:textSize="13sp"
+            android:layout_marginStart="2dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Free"
+            android:textColor="#F59E0B"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:background="@drawable/badge_free_background"
+            android:paddingHorizontal="5dp"
+            android:paddingVertical="1dp" />
+    </LinearLayout>
+
+    <!-- New Standard (Two-Stage) tier -->
+    <LinearLayout
+        android:id="@+id/tier_new_standard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingVertical="6dp"
+        android:paddingHorizontal="6dp"
+        android:background="@drawable/menu_item_background"
+        android:gravity="center_vertical"
+        android:clickable="true"
+        android:focusable="true"
+        android:layout_marginTop="2dp">
+
+        <RadioButton
+            android:id="@+id/radio_new_standard"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:clickable="false"
+            android:focusable="false"
+            android:buttonTint="#F59E0B" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="New Std"
+            android:textColor="#F0FFFFFF"
+            android:textSize="13sp"
+            android:layout_marginStart="2dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1x"
+            android:textColor="#80FFFFFF"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <!-- New Premium (Two-Stage) tier -->
+    <LinearLayout
+        android:id="@+id/tier_new_premium"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingVertical="6dp"
+        android:paddingHorizontal="6dp"
+        android:background="@drawable/menu_item_background"
+        android:gravity="center_vertical"
+        android:clickable="true"
+        android:focusable="true"
+        android:layout_marginTop="2dp">
+
+        <RadioButton
+            android:id="@+id/radio_new_premium"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:clickable="false"
+            android:focusable="false"
+            android:buttonTint="#F59E0B" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="New Prem"
+            android:textColor="#F0FFFFFF"
+            android:textSize="13sp"
+            android:layout_marginStart="2dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="2x"
+            android:textColor="#80FFFFFF"
+            android:textSize="10sp" />
+    </LinearLayout>
+
     <!-- ============================================================
          AUTO-SEND FEATURE - COMMENTED OUT FOR FUTURE IMPLEMENTATION
          This feature may be re-enabled in a future release.

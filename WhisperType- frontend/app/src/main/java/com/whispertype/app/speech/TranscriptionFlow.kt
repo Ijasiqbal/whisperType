@@ -62,8 +62,38 @@ enum class TranscriptionFlow(
     PARALLEL_OPUS(
         displayName = "Parallel Encoding [OGG] + Aramus OpenAI",
         description = "Parallel RMS + Opus encoding, compressed OGG"
+    ),
+
+    /**
+     * TWO_STAGE_AUTO - Two-stage pipeline (Free tier)
+     * Stage 1: Groq whisper-large-v3-turbo (no prompt) for raw transcription
+     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
+     */
+    TWO_STAGE_AUTO(
+        displayName = "New Auto (Two-Stage)",
+        description = "Groq Turbo → Llama cleanup (free)"
+    ),
+
+    /**
+     * TWO_STAGE_STANDARD - Two-stage pipeline (Standard tier)
+     * Stage 1: Groq whisper-large-v3 (no prompt) for raw transcription
+     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
+     */
+    TWO_STAGE_STANDARD(
+        displayName = "New Standard (Two-Stage)",
+        description = "Groq Whisper → Llama cleanup (1x)"
+    ),
+
+    /**
+     * TWO_STAGE_PREMIUM - Two-stage pipeline (Premium tier)
+     * Stage 1: Groq whisper-large-v3 (no prompt) for raw transcription
+     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
+     */
+    TWO_STAGE_PREMIUM(
+        displayName = "New Premium (Two-Stage)",
+        description = "Groq Whisper → Llama cleanup (2x)"
     );
-    
+
     companion object {
         private const val TAG = "TranscriptionFlow"
         private const val PREFS_NAME = "transcription_flow_prefs"
@@ -110,6 +140,9 @@ enum class TranscriptionFlow(
                 ShortcutPreferences.ModelTier.AUTO -> FLOW_3
                 ShortcutPreferences.ModelTier.STANDARD -> GROQ_WHISPER
                 ShortcutPreferences.ModelTier.PREMIUM -> PARALLEL_OPUS
+                ShortcutPreferences.ModelTier.NEW_AUTO -> TWO_STAGE_AUTO
+                ShortcutPreferences.ModelTier.NEW_STANDARD -> TWO_STAGE_STANDARD
+                ShortcutPreferences.ModelTier.NEW_PREMIUM -> TWO_STAGE_PREMIUM
             }
         }
     }

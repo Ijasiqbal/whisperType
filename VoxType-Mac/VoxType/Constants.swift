@@ -15,6 +15,7 @@ enum Constants {
 
     static let transcribeGroqPath = "/transcribeAudioGroq"
     static let transcribeOpenAIPath = "/transcribeAudio"
+    static let transcribeTwoStagePath = "/transcribeAudioTwoStage"
     static let trialStatusPath = "/getTrialStatus"
     static let subscriptionStatusPath = "/getSubscriptionStatus"
     static let healthPath = "/health"
@@ -47,6 +48,7 @@ enum Constants {
     static let minSilenceDurationMs = 500
     static let audioBufferBeforeMs = 150
     static let audioBufferAfterMs = 200
+    static let minSavingsPercent = 10  // Skip trimming if silence savings < 10%
 
     // MARK: - UI Delays
 

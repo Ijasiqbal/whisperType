@@ -311,6 +311,21 @@ class SpeechRecognitionHelper(
                 Log.d(TAG, "[PREMIUM] Sending to OpenAI API")
                 transcribeWithParallelOpusFlow(audioBytes, audioFormat, durationMs)
             }
+            TranscriptionFlow.TWO_STAGE_AUTO -> {
+                // NEW AUTO → Two-stage: Groq Turbo (no prompt) → Llama cleanup
+                Log.d(TAG, "[NEW_AUTO] Sending to Two-Stage API (turbo → llama)")
+                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3-turbo", "AUTO")
+            }
+            TranscriptionFlow.TWO_STAGE_STANDARD -> {
+                // NEW STANDARD → Two-stage: Groq Whisper (no prompt) → Llama cleanup
+                Log.d(TAG, "[NEW_STANDARD] Sending to Two-Stage API (v3 → llama)")
+                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3", "STANDARD")
+            }
+            TranscriptionFlow.TWO_STAGE_PREMIUM -> {
+                // NEW PREMIUM → Two-stage: Groq Whisper (no prompt) → Llama cleanup
+                Log.d(TAG, "[NEW_PREMIUM] Sending to Two-Stage API (v3 → llama, 2x)")
+                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3", "PREMIUM")
+            }
             else -> {
                 // Fallback to premium flow for any other flows (ARAMUS_OPENAI, FLOW_4)
                 Log.d(TAG, "[FALLBACK] Using OpenAI API for flow: ${flow.name}")
@@ -479,6 +494,72 @@ class SpeechRecognitionHelper(
                     }
                 }
             })
+        }
+    }
+
+    /**
+     * Transcribe using the two-stage pipeline:
+     * Stage 1: Groq Whisper (no prompt) for raw transcription
+     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
+     *
+     * @param audioBytes Audio bytes to transcribe
+     * @param audioFormat Audio format ("ogg", "wav", etc.)
+     * @param durationMs Audio duration in milliseconds
+     * @param model Groq STT model to use ("whisper-large-v3-turbo" or "whisper-large-v3")
+     * @param tier Billing tier ("AUTO", "STANDARD", or "PREMIUM")
+     */
+    private fun transcribeWithTwoStageApi(
+        audioBytes: ByteArray,
+        audioFormat: String,
+        durationMs: Long,
+        model: String,
+        tier: String
+    ) {
+        processingScope.launch {
+            if (isDestroyed) return@launch
+
+            val user = authManager.ensureSignedIn()
+            if (user == null) {
+                mainHandler.post {
+                    callback.onError("Authentication failed. Please restart the app.")
+                }
+                return@launch
+            }
+
+            val token = authManager.getIdToken()
+            if (token == null) {
+                mainHandler.post {
+                    callback.onError("Failed to get authentication token.")
+                }
+                return@launch
+            }
+
+            Log.d(TAG, "[TwoStage] Calling API with model: $model, tier: $tier, format: $audioFormat, duration: ${durationMs}ms")
+
+            mainHandler.post {
+                if (!isDestroyed) {
+                    callback.onTranscribing()
+                }
+            }
+
+            whisperApiClient.transcribeWithTwoStage(
+                audioBytes, token, audioFormat, durationMs, model, tier,
+                object : WhisperApiClient.TranscriptionCallback {
+                    override fun onSuccess(text: String) {
+                        Log.d(TAG, "[TwoStage] Transcription successful: ${text.take(50)}...")
+                        mainHandler.post {
+                            callback.onResults(text)
+                        }
+                    }
+
+                    override fun onError(error: String) {
+                        Log.e(TAG, "[TwoStage] Transcription error: $error")
+                        mainHandler.post {
+                            callback.onError(error)
+                        }
+                    }
+                }
+            )
         }
     }
 

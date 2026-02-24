@@ -67,13 +67,16 @@ class WhisperApiClient {
         // Dynamically selected URLs based on region
         private val API_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeAudio"
-        
+
         private val GROQ_API_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeAudioGroq"
-        
+
+        private val TWO_STAGE_API_URL: String
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeAudioTwoStage"
+
         private val TRIAL_STATUS_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/getTrialStatus"
-        
+
         private val VERIFY_SUBSCRIPTION_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/verifySubscription"
 
@@ -722,6 +725,177 @@ class WhisperApiClient {
     }
 
     /**
+     * Request body for the two-stage transcription API (includes tier)
+     */
+    private data class TwoStageRequest(
+        @SerializedName("audioBase64")
+        val audioBase64: String,
+        @SerializedName("audioFormat")
+        val audioFormat: String = "ogg",
+        @SerializedName("model")
+        val model: String? = null,
+        @SerializedName("audioDurationMs")
+        val audioDurationMs: Long? = null,
+        @SerializedName("tier")
+        val tier: String? = null
+    )
+
+    /**
+     * Transcribe audio using the two-stage pipeline:
+     * Stage 1: Groq Whisper (no prompt) for raw transcription
+     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
+     *
+     * @param audioBytes Raw audio bytes
+     * @param authToken Firebase Auth ID token
+     * @param audioFormat File format extension ("ogg", "wav", etc.)
+     * @param audioDurationMs Duration of audio in milliseconds
+     * @param model Groq STT model ("whisper-large-v3-turbo" or "whisper-large-v3")
+     * @param tier Model tier for billing ("AUTO", "STANDARD", or "PREMIUM")
+     * @param callback Callback for success/error results
+     */
+    fun transcribeWithTwoStage(
+        audioBytes: ByteArray,
+        authToken: String,
+        audioFormat: String = "ogg",
+        audioDurationMs: Long? = null,
+        model: String? = null,
+        tier: String? = null,
+        callback: TranscriptionCallback
+    ) {
+        val modelName = model ?: "whisper-large-v3-turbo"
+        Log.d(TAG, "[TwoStage] Starting, audio: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, model: $modelName, tier: $tier")
+
+        val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
+        Log.d(TAG, "[TwoStage] Base64 encoded, length: ${audioBase64.length}")
+
+        val requestBody = TwoStageRequest(audioBase64, audioFormat, model, audioDurationMs, tier)
+        val jsonBody = gson.toJson(requestBody)
+
+        val request = Request.Builder()
+            .url(TWO_STAGE_API_URL)
+            .addHeader("Authorization", "Bearer $authToken")
+            .post(jsonBody.toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    val responseBody = response.body?.string()
+                    Log.d(TAG, "[TwoStage] Response code: ${response.code}")
+
+                    when (response.code) {
+                        200 -> {
+                            try {
+                                val transcribeResponse = gson.fromJson(responseBody, TranscribeResponse::class.java)
+                                val text = transcribeResponse.text
+
+                                if (text.isNullOrBlank()) {
+                                    Log.w(TAG, "[TwoStage] Empty transcription result")
+                                    callback.onError("No speech detected")
+                                } else {
+                                    // Log usage info
+                                    val creditsUsed = transcribeResponse.creditsUsed ?: 0
+                                    val totalCreditsThisMonth = transcribeResponse.totalCreditsThisMonth ?: 0
+                                    Log.d(TAG, "[TwoStage] Usage: $creditsUsed credits used, $totalCreditsThisMonth total")
+
+                                    // Update usage data (same pattern as other methods)
+                                    val proStatus = transcribeResponse.proStatus
+                                    val isPro = transcribeResponse.plan == "pro" || proStatus != null
+
+                                    if (isPro && proStatus != null) {
+                                        UsageDataManager.updateProStatus(
+                                            proCreditsUsed = proStatus.proCreditsUsed ?: 0,
+                                            proCreditsRemaining = proStatus.proCreditsRemaining ?: Constants.CREDITS_PRO,
+                                            proCreditsLimit = proStatus.proCreditsLimit ?: Constants.CREDITS_PRO,
+                                            proResetDateMs = proStatus.currentPeriodEndMs ?: 0
+                                        )
+                                        UsageDataManager.updateUsage(creditsUsed, totalCreditsThisMonth)
+                                    } else {
+                                        val trial = transcribeResponse.trialStatus
+                                        if (trial != null) {
+                                            UsageDataManager.updateFull(
+                                                creditsUsed = creditsUsed,
+                                                totalCreditsThisMonth = totalCreditsThisMonth,
+                                                status = trial.status ?: "active",
+                                                freeCreditsUsed = trial.freeCreditsUsed ?: 0,
+                                                freeCreditsRemaining = trial.freeCreditsRemaining ?: 500,
+                                                trialExpiryDateMs = trial.trialExpiryDateMs ?: 0,
+                                                warningLevel = trial.warningLevel ?: "none"
+                                            )
+                                        } else {
+                                            UsageDataManager.updateUsage(creditsUsed, totalCreditsThisMonth)
+                                        }
+                                    }
+
+                                    Log.d(TAG, "[TwoStage] Final: ${text.take(50)}...")
+                                    callback.onSuccess(text)
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "[TwoStage] Failed to parse response", e)
+                                callback.onError("Failed to parse transcription response")
+                            }
+                        }
+                        403 -> {
+                            Log.w(TAG, "[TwoStage] Quota exceeded (403)")
+                            try {
+                                val errorResponse = gson.fromJson(responseBody, QuotaExceededResponse::class.java)
+                                val message = errorResponse?.message ?: "You have used all your credits"
+                                callback.onTrialExpired(message)
+                            } catch (e: Exception) {
+                                callback.onTrialExpired("You have used all your credits")
+                            }
+                        }
+                        400 -> {
+                            val errorResponse = try {
+                                gson.fromJson(responseBody, ErrorResponse::class.java)
+                            } catch (e: Exception) { null }
+                            callback.onError(errorResponse?.error ?: "Invalid audio data")
+                        }
+                        401 -> callback.onError("Authentication failed. Please restart the app.")
+                        500 -> callback.onError("Transcription failed. Please try again.")
+                        else -> callback.onError("Unexpected error (${response.code})")
+                    }
+                }
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "[TwoStage] Network request failed", e)
+                val errorMessage = when {
+                    e.message?.contains("timeout", ignoreCase = true) == true ->
+                        "Request timed out. Please try again."
+                    e is SocketTimeoutException -> "Connection timed out. Please try again."
+                    e is UnknownHostException -> "No internet connection."
+                    else -> "Network error. Please try again."
+                }
+                callback.onError(errorMessage)
+            }
+        })
+    }
+
+    /**
+     * Warm up the two-stage transcription Firebase Function
+     */
+    fun warmTwoStageFunction() {
+        Log.d(TAG, "Warming up transcribeAudioTwoStage function (region: ${getBestRegion()})")
+
+        val request = Request.Builder()
+            .url(TWO_STAGE_API_URL)
+            .get()
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                Log.d(TAG, "TwoStage warmup: ${response.code}")
+                response.close()
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                Log.d(TAG, "TwoStage warmup failed (non-critical): ${e.message}")
+            }
+        })
+    }
+
+    /**
      * Warm up the transcribeAudio Firebase Function
      *
      * IMPORTANT: Each Firebase Function (Gen 2) runs in a separate Cloud Run instance.
@@ -803,6 +977,11 @@ class WhisperApiClient {
                 // PARALLEL_OPUS uses OpenAI endpoint (same as ARAMUS)
                 warmTranscribeFunction()
             }
+            com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_AUTO,
+            com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_STANDARD,
+            com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_PREMIUM -> {
+                warmTwoStageFunction()
+            }
         }
     }
 
@@ -818,6 +997,7 @@ class WhisperApiClient {
         Log.d(TAG, "Warming up ALL endpoints (region: ${getBestRegion()})")
         warmTranscribeFunction()  // OpenAI endpoint (PREMIUM)
         warmGroqFunction()        // Groq endpoint (FREE, STANDARD)
+        warmTwoStageFunction()    // Two-stage endpoint (NEW tiers)
     }
     
     /**
