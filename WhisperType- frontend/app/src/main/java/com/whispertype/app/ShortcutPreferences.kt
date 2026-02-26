@@ -46,9 +46,8 @@ object ShortcutPreferences {
         AUTO("Auto", "Free", "Fast & unlimited"),
         STANDARD("Standard", "1x", "High accuracy"),
         PREMIUM("Premium", "2x", "Best quality"),
-        NEW_AUTO("New Auto", "Free", "Two-stage: fast & smart"),
-        NEW_STANDARD("New Standard", "1x", "Two-stage: accurate & smart"),
-        NEW_PREMIUM("New Premium", "2x", "Two-stage: best & smart")
+        NEW_AUTO("New Auto", "Free", "Two-stage: Turbo + Llama"),
+        NEWER_AUTO("Newer Auto", "Free", "Two-stage: Turbo + GPT-OSS")
     }
     
     private fun getPrefs(context: Context): SharedPreferences {

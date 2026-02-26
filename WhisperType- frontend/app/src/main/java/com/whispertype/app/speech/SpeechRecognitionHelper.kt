@@ -314,17 +314,12 @@ class SpeechRecognitionHelper(
             TranscriptionFlow.TWO_STAGE_AUTO -> {
                 // NEW AUTO → Two-stage: Groq Turbo (no prompt) → Llama cleanup
                 Log.d(TAG, "[NEW_AUTO] Sending to Two-Stage API (turbo → llama)")
-                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3-turbo", "AUTO")
+                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3-turbo", "AUTO", null)
             }
-            TranscriptionFlow.TWO_STAGE_STANDARD -> {
-                // NEW STANDARD → Two-stage: Groq Whisper (no prompt) → Llama cleanup
-                Log.d(TAG, "[NEW_STANDARD] Sending to Two-Stage API (v3 → llama)")
-                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3", "STANDARD")
-            }
-            TranscriptionFlow.TWO_STAGE_PREMIUM -> {
-                // NEW PREMIUM → Two-stage: Groq Whisper (no prompt) → Llama cleanup
-                Log.d(TAG, "[NEW_PREMIUM] Sending to Two-Stage API (v3 → llama, 2x)")
-                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3", "PREMIUM")
+            TranscriptionFlow.TWO_STAGE_NEWER_AUTO -> {
+                // NEWER AUTO → Two-stage: Groq Turbo (no prompt) → GPT-OSS cleanup
+                Log.d(TAG, "[NEWER_AUTO] Sending to Two-Stage API (turbo → llama-3.3-70b-specdec)")
+                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3-turbo", "AUTO", "openai/gpt-oss-20b")
             }
             else -> {
                 // Fallback to premium flow for any other flows (ARAMUS_OPENAI, FLOW_4)
@@ -513,7 +508,8 @@ class SpeechRecognitionHelper(
         audioFormat: String,
         durationMs: Long,
         model: String,
-        tier: String
+        tier: String,
+        llmModel: String?
     ) {
         processingScope.launch {
             if (isDestroyed) return@launch
@@ -534,7 +530,7 @@ class SpeechRecognitionHelper(
                 return@launch
             }
 
-            Log.d(TAG, "[TwoStage] Calling API with model: $model, tier: $tier, format: $audioFormat, duration: ${durationMs}ms")
+            Log.d(TAG, "[TwoStage] Calling API with model: $model, tier: $tier, llmModel: $llmModel, format: $audioFormat, duration: ${durationMs}ms")
 
             mainHandler.post {
                 if (!isDestroyed) {
@@ -543,7 +539,7 @@ class SpeechRecognitionHelper(
             }
 
             whisperApiClient.transcribeWithTwoStage(
-                audioBytes, token, audioFormat, durationMs, model, tier,
+                audioBytes, token, audioFormat, durationMs, model, tier, llmModel,
                 object : WhisperApiClient.TranscriptionCallback {
                     override fun onSuccess(text: String) {
                         Log.d(TAG, "[TwoStage] Transcription successful: ${text.take(50)}...")

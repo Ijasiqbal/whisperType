@@ -737,7 +737,9 @@ class WhisperApiClient {
         @SerializedName("audioDurationMs")
         val audioDurationMs: Long? = null,
         @SerializedName("tier")
-        val tier: String? = null
+        val tier: String? = null,
+        @SerializedName("llmModel")
+        val llmModel: String? = null
     )
 
     /**
@@ -760,15 +762,16 @@ class WhisperApiClient {
         audioDurationMs: Long? = null,
         model: String? = null,
         tier: String? = null,
+        llmModel: String? = null,
         callback: TranscriptionCallback
     ) {
         val modelName = model ?: "whisper-large-v3-turbo"
-        Log.d(TAG, "[TwoStage] Starting, audio: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, model: $modelName, tier: $tier")
+        Log.d(TAG, "[TwoStage] Starting, audio: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, model: $modelName, tier: $tier, llmModel: $llmModel")
 
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
         Log.d(TAG, "[TwoStage] Base64 encoded, length: ${audioBase64.length}")
 
-        val requestBody = TwoStageRequest(audioBase64, audioFormat, model, audioDurationMs, tier)
+        val requestBody = TwoStageRequest(audioBase64, audioFormat, model, audioDurationMs, tier, llmModel)
         val jsonBody = gson.toJson(requestBody)
 
         val request = Request.Builder()
@@ -978,8 +981,7 @@ class WhisperApiClient {
                 warmTranscribeFunction()
             }
             com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_AUTO,
-            com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_STANDARD,
-            com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_PREMIUM -> {
+            com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_NEWER_AUTO -> {
                 warmTwoStageFunction()
             }
         }

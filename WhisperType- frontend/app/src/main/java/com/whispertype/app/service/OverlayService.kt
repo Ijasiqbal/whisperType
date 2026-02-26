@@ -1347,17 +1347,15 @@ class OverlayService : Service() {
         val tierStandard = menuView.findViewById<LinearLayout>(R.id.tier_standard)
         val tierPremium = menuView.findViewById<LinearLayout>(R.id.tier_premium)
         val tierNewAuto = menuView.findViewById<LinearLayout>(R.id.tier_new_auto)
-        val tierNewStandard = menuView.findViewById<LinearLayout>(R.id.tier_new_standard)
-        val tierNewPremium = menuView.findViewById<LinearLayout>(R.id.tier_new_premium)
+        val tierNewerAuto = menuView.findViewById<LinearLayout>(R.id.tier_newer_auto)
 
         val radioAuto = menuView.findViewById<RadioButton>(R.id.radio_auto)
         val radioStandard = menuView.findViewById<RadioButton>(R.id.radio_standard)
         val radioPremium = menuView.findViewById<RadioButton>(R.id.radio_premium)
         val radioNewAuto = menuView.findViewById<RadioButton>(R.id.radio_new_auto)
-        val radioNewStandard = menuView.findViewById<RadioButton>(R.id.radio_new_standard)
-        val radioNewPremium = menuView.findViewById<RadioButton>(R.id.radio_new_premium)
+        val radioNewerAuto = menuView.findViewById<RadioButton>(R.id.radio_newer_auto)
 
-        val allRadios = arrayOf(radioAuto, radioStandard, radioPremium, radioNewAuto, radioNewStandard, radioNewPremium)
+        val allRadios = arrayOf(radioAuto, radioStandard, radioPremium, radioNewAuto, radioNewerAuto)
 
         // Set initial state based on current preference
         val currentTier = ShortcutPreferences.getModelTier(this)
@@ -1376,11 +1374,8 @@ class OverlayService : Service() {
         tierNewAuto.setOnClickListener {
             selectModelTierAll(ShortcutPreferences.ModelTier.NEW_AUTO, allRadios)
         }
-        tierNewStandard.setOnClickListener {
-            selectModelTierAll(ShortcutPreferences.ModelTier.NEW_STANDARD, allRadios)
-        }
-        tierNewPremium.setOnClickListener {
-            selectModelTierAll(ShortcutPreferences.ModelTier.NEW_PREMIUM, allRadios)
+        tierNewerAuto.setOnClickListener {
+            selectModelTierAll(ShortcutPreferences.ModelTier.NEWER_AUTO, allRadios)
         }
 
         /* ============================================================

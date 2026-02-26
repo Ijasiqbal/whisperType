@@ -75,23 +75,13 @@ enum class TranscriptionFlow(
     ),
 
     /**
-     * TWO_STAGE_STANDARD - Two-stage pipeline (Standard tier)
-     * Stage 1: Groq whisper-large-v3 (no prompt) for raw transcription
-     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
+     * TWO_STAGE_NEWER_AUTO - Two-stage pipeline with GPT-OSS post-processing
+     * Stage 1: Groq whisper-large-v3-turbo (no prompt) for raw transcription
+     * Stage 2: Groq llama-3.3-70b-specdec for cleanup (fast speculative decoding)
      */
-    TWO_STAGE_STANDARD(
-        displayName = "New Standard (Two-Stage)",
-        description = "Groq Whisper → Llama cleanup (1x)"
-    ),
-
-    /**
-     * TWO_STAGE_PREMIUM - Two-stage pipeline (Premium tier)
-     * Stage 1: Groq whisper-large-v3 (no prompt) for raw transcription
-     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
-     */
-    TWO_STAGE_PREMIUM(
-        displayName = "New Premium (Two-Stage)",
-        description = "Groq Whisper → Llama cleanup (2x)"
+    TWO_STAGE_NEWER_AUTO(
+        displayName = "Newer Auto (Two-Stage)",
+        description = "Groq Turbo → GPT-OSS cleanup (free)"
     );
 
     companion object {
@@ -141,8 +131,7 @@ enum class TranscriptionFlow(
                 ShortcutPreferences.ModelTier.STANDARD -> GROQ_WHISPER
                 ShortcutPreferences.ModelTier.PREMIUM -> PARALLEL_OPUS
                 ShortcutPreferences.ModelTier.NEW_AUTO -> TWO_STAGE_AUTO
-                ShortcutPreferences.ModelTier.NEW_STANDARD -> TWO_STAGE_STANDARD
-                ShortcutPreferences.ModelTier.NEW_PREMIUM -> TWO_STAGE_PREMIUM
+                ShortcutPreferences.ModelTier.NEWER_AUTO -> TWO_STAGE_NEWER_AUTO
             }
         }
     }

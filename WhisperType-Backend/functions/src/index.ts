@@ -1978,6 +1978,7 @@ export const transcribeAudioTwoStage = onRequest(
         model,
         audioDurationMs,
         tier,
+        llmModel,
       } = request.body;
 
       if (!audioBase64 || typeof audioBase64 !== "string") {
@@ -2094,12 +2095,25 @@ export const transcribeAudioTwoStage = onRequest(
           return;
         }
 
-        // ========== STAGE 2: Groq Llama cleanup ==========
+        // ========== STAGE 2: LLM cleanup ==========
         const stage2Start = Date.now();
-        logger.info("[TwoStage] Stage 2: Calling Groq Llama for cleanup");
+        const validLlmModels = [
+          "llama-3.1-8b-instant",
+          "openai/gpt-oss-20b",
+          "openai/gpt-oss-120b",
+          "llama-3.3-70b-specdec",
+          "llama-3.3-70b-versatile",
+          "gemma2-9b-it",
+        ];
+        const selectedLlmModel = llmModel && validLlmModels.includes(llmModel) ?
+          llmModel : "llama-3.1-8b-instant";
+        logger.info(
+          "[TwoStage] Stage 2: Calling Groq LLM " +
+          `(${selectedLlmModel}) for cleanup`
+        );
 
         const cleanupResponse = await groq.chat.completions.create({
-          model: "llama-3.1-8b-instant",
+          model: selectedLlmModel,
           messages: [
             {
               role: "system",
