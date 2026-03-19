@@ -11,6 +11,14 @@ struct TranscriptionRequest: Encodable {
     let audioDurationMs: Int
 }
 
+struct TwoStageRequest: Encodable {
+    let audioBase64: String
+    let audioFormat: String
+    let audioDurationMs: Int
+    let llmModel: String?
+    let tier: String?
+}
+
 struct TranscriptionResult: Decodable {
     let text: String
     let creditsUsed: Int?
@@ -71,17 +79,41 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .groqTurbo: return "Groq Turbo (Free)"
-        case .groqStandard: return "Groq Standard (1x credits)"
+        case .groqStandard: return "Standard (1x credits)"
         case .openAIMini: return "OpenAI Mini (2x credits)"
         }
     }
 
     var endpoint: String {
         switch self {
-        case .groqTurbo, .groqStandard:
+        case .groqTurbo:
             return Constants.transcribeGroqPath
+        case .groqStandard:
+            return Constants.transcribeTwoStagePath
         case .openAIMini:
             return Constants.transcribeOpenAIPath
+        }
+    }
+
+    /// Whether this model uses the two-stage pipeline
+    var isTwoStage: Bool {
+        self == .groqStandard
+    }
+
+    /// LLM model for two-stage cleanup (nil = backend default / Llama)
+    var llmModel: String? {
+        switch self {
+        case .groqStandard: return "openai/gpt-oss-20b"
+        default: return nil
+        }
+    }
+
+    /// Billing tier sent to the backend
+    var tier: String {
+        switch self {
+        case .groqTurbo: return "AUTO"
+        case .groqStandard: return "STANDARD"
+        case .openAIMini: return "PREMIUM"
         }
     }
 

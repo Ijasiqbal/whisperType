@@ -29,19 +29,32 @@ final class VoxTypeAPIClient {
 
         let token = try await AuthManager.shared.getIDToken()
 
-        let body = TranscriptionRequest(
-            audioBase64: audioData.base64EncodedString(),
-            audioFormat: format,
-            model: model.rawValue,
-            audioDurationMs: audioDurationMs
-        )
+        let bodyData: Data
+        if model.isTwoStage {
+            let body = TwoStageRequest(
+                audioBase64: audioData.base64EncodedString(),
+                audioFormat: format,
+                audioDurationMs: audioDurationMs,
+                llmModel: model.llmModel,
+                tier: model.tier
+            )
+            bodyData = try JSONEncoder().encode(body)
+        } else {
+            let body = TranscriptionRequest(
+                audioBase64: audioData.base64EncodedString(),
+                audioFormat: format,
+                model: model.rawValue,
+                audioDurationMs: audioDurationMs
+            )
+            bodyData = try JSONEncoder().encode(body)
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = Constants.apiReadTimeout
-        request.httpBody = try JSONEncoder().encode(body)
+        request.httpBody = bodyData
 
         return try await performWithRetry(request: request)
     }
@@ -86,7 +99,8 @@ final class VoxTypeAPIClient {
         let region = RegionSelector.bestRegion()
         async let groq: Void = warmEndpoint(Constants.baseURL(for: region) + Constants.transcribeGroqPath)
         async let openAI: Void = warmEndpoint(Constants.baseURL(for: region) + Constants.transcribeOpenAIPath)
-        _ = await (groq, openAI)
+        async let twoStage: Void = warmEndpoint(Constants.baseURL(for: region) + Constants.transcribeTwoStagePath)
+        _ = await (groq, openAI, twoStage)
     }
 
     private func warmEndpoint(_ urlString: String) async {

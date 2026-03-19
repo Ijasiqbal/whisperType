@@ -136,7 +136,7 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.radioGroup)
 
-                Text("Groq Turbo is fastest and free. OpenAI models use 2x credits but may be more accurate.")
+                Text("Groq Turbo is fastest and free. Standard uses AI cleanup for better accuracy (1x credits). OpenAI uses 2x credits.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
