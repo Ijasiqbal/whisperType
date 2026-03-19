@@ -13,7 +13,8 @@ whisperType/
 ├── WhisperType- frontend/     # Android app (Kotlin, Jetpack Compose)
 ├── WhisperType-Backend/       # Firebase Cloud Functions (TypeScript)
 ├── VoxType-Mac/               # macOS app (Swift, SwiftUI)
-└── whispertype-admin/         # Admin dashboard (Next.js, React)
+├── whispertype-admin/         # Admin dashboard (Next.js, React)
+└── website/                   # Marketing landing page (static HTML/CSS/JS)
 ```
 
 ## Frontend (Android)
@@ -73,10 +74,20 @@ firebase deploy --only functions # Deploy to production
 ### Cloud Functions
 | Function | Endpoint | Purpose |
 |----------|----------|---------|
+| `health` | GET | Health check |
 | `transcribeAudio` | POST | OpenAI transcription |
 | `transcribeAudioGroq` | POST | Groq transcription |
+| `transcribeAudioTwoStage` | POST | Two-stage transcription pipeline |
 | `getTrialStatus` | GET | Check user credits |
+| `getSubscriptionStatus` | GET | Current subscription info |
 | `verifySubscription` | POST | Validate Play Store purchase |
+| `deleteAccount` | POST | User account deletion |
+| `adminListUsers` | GET | List users (admin) |
+| `adminGetUserDetails` | GET | User details (admin) |
+| `adminAdjustCredits` | POST | Adjust user credits (admin) |
+| `adminUpdateUserPlan` | POST | Change user plan (admin) |
+| `adminGetAnalytics` | GET | Analytics data (admin) |
+| `adminSetAdminClaim` | POST | Set admin role (admin) |
 
 ### Firestore Collections
 - `users/{uid}` - User profile, subscription status
@@ -120,7 +131,7 @@ npm run build                    # Production build
 
 ### UI Changes
 - Screens are in `ui/` folder as Composables
-- Theme colors in `ui/theme/Color.kt`
+- Theme in `ui/theme/Theme.kt`
 - Use Material 3 components
 
 ## Debug vs Release
@@ -156,8 +167,7 @@ npm test
 
 ## Version Info
 
-- Android: `versionCode 18`, `versionName 1.0.18`
 - Min SDK: 24 (Android 7.0)
 - Target SDK: 35
-- Kotlin: 1.9.x
-- Compose BOM: 2023.10.01
+- Kotlin: 1.9.20
+- For current versionCode/versionName, check `app/build.gradle.kts`

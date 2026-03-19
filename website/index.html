@@ -14,6 +14,7 @@
 <body>
 
 <div class="grain"></div>
+<canvas id="ambientParticles"></canvas>
 
 <!-- NAV -->
 <nav>
@@ -28,20 +29,20 @@
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-bg">
+  <div class="hero-bg" data-parallax="-0.3">
     <canvas id="blobCanvas"></canvas>
   </div>
   <div class="hero-content">
-    <div class="hero-badge hero-anim hero-anim-1">
+    <div class="hero-badge hero-anim hero-anim-1" data-parallax="0.08">
       <span class="dot"></span> Now on Android & macOS
     </div>
-    <h1 class="hero-anim hero-anim-2">
+    <h1 class="hero-anim hero-anim-2" data-parallax="0.15">
       Voice to text,<br><span class="gradient-text">perfected.</span>
     </h1>
-    <p class="hero-anim hero-anim-3">
+    <p class="hero-anim hero-anim-3" data-parallax="0.1">
       Speak naturally. Wozcribe captures your full audio and transcribes it with context-aware AI — no choppy real-time guessing.
     </p>
-    <div class="hero-buttons hero-anim hero-anim-4">
+    <div class="hero-buttons hero-anim hero-anim-4" data-parallax="0.06">
       <a href="#download" class="btn-primary">Get Wozcribe</a>
       <a href="#how" class="btn-secondary">See how it works</a>
     </div>
@@ -79,32 +80,31 @@
   </div>
 </section>
 
-<!-- ACCURACY / ZOOM SECTION -->
-<div class="zoom-section" id="accuracy">
-  <div class="zoom-sticky">
-    <div class="zoom-inner">
-      <div class="section-label">Accuracy</div>
-      <div class="section-title">Built different.<br>Literally.</div>
-      <p class="section-subtitle" style="margin: 1rem auto 0; text-align: center;">
-        Batch processing gives AI the full picture — not 4-second fragments.
-      </p>
-      <div class="zoom-stats">
-        <div class="stat">
-          <div class="stat-number">98%</div>
-          <div class="stat-label">Accuracy rate</div>
-        </div>
-        <div class="stat">
-          <div class="stat-number">30+</div>
-          <div class="stat-label">Languages</div>
-        </div>
-        <div class="stat">
-          <div class="stat-number">&lt;3s</div>
-          <div class="stat-label">Processing time</div>
-        </div>
+<!-- ACCURACY SECTION -->
+<section class="accuracy-section" id="accuracy">
+  <div class="accuracy-inner">
+    <div class="section-label">Accuracy</div>
+    <div class="section-title">Built different.<br>Literally.</div>
+    <p class="section-subtitle" style="margin: 1rem auto 0; text-align: center;">
+      Batch processing gives AI the full picture — not 4-second fragments.
+    </p>
+    <div class="accuracy-divider"></div>
+    <div class="accuracy-stats">
+      <div class="stat">
+        <div class="stat-number" data-count="98" data-suffix="%" data-delay="0.35">0%</div>
+        <div class="stat-label">Accuracy rate</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number" data-count="30" data-suffix="+" data-delay="0.5">0+</div>
+        <div class="stat-label">Languages</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number" data-prefix="<" data-count="3" data-suffix="s" data-delay="0.65">&lt;0s</div>
+        <div class="stat-label">Processing time</div>
       </div>
     </div>
   </div>
-</div>
+</section>
 
 <!-- FEATURES -->
 <section id="features">
@@ -202,7 +202,7 @@
     <div class="cta-glow"></div>
     <div class="reveal">
       <div class="section-label">Get started</div>
-      <div class="section-title">Stop typing.<br>Start speaking.</div>
+      <div class="section-title" data-parallax="0.06">Stop typing.<br>Start speaking.</div>
       <div class="section-subtitle">Available on Android and macOS. Free to try.</div>
     </div>
     <div class="dl-buttons reveal reveal-d2">
@@ -225,5 +225,6 @@
 
 <script src="js/main.js"></script>
 <script src="js/morph.js"></script>
+<script src="js/particles.js"></script>
 </body>
 </html>
