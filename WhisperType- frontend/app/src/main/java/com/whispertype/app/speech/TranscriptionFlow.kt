@@ -122,16 +122,14 @@ enum class TranscriptionFlow(
         /**
          * Maps a ModelTier to the corresponding TranscriptionFlow
          * - AUTO (Free): FLOW_3 (Groq Turbo - whisper-large-v3-turbo)
-         * - STANDARD (1x credit): GROQ_WHISPER (whisper-large-v3)
+         * - STANDARD (1x credit): TWO_STAGE_NEWER_AUTO (Groq Turbo → GPT-OSS 20B cleanup)
          * - PREMIUM (2x credit): PARALLEL_OPUS (Parallel RMS + Opus OGG + OpenAI gpt-4o-mini-transcribe)
          */
         fun fromModelTier(tier: ShortcutPreferences.ModelTier): TranscriptionFlow {
             return when (tier) {
                 ShortcutPreferences.ModelTier.AUTO -> FLOW_3
-                ShortcutPreferences.ModelTier.STANDARD -> GROQ_WHISPER
+                ShortcutPreferences.ModelTier.STANDARD -> TWO_STAGE_NEWER_AUTO
                 ShortcutPreferences.ModelTier.PREMIUM -> PARALLEL_OPUS
-                ShortcutPreferences.ModelTier.NEW_AUTO -> TWO_STAGE_AUTO
-                ShortcutPreferences.ModelTier.NEWER_AUTO -> TWO_STAGE_NEWER_AUTO
             }
         }
     }

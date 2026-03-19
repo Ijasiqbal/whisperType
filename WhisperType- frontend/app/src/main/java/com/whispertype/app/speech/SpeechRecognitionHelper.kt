@@ -312,14 +312,14 @@ class SpeechRecognitionHelper(
                 transcribeWithParallelOpusFlow(audioBytes, audioFormat, durationMs)
             }
             TranscriptionFlow.TWO_STAGE_AUTO -> {
-                // NEW AUTO → Two-stage: Groq Turbo (no prompt) → Llama cleanup
-                Log.d(TAG, "[NEW_AUTO] Sending to Two-Stage API (turbo → llama)")
-                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3-turbo", "AUTO", null)
+                // TWO_STAGE_AUTO → Groq Turbo + Llama cleanup
+                Log.d(TAG, "[TWO_STAGE] Sending to two-stage API (Llama)")
+                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, null, "AUTO")
             }
             TranscriptionFlow.TWO_STAGE_NEWER_AUTO -> {
-                // NEWER AUTO → Two-stage: Groq Turbo (no prompt) → GPT-OSS cleanup
-                Log.d(TAG, "[NEWER_AUTO] Sending to Two-Stage API (turbo → llama-3.3-70b-specdec)")
-                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "whisper-large-v3-turbo", "AUTO", "openai/gpt-oss-20b")
+                // TWO_STAGE_NEWER_AUTO → Groq Turbo + GPT-OSS 20B cleanup
+                Log.d(TAG, "[NEWER_AUTO] Sending to two-stage API (GPT-OSS 20B)")
+                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "openai/gpt-oss-20b", "STANDARD")
             }
             else -> {
                 // Fallback to premium flow for any other flows (ARAMUS_OPENAI, FLOW_4)
@@ -493,69 +493,34 @@ class SpeechRecognitionHelper(
     }
 
     /**
-     * Transcribe using the two-stage pipeline:
-     * Stage 1: Groq Whisper (no prompt) for raw transcription
-     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
-     *
-     * @param audioBytes Audio bytes to transcribe
-     * @param audioFormat Audio format ("ogg", "wav", etc.)
-     * @param durationMs Audio duration in milliseconds
-     * @param model Groq STT model to use ("whisper-large-v3-turbo" or "whisper-large-v3")
-     * @param tier Billing tier ("AUTO", "STANDARD", or "PREMIUM")
+     * Transcribe using the two-stage pipeline (Groq Turbo → LLM cleanup)
      */
-    private fun transcribeWithTwoStageApi(
-        audioBytes: ByteArray,
-        audioFormat: String,
-        durationMs: Long,
-        model: String,
-        tier: String,
-        llmModel: String?
-    ) {
+    private fun transcribeWithTwoStageApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long, llmModel: String?, tier: String) {
         processingScope.launch {
             if (isDestroyed) return@launch
 
             val user = authManager.ensureSignedIn()
             if (user == null) {
-                mainHandler.post {
-                    callback.onError("Authentication failed. Please restart the app.")
-                }
+                mainHandler.post { callback.onError("Authentication failed. Please restart the app.") }
                 return@launch
             }
-
             val token = authManager.getIdToken()
             if (token == null) {
-                mainHandler.post {
-                    callback.onError("Failed to get authentication token.")
-                }
+                mainHandler.post { callback.onError("Failed to get authentication token.") }
                 return@launch
             }
 
-            Log.d(TAG, "[TwoStage] Calling API with model: $model, tier: $tier, llmModel: $llmModel, format: $audioFormat, duration: ${durationMs}ms")
+            mainHandler.post { if (!isDestroyed) callback.onTranscribing() }
 
-            mainHandler.post {
-                if (!isDestroyed) {
-                    callback.onTranscribing()
-                }
-            }
-
-            whisperApiClient.transcribeWithTwoStage(
-                audioBytes, token, audioFormat, durationMs, model, tier, llmModel,
+            whisperApiClient.transcribeWithTwoStage(audioBytes, token, audioFormat, durationMs, llmModel, tier,
                 object : WhisperApiClient.TranscriptionCallback {
                     override fun onSuccess(text: String) {
-                        Log.d(TAG, "[TwoStage] Transcription successful: ${text.take(50)}...")
-                        mainHandler.post {
-                            callback.onResults(text)
-                        }
+                        mainHandler.post { callback.onResults(text) }
                     }
-
                     override fun onError(error: String) {
-                        Log.e(TAG, "[TwoStage] Transcription error: $error")
-                        mainHandler.post {
-                            callback.onError(error)
-                        }
+                        mainHandler.post { callback.onError(error) }
                     }
-                }
-            )
+                })
         }
     }
 

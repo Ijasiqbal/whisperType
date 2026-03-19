@@ -725,33 +725,29 @@ class WhisperApiClient {
     }
 
     /**
-     * Request body for the two-stage transcription API (includes tier)
+     * Request body for the two-stage transcription API
      */
     private data class TwoStageRequest(
         @SerializedName("audioBase64")
         val audioBase64: String,
         @SerializedName("audioFormat")
         val audioFormat: String = "ogg",
-        @SerializedName("model")
-        val model: String? = null,
         @SerializedName("audioDurationMs")
         val audioDurationMs: Long? = null,
-        @SerializedName("tier")
-        val tier: String? = null,
         @SerializedName("llmModel")
-        val llmModel: String? = null
+        val llmModel: String? = null,
+        @SerializedName("tier")
+        val tier: String? = null
     )
 
     /**
-     * Transcribe audio using the two-stage pipeline:
-     * Stage 1: Groq Whisper (no prompt) for raw transcription
-     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
+     * Transcribe audio using the two-stage pipeline: Groq Turbo → LLM cleanup
      *
-     * @param audioBytes Raw audio bytes
+     * @param audioBytes Raw audio bytes (OGG, WAV, etc.)
      * @param authToken Firebase Auth ID token
      * @param audioFormat File format extension ("ogg", "wav", etc.)
-     * @param audioDurationMs Duration of audio in milliseconds
-     * @param model Groq STT model ("whisper-large-v3-turbo" or "whisper-large-v3")
+     * @param audioDurationMs Duration in milliseconds (for usage tracking)
+     * @param llmModel LLM model for cleanup stage (e.g. "openai/gpt-oss-20b")
      * @param tier Model tier for billing ("AUTO", "STANDARD", or "PREMIUM")
      * @param callback Callback for success/error results
      */
@@ -760,18 +756,14 @@ class WhisperApiClient {
         authToken: String,
         audioFormat: String = "ogg",
         audioDurationMs: Long? = null,
-        model: String? = null,
-        tier: String? = null,
         llmModel: String? = null,
+        tier: String? = null,
         callback: TranscriptionCallback
     ) {
-        val modelName = model ?: "whisper-large-v3-turbo"
-        Log.d(TAG, "[TwoStage] Starting, audio: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, model: $modelName, tier: $tier, llmModel: $llmModel")
+        Log.d(TAG, "[TwoStage] Starting, size: ${audioBytes.size} bytes, format: $audioFormat, llmModel: $llmModel, tier: $tier")
 
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
-        Log.d(TAG, "[TwoStage] Base64 encoded, length: ${audioBase64.length}")
-
-        val requestBody = TwoStageRequest(audioBase64, audioFormat, model, audioDurationMs, tier, llmModel)
+        val requestBody = TwoStageRequest(audioBase64, audioFormat, audioDurationMs, llmModel, tier)
         val jsonBody = gson.toJson(requestBody)
 
         val request = Request.Builder()
@@ -784,7 +776,6 @@ class WhisperApiClient {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     val responseBody = response.body?.string()
-                    Log.d(TAG, "[TwoStage] Response code: ${response.code}")
 
                     when (response.code) {
                         200 -> {
@@ -796,12 +787,11 @@ class WhisperApiClient {
                                     Log.w(TAG, "[TwoStage] Empty transcription result")
                                     callback.onError("No speech detected")
                                 } else {
-                                    // Log usage info
+                                    // Update usage data
                                     val creditsUsed = transcribeResponse.creditsUsed ?: 0
                                     val totalCreditsThisMonth = transcribeResponse.totalCreditsThisMonth ?: 0
                                     Log.d(TAG, "[TwoStage] Usage: $creditsUsed credits used, $totalCreditsThisMonth total")
 
-                                    // Update usage data (same pattern as other methods)
                                     val proStatus = transcribeResponse.proStatus
                                     val isPro = transcribeResponse.plan == "pro" || proStatus != null
 
@@ -831,7 +821,7 @@ class WhisperApiClient {
                                     }
 
                                     Log.d(TAG, "[TwoStage] Final: ${text.take(50)}...")
-                                    callback.onSuccess(text)
+                                    callback.onSuccess(text.trim())
                                 }
                             } catch (e: Exception) {
                                 Log.e(TAG, "[TwoStage] Failed to parse response", e)
@@ -854,9 +844,15 @@ class WhisperApiClient {
                             } catch (e: Exception) { null }
                             callback.onError(errorResponse?.error ?: "Invalid audio data")
                         }
-                        401 -> callback.onError("Authentication failed. Please restart the app.")
-                        500 -> callback.onError("Transcription failed. Please try again.")
-                        else -> callback.onError("Unexpected error (${response.code})")
+                        401 -> {
+                            callback.onError("Authentication failed. Please restart the app.")
+                        }
+                        500 -> {
+                            callback.onError("Transcription failed. Please try again.")
+                        }
+                        else -> {
+                            callback.onError("Transcription failed (${response.code})")
+                        }
                     }
                 }
             }
@@ -864,10 +860,10 @@ class WhisperApiClient {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "[TwoStage] Network request failed", e)
                 val errorMessage = when {
+                    e is SocketTimeoutException -> "Request timed out. Please try again."
+                    e is UnknownHostException -> "No internet connection."
                     e.message?.contains("timeout", ignoreCase = true) == true ->
                         "Request timed out. Please try again."
-                    e is SocketTimeoutException -> "Connection timed out. Please try again."
-                    e is UnknownHostException -> "No internet connection."
                     else -> "Network error. Please try again."
                 }
                 callback.onError(errorMessage)

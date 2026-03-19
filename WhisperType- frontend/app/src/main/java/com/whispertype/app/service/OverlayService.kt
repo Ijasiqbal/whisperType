@@ -1346,36 +1346,24 @@ class OverlayService : Service() {
         val tierAuto = menuView.findViewById<LinearLayout>(R.id.tier_auto)
         val tierStandard = menuView.findViewById<LinearLayout>(R.id.tier_standard)
         val tierPremium = menuView.findViewById<LinearLayout>(R.id.tier_premium)
-        val tierNewAuto = menuView.findViewById<LinearLayout>(R.id.tier_new_auto)
-        val tierNewerAuto = menuView.findViewById<LinearLayout>(R.id.tier_newer_auto)
 
         val radioAuto = menuView.findViewById<RadioButton>(R.id.radio_auto)
         val radioStandard = menuView.findViewById<RadioButton>(R.id.radio_standard)
         val radioPremium = menuView.findViewById<RadioButton>(R.id.radio_premium)
-        val radioNewAuto = menuView.findViewById<RadioButton>(R.id.radio_new_auto)
-        val radioNewerAuto = menuView.findViewById<RadioButton>(R.id.radio_newer_auto)
-
-        val allRadios = arrayOf(radioAuto, radioStandard, radioPremium, radioNewAuto, radioNewerAuto)
 
         // Set initial state based on current preference
         val currentTier = ShortcutPreferences.getModelTier(this)
-        updateTierSelectionAll(currentTier, allRadios)
+        updateTierSelection(currentTier, radioAuto, radioStandard, radioPremium)
 
         // Handle tier selection
         tierAuto.setOnClickListener {
-            selectModelTierAll(ShortcutPreferences.ModelTier.AUTO, allRadios)
+            selectModelTier(ShortcutPreferences.ModelTier.AUTO, radioAuto, radioStandard, radioPremium)
         }
         tierStandard.setOnClickListener {
-            selectModelTierAll(ShortcutPreferences.ModelTier.STANDARD, allRadios)
+            selectModelTier(ShortcutPreferences.ModelTier.STANDARD, radioAuto, radioStandard, radioPremium)
         }
         tierPremium.setOnClickListener {
-            selectModelTierAll(ShortcutPreferences.ModelTier.PREMIUM, allRadios)
-        }
-        tierNewAuto.setOnClickListener {
-            selectModelTierAll(ShortcutPreferences.ModelTier.NEW_AUTO, allRadios)
-        }
-        tierNewerAuto.setOnClickListener {
-            selectModelTierAll(ShortcutPreferences.ModelTier.NEWER_AUTO, allRadios)
+            selectModelTier(ShortcutPreferences.ModelTier.PREMIUM, radioAuto, radioStandard, radioPremium)
         }
 
         /* ============================================================
@@ -1490,47 +1478,6 @@ class OverlayService : Service() {
         }, 300)
     }
 
-    /**
-     * Update radio button selection state for all 6 model tiers
-     */
-    private fun updateTierSelectionAll(
-        tier: ShortcutPreferences.ModelTier,
-        allRadios: Array<RadioButton>
-    ) {
-        val tiers = ShortcutPreferences.ModelTier.values()
-        for (i in allRadios.indices) {
-            allRadios[i].isChecked = (i < tiers.size && tiers[i] == tier)
-        }
-    }
-
-    /**
-     * Handle model tier selection for all 6 tiers
-     */
-    private fun selectModelTierAll(
-        tier: ShortcutPreferences.ModelTier,
-        allRadios: Array<RadioButton>
-    ) {
-        Log.d(TAG, "Selecting model tier: ${tier.name}")
-
-        // Update preference
-        ShortcutPreferences.setModelTier(this, tier)
-
-        // Update the underlying TranscriptionFlow
-        val flow = TranscriptionFlow.fromModelTier(tier)
-        TranscriptionFlow.setSelectedFlow(this, flow)
-        Log.d(TAG, "TranscriptionFlow set to: ${flow.name}")
-
-        // Update UI
-        updateTierSelectionAll(tier, allRadios)
-
-        // Show feedback
-        Toast.makeText(this, "${tier.displayName} selected", Toast.LENGTH_SHORT).show()
-
-        // Auto-hide menu after selection
-        uiHandler.postDelayed({
-            hideOptionsMenu()
-        }, 300)
-    }
 
     /**
      * Hide the options menu
