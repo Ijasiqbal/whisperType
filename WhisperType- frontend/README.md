@@ -1,10 +1,10 @@
-# Wozcribe Android App
+# Vozcribe Android App
 
 Voice-to-text input for any Android text field using volume button shortcuts.
 
 ## Overview
 
-Wozcribe (WhisperType) is an Android accessibility service that enables voice input in any app. Users activate recording via volume button shortcuts, speak, and the transcribed text is automatically inserted into the focused text field.
+Vozcribe (WhisperType) is an Android accessibility service that enables voice input in any app. Users activate recording via volume button shortcuts, speak, and the transcribed text is automatically inserted into the focused text field.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

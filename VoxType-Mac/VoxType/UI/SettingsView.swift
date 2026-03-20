@@ -49,7 +49,7 @@ struct SettingsView: View {
                 // Settings window typically has "Settings" in title or is a preferences window
                 if window.title.contains("Settings") ||
                    window.title.contains("Preferences") ||
-                   window.title.contains("Wozcribe") {
+                   window.title.contains("Vozcribe") {
                     window.makeKeyAndOrderFront(nil)
                     window.orderFrontRegardless()
                     break
@@ -63,7 +63,7 @@ struct SettingsView: View {
     private var generalTab: some View {
         Form {
             Section("Startup") {
-                Toggle("Launch Wozcribe at login", isOn: $launchAtLogin)
+                Toggle("Launch Vozcribe at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { newValue in
                         setLaunchAtLogin(newValue)
                     }

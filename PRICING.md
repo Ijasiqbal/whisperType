@@ -1,4 +1,4 @@
-# Wozcribe Pricing Strategy
+# Vozcribe Pricing Strategy
 
 ## Free Tier
 
@@ -66,9 +66,9 @@ Google Play handles regional pricing (INR/USD) automatically via country-specifi
 
 | Plan | Product ID |
 |------|------------|
-| Wozcribe Starter | `wozcribe_starter_monthly` |
-| Wozcribe Pro | `wozcribe_pro_monthly` |
-| Wozcribe Unlimited | `wozcribe_unlimited_monthly` |
+| Vozcribe Starter | `wozcribe_starter_monthly` |
+| Vozcribe Pro | `wozcribe_pro_monthly` |
+| Vozcribe Unlimited | `wozcribe_unlimited_monthly` |
 
 ---
 

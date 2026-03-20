@@ -13,7 +13,7 @@ struct MenuBarView: View {
             HStack {
                 Image(systemName: "mic.fill")
                     .foregroundColor(.accentColor)
-                Text("Wozcribe")
+                Text("Vozcribe")
                     .font(.headline)
                 Spacer()
             }
@@ -225,7 +225,7 @@ struct MenuBarView: View {
             Button {
                 NSApplication.shared.terminate(nil)
             } label: {
-                Label("Quit Wozcribe", systemImage: "xmark.circle")
+                Label("Quit Vozcribe", systemImage: "xmark.circle")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)

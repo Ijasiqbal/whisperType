@@ -25,7 +25,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Overview of your Wozcribe application
+            Overview of your Vozcribe application
           </p>
         </div>
         <div className="flex items-center gap-2">

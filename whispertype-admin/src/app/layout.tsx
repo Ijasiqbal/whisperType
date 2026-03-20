@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Wozcribe Admin",
-  description: "Admin dashboard for Wozcribe voice-to-text app",
+  title: "Vozcribe Admin",
+  description: "Admin dashboard for Vozcribe voice-to-text app",
 };
 
 export default function RootLayout({

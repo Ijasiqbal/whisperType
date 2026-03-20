@@ -1,13 +1,13 @@
 #!/bin/bash
-# Reset Wozcribe Mac to simulate fresh user experience
+# Reset Vozcribe Mac to simulate fresh user experience
 
 set -e
 
-echo "🔄 Resetting Wozcribe to fresh user state..."
+echo "🔄 Resetting Vozcribe to fresh user state..."
 
 # 1. Quit the app if running
-echo "1️⃣  Quitting Wozcribe..."
-killall Wozcribe 2>/dev/null || echo "   (Wozcribe was not running)"
+echo "1️⃣  Quitting Vozcribe..."
+killall Vozcribe 2>/dev/null || echo "   (Vozcribe was not running)"
 
 # 2. Clear UserDefaults (both sandboxed and non-sandboxed locations)
 echo "2️⃣  Clearing app settings..."
@@ -21,7 +21,7 @@ if [ -d "$SANDBOXED_PREFS" ]; then
 fi
 
 # 3. Clear Application Support data (both sandboxed and non-sandboxed)
-APP_SUPPORT="$HOME/Library/Application Support/Wozcribe"
+APP_SUPPORT="$HOME/Library/Application Support/Vozcribe"
 if [ -d "$APP_SUPPORT" ]; then
     echo "3️⃣  Removing app data from Application Support..."
     rm -rf "$APP_SUPPORT"
@@ -51,10 +51,10 @@ echo "✅ App reset complete!"
 echo ""
 echo "📋 Manual steps still needed:"
 echo "   1. Reset Microphone permission:"
-echo "      System Settings → Privacy & Security → Microphone → Remove Wozcribe"
+echo "      System Settings → Privacy & Security → Microphone → Remove Vozcribe"
 echo ""
 echo "   2. Reset Accessibility permission:"
-echo "      System Settings → Privacy & Security → Accessibility → Remove Wozcribe"
+echo "      System Settings → Privacy & Security → Accessibility → Remove Vozcribe"
 echo ""
 echo "   You can open these settings directly with:"
 echo "      open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'"

@@ -26,7 +26,7 @@ struct VoxTypeApp: App {
 
     var body: some Scene {
         // Onboarding window for first-time users
-        Window("Welcome to Wozcribe", id: "onboarding") {
+        Window("Welcome to Vozcribe", id: "onboarding") {
             // Only show onboarding content if not completed
             if !hasCompletedOnboarding {
                 OnboardingView {
@@ -36,7 +36,7 @@ struct VoxTypeApp: App {
                     // Force UserDefaults to sync to disk
                     UserDefaults.standard.synchronize()
 
-                    print("[Wozcribe] Onboarding completed and saved to UserDefaults")
+                    print("[Vozcribe] Onboarding completed and saved to UserDefaults")
 
                     // Clear the window restoration state to prevent re-opening
                     UserDefaults.standard.removeObject(forKey: "NSWindow Frame onboarding")
@@ -44,7 +44,7 @@ struct VoxTypeApp: App {
 
                     // Give a brief delay to ensure UserDefaults persists, then close window
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        if let window = NSApplication.shared.windows.first(where: { $0.title == "Welcome to Wozcribe" }) {
+                        if let window = NSApplication.shared.windows.first(where: { $0.title == "Welcome to Vozcribe" }) {
                             window.close()
                         }
 
@@ -58,7 +58,7 @@ struct VoxTypeApp: App {
                 EmptyView()
                     .onAppear {
                         // Close this window immediately if it somehow opened
-                        if let window = NSApplication.shared.windows.first(where: { $0.title == "Welcome to Wozcribe" }) {
+                        if let window = NSApplication.shared.windows.first(where: { $0.title == "Welcome to Vozcribe" }) {
                             window.close()
                         }
                     }
@@ -143,21 +143,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Firebase is configured in WozcribeApp.init()
+        // Firebase is configured in VozcribeApp.init()
 
         // Check if onboarding is needed
         let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: Constants.hasCompletedOnboardingKey)
-        print("[Wozcribe] App launched - hasCompletedOnboarding: \(hasCompletedOnboarding)")
+        print("[Vozcribe] App launched - hasCompletedOnboarding: \(hasCompletedOnboarding)")
 
         if !hasCompletedOnboarding {
             // Show onboarding window for first-time users
-            print("[Wozcribe] Showing onboarding window")
+            print("[Vozcribe] Showing onboarding window")
             showOnboardingWindow()
             return  // Don't setup hotkeys yet, wait for onboarding completion
         }
 
         // Request microphone permission early so the system prompt appears
-        // and Wozcribe shows up in System Settings > Privacy > Microphone
+        // and Vozcribe shows up in System Settings > Privacy > Microphone
         requestMicrophonePermission()
 
         // Setup hotkey
@@ -173,7 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        print("[Wozcribe] App launched")
+        print("[Vozcribe] App launched")
     }
 
     private func showOnboardingWindow() {
@@ -204,20 +204,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        print("[Wozcribe] Onboarding completed, app fully initialized")
+        print("[Vozcribe] Onboarding completed, app fully initialized")
     }
 
     private func requestMicrophonePermission() {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .notDetermined:
-            print("[Wozcribe] Requesting microphone permission...")
+            print("[Vozcribe] Requesting microphone permission...")
             AVCaptureDevice.requestAccess(for: .audio) { granted in
-                print("[Wozcribe] Microphone permission \(granted ? "granted" : "denied")")
+                print("[Vozcribe] Microphone permission \(granted ? "granted" : "denied")")
             }
         case .denied, .restricted:
-            print("[Wozcribe] Microphone permission denied. Please enable in System Settings > Privacy & Security > Microphone")
+            print("[Vozcribe] Microphone permission denied. Please enable in System Settings > Privacy & Security > Microphone")
         case .authorized:
-            print("[Wozcribe] Microphone permission already granted")
+            print("[Vozcribe] Microphone permission already granted")
         @unknown default:
             break
         }
@@ -290,7 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let next = current.next()
                 next.saveAsSelected()
                 ModelSwitchOverlayController.shared.show(model: next)
-                print("[Wozcribe] Model switched to \(next.shortName)")
+                print("[Vozcribe] Model switched to \(next.shortName)")
             }
         }
 
@@ -300,7 +300,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let prev = current.previous()
                 prev.saveAsSelected()
                 ModelSwitchOverlayController.shared.show(model: prev)
-                print("[Wozcribe] Model switched to \(prev.shortName)")
+                print("[Vozcribe] Model switched to \(prev.shortName)")
             }
         }
 
