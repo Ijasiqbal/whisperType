@@ -15,10 +15,6 @@ import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import {Response} from "express";
 import OpenAI from "openai";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
-import * as crypto from "crypto";
 import {google} from "googleapis";
 
 // Initialize Firebase Admin
@@ -1308,6 +1304,38 @@ interface DeductionResult {
 }
 
 /**
+ * Validates and resolves audio duration for billing.
+ * Clamps to minimum 1s, defaults to 60s if invalid.
+ */
+function resolveAudioDuration(
+  audioDurationMs: unknown,
+  logPrefix = ""
+): number {
+  const isValid =
+    typeof audioDurationMs === "number" &&
+    !isNaN(audioDurationMs) &&
+    audioDurationMs >= 0;
+
+  if (isValid) {
+    const clamped = Math.max(
+      audioDurationMs as number, 1000
+    );
+    logger.info(
+      `${logPrefix}Using provided audio duration: ` +
+      `${audioDurationMs}ms (billing: ${clamped}ms)`
+    );
+    return clamped;
+  }
+
+  logger.warn(
+    `${logPrefix}No valid audioDurationMs provided ` +
+    `(received: ${audioDurationMs}), ` +
+    "defaulting to 60 seconds"
+  );
+  return 60000;
+}
+
+/**
  * Deduct credits from the user's quota and build the response status fields.
  * Handles both trial and Pro deduction, logging, and response data assembly.
  *
@@ -1579,17 +1607,15 @@ export const transcribeAudio = onRequest(
         return;
       }
 
-      // Create temporary file
-      const tempDir = os.tmpdir();
-      const tempFilePath = path.join(
-        tempDir,
-        `audio-${Date.now()}-${crypto.randomUUID()}.${format}`
+      // Create in-memory File object (no temp file I/O)
+      const audioBytes = new Uint8Array(audioBuffer);
+      const audioFile = new File(
+        [audioBytes],
+        `audio.${format}`,
+        {type: `audio/${format}`}
       );
 
       try {
-        // Write buffer to temporary file
-        fs.writeFileSync(tempFilePath, audioBuffer);
-
         // Initialize OpenAI client
         const openai = new OpenAI({
           apiKey: apiKey,
@@ -1601,36 +1627,13 @@ export const transcribeAudio = onRequest(
           `model: ${selectedModel})`
         );
         const transcription = await openai.audio.transcriptions.create({
-          file: fs.createReadStream(tempFilePath),
+          file: audioFile,
           model: selectedModel,
         });
 
-        // Clean up temporary file
-        fs.unlinkSync(tempFilePath);
-
-        // Calculate duration for usage deduction
-        // Use audioDurationMs from frontend if provided, else default
-        const isValidDuration =
-          typeof audioDurationMs === "number" &&
-          !isNaN(audioDurationMs) &&
-          audioDurationMs >= 0;
-
-        let durationMs: number;
-        if (isValidDuration) {
-          // Use provided duration, but enforce minimum of 1 second
-          durationMs = Math.max(audioDurationMs as number, 1000);
-          logger.info(
-            `Using provided audio duration: ${audioDurationMs}ms ` +
-            `(billing: ${durationMs}ms)`
-          );
-        } else {
-          // Default to 60 seconds if not provided
-          durationMs = 60000;
-          logger.warn(
-            "No valid audioDurationMs provided " +
-            `(received: ${audioDurationMs}), defaulting to 60 seconds`
-          );
-        }
+        const durationMs = resolveAudioDuration(
+          audioDurationMs
+        );
 
         // Deduct credits and build response
         const {responseFields} = await deductAndBuildResponseData(
@@ -1643,11 +1646,6 @@ export const transcribeAudio = onRequest(
           ...responseFields,
         });
       } catch (error) {
-        // Clean up temporary file if it exists
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
-        }
-
         logger.error("Error processing audio transcription", error);
 
         // Log failed request
@@ -1812,17 +1810,15 @@ export const transcribeAudioGroq = onRequest(
         return;
       }
 
-      // Create temporary file
-      const tempDir = os.tmpdir();
-      const tempFilePath = path.join(
-        tempDir,
-        `audio-groq-${Date.now()}-${crypto.randomUUID()}.${format}`
+      // Create in-memory File object (no temp file I/O)
+      const audioBytes = new Uint8Array(audioBuffer);
+      const audioFile = new File(
+        [audioBytes],
+        `audio.${format}`,
+        {type: `audio/${format}`}
       );
 
       try {
-        // Write buffer to temporary file
-        fs.writeFileSync(tempFilePath, audioBuffer);
-
         // Initialize Groq client using OpenAI SDK with Groq's base URL
         const groq = new OpenAI({
           apiKey: groqApiKey,
@@ -1841,13 +1837,10 @@ export const transcribeAudioGroq = onRequest(
           `model: ${selectedModel}, with punctuation prompt)`
         );
         const transcription = await groq.audio.transcriptions.create({
-          file: fs.createReadStream(tempFilePath),
+          file: audioFile,
           model: selectedModel,
           prompt: transcriptionPrompt,
         });
-
-        // Clean up temporary file
-        fs.unlinkSync(tempFilePath);
 
         // Strip prompt if Whisper echoed it (rare with context-style)
         let cleanedText = transcription.text;
@@ -1857,25 +1850,9 @@ export const transcribeAudioGroq = onRequest(
         }
         const finalText = cleanedText || transcription.text;
 
-        // Calculate duration for usage deduction
-        const isValidDuration =
-          typeof audioDurationMs === "number" &&
-          !isNaN(audioDurationMs) &&
-          audioDurationMs >= 0;
-
-        let durationMs: number;
-        if (isValidDuration) {
-          durationMs = Math.max(audioDurationMs as number, 1000);
-          logger.info(
-            `[Groq] Using provided audio duration: ${audioDurationMs}ms ` +
-            `(billing: ${durationMs}ms)`
-          );
-        } else {
-          durationMs = 60000;
-          logger.warn(
-            "[Groq] No valid audioDurationMs provided, defaulting to 60 seconds"
-          );
-        }
+        const durationMs = resolveAudioDuration(
+          audioDurationMs, "[Groq] "
+        );
 
         // Deduct credits and build response
         const {responseFields} = await deductAndBuildResponseData(
@@ -1888,11 +1865,6 @@ export const transcribeAudioGroq = onRequest(
           ...responseFields,
         });
       } catch (error) {
-        // Clean up temporary file if it exists
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
-        }
-
         logger.error("[Groq] Error processing audio transcription", error);
         await logTranscriptionRequest(uid, false, Date.now() - startTime);
 
@@ -2046,16 +2018,15 @@ export const transcribeAudioTwoStage = onRequest(
         return;
       }
 
-      // Create temporary file
-      const tempDir = os.tmpdir();
-      const tempFilePath = path.join(
-        tempDir,
-        `audio-twostage-${Date.now()}-${crypto.randomUUID()}.${format}`
+      // Create in-memory File object (no temp file I/O)
+      const audioBytes = new Uint8Array(audioBuffer);
+      const audioFile = new File(
+        [audioBytes],
+        `audio.${format}`,
+        {type: `audio/${format}`}
       );
 
       try {
-        fs.writeFileSync(tempFilePath, audioBuffer);
-
         // Initialize Groq client
         const groq = new OpenAI({
           apiKey: groqApiKey,
@@ -2075,13 +2046,10 @@ export const transcribeAudioTwoStage = onRequest(
           `(${selectedModel}, with punctuation prompt)`
         );
         const transcription = await groq.audio.transcriptions.create({
-          file: fs.createReadStream(tempFilePath),
+          file: audioFile,
           model: selectedModel,
           prompt: transcriptionPrompt,
         });
-
-        // Clean up temp file immediately
-        fs.unlinkSync(tempFilePath);
 
         // Strip prompt if Whisper echoed it
         let rawText = transcription.text;
@@ -2101,6 +2069,34 @@ export const transcribeAudioTwoStage = onRequest(
             rawText: "",
             stage1Ms,
             stage2Ms: 0,
+          });
+          return;
+        }
+
+        const durationMs = resolveAudioDuration(
+          audioDurationMs, "[TwoStage] "
+        );
+
+        // Skip Stage 2 for short transcriptions where LLM cleanup
+        // adds latency with minimal quality gain
+        const wordCount = rawText.trim().split(/\s+/).length;
+        if (wordCount <= 5) {
+          logger.info(
+            `[TwoStage] Skipping Stage 2 for short text (${wordCount} words)`
+          );
+
+          const {responseFields} = await deductAndBuildResponseData(
+            uid, usageSource, currentUser, durationMs, modelTier,
+            limits, startTime, "[TwoStage] "
+          );
+
+          response.status(200).json({
+            text: rawText,
+            rawText,
+            stage1Ms,
+            stage2Ms: 0,
+            totalMs: Date.now() - startTime,
+            ...responseFields,
           });
           return;
         }
@@ -2195,26 +2191,6 @@ export const transcribeAudioTwoStage = onRequest(
           `"${cleanedText.substring(0, 80)}..."`
         );
 
-        // Calculate duration for usage deduction
-        const isValidDuration =
-          typeof audioDurationMs === "number" &&
-          !isNaN(audioDurationMs) &&
-          audioDurationMs >= 0;
-
-        let durationMs: number;
-        if (isValidDuration) {
-          durationMs = Math.max(audioDurationMs as number, 1000);
-          logger.info(
-            `[TwoStage] Using provided audio duration: ${audioDurationMs}ms ` +
-            `(billing: ${durationMs}ms)`
-          );
-        } else {
-          durationMs = 60000;
-          logger.warn(
-            "[TwoStage] No valid audioDurationMs provided, defaulting to 60s"
-          );
-        }
-
         // Deduct credits and build response
         const {responseFields} = await deductAndBuildResponseData(
           uid, usageSource, currentUser, durationMs, modelTier,
@@ -2231,10 +2207,6 @@ export const transcribeAudioTwoStage = onRequest(
           ...responseFields,
         });
       } catch (error) {
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
-        }
-
         logger.error("[TwoStage] Error processing transcription", error);
         if (uid) {
           await logTranscriptionRequest(uid, false, Date.now() - startTime);
