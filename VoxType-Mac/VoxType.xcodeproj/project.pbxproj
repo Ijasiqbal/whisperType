@@ -30,9 +30,11 @@
 		20BDA3512F3E47FB00731DF1 /* VoxTypeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20BDA3502F3E47FB00731DF1 /* VoxTypeApp.swift */; };
 		20BDA3552F3E47FD00731DF1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20BDA3542F3E47FD00731DF1 /* Assets.xcassets */; };
 		20BDA3582F3E47FD00731DF1 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20BDA3572F3E47FD00731DF1 /* Preview Assets.xcassets */; };
+		852355918762127BF9AFB631 /* PendingTranscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C19668423BAB92C4AD5ED96 /* PendingTranscriptionManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0C19668423BAB92C4AD5ED96 /* PendingTranscriptionManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PendingTranscriptionManager.swift; sourceTree = "<group>"; };
 		20A132A92F3EF8B1003F0D5E /* SettingsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		20A132AA2F3EF8B1003F0D5E /* MenuBarView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		20A132AB2F3EF8B1003F0D5E /* RecordingOverlay.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RecordingOverlay.swift; sourceTree = "<group>"; };
@@ -144,6 +146,7 @@
 			isa = PBXGroup;
 			children = (
 				20A132C12F3EF8B1003F0D5E /* TranscriptionService.swift */,
+				0C19668423BAB92C4AD5ED96 /* PendingTranscriptionManager.swift */,
 			);
 			path = Transcription;
 			sourceTree = "<group>";
@@ -292,6 +295,7 @@
 				20A132CC2F3EF8B2003F0D5E /* PermissionChecker.swift in Sources */,
 				20BDA3512F3E47FB00731DF1 /* VoxTypeApp.swift in Sources */,
 				20A132C92F3EF8B2003F0D5E /* VoxTypeAPIClient.swift in Sources */,
+				852355918762127BF9AFB631 /* PendingTranscriptionManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

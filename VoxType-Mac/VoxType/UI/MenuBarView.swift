@@ -5,6 +5,7 @@ struct MenuBarView: View {
     @EnvironmentObject var transcription: TranscriptionService
     @EnvironmentObject var auth: AuthManager
     @EnvironmentObject var usage: UsageManager
+    @ObservedObject var pendingManager = PendingTranscriptionManager.shared
     @AppStorage(Constants.selectedModelKey) private var selectedModelRaw = TranscriptionModel.groqTurbo.rawValue
 
     var body: some View {
@@ -38,16 +39,24 @@ struct MenuBarView: View {
             // Hotkey hint
             hotkeyHint
 
-            Divider()
-
-            // Last transcription
-            if let last = transcription.lastTranscription {
-                lastTranscriptionSection(last)
+            Group {
                 Divider()
-            }
 
-            // Actions
-            actionButtons
+                // Last transcription
+                if let last = transcription.lastTranscription {
+                    lastTranscriptionSection(last)
+                    Divider()
+                }
+
+                // Pending transcriptions
+                if !pendingManager.entries.isEmpty {
+                    pendingSection
+                    Divider()
+                }
+
+                // Actions
+                actionButtons
+            }
         }
         .padding(12)
         .frame(width: 280)
@@ -198,6 +207,43 @@ struct MenuBarView: View {
         }
     }
 
+    private var pendingSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: "exclamationmark.circle")
+                    .font(.system(size: 11))
+                    .foregroundColor(.orange)
+                Text("Pending (\(pendingManager.pendingCount))")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
+                Spacer()
+                if pendingManager.entries.contains(where: { $0.status == .pending }) {
+                    Button {
+                        Task { await pendingManager.retryAll() }
+                    } label: {
+                        Text("Retry All")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color.accentColor))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            ForEach(pendingManager.entries.prefix(5)) { entry in
+                PendingEntryRow(entry: entry, manager: pendingManager)
+            }
+
+            if pendingManager.entries.count > 5 {
+                Text("+\(pendingManager.entries.count - 5) more")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
     private var actionButtons: some View {
         VStack(spacing: 4) {
             Button {
@@ -300,5 +346,117 @@ struct ModelPickerMenuSection: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Pending Entry Row
+
+struct PendingEntryRow: View {
+    let entry: PendingTranscriptionManager.PendingTranscription
+    @ObservedObject var manager: PendingTranscriptionManager
+    @State private var isRetrying = false
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter
+    }()
+
+    private var timeText: String {
+        Self.timeFormatter.string(from: entry.timestamp)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: entry.status == .completed ? "checkmark.circle.fill" : "mic.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(entry.status == .completed ? .green : .orange)
+
+                Text(timeText)
+                    .font(.system(size: 11, weight: .medium))
+
+                Text("\(entry.durationMs / 1000)s")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                // Delete button
+                Button {
+                    manager.delete(id: entry.id)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if entry.status == .completed, let text = entry.transcribedText {
+                // Show transcribed text with copy button
+                Text(text)
+                    .font(.system(size: 11))
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                    .foregroundColor(.primary)
+
+                Button {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(text, forType: .string)
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 9))
+                        Text("Copy")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.accentColor))
+                }
+                .buttonStyle(.plain)
+            } else {
+                // Show error and retry button
+                Text(entry.errorMessage)
+                    .font(.system(size: 10))
+                    .foregroundColor(.red)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                if isRetrying {
+                    ProgressView()
+                        .controlSize(.mini)
+                } else {
+                    Button {
+                        isRetrying = true
+                        Task {
+                            await manager.retry(entry: entry)
+                            isRetrying = false
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 9))
+                            Text("Retry")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.accentColor))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.primary.opacity(0.04))
+        )
     }
 }

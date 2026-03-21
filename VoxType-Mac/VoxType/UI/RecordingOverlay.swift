@@ -6,24 +6,44 @@ import SwiftUI
 final class OverlayWindowController {
 
     private var window: NSPanel?
+    private var frameObserver: NSObjectProtocol?
+
+    deinit {
+        if let observer = frameObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
 
     func showOverlay() {
+        NSLog("[VOXDEBUG] showOverlay called, window=\(window != nil)")
         if window == nil {
             createWindow()
         }
+        // Re-position to top center each time the overlay is shown
+        if let panel = window, let screen = NSScreen.main {
+            let screenFrame = screen.visibleFrame
+            let x = screenFrame.midX - (panel.frame.width / 2)
+            let y = screenFrame.maxY - 80
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
+        }
         window?.orderFront(nil)
+        NSLog("[VOXDEBUG] showOverlay done, window frame=\(String(describing: window?.frame))")
     }
 
     func hideOverlay() {
+        NSLog("[VOXDEBUG] hideOverlay called")
         window?.orderOut(nil)
     }
 
     private func createWindow() {
         let hostingView = NSHostingView(rootView: RecordingOverlayView().padding(2))
         let fittingSize = hostingView.fittingSize
-        let width = max(fittingSize.width, 250)
+        let width = max(fittingSize.width, 320)
         let height = max(fittingSize.height, 70)
         hostingView.frame = NSRect(x: 0, y: 0, width: width, height: height)
+
+        // Allow hosting view to auto-resize when SwiftUI content changes (e.g., error action row)
+        hostingView.autoresizingMask = [.width, .height]
 
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
@@ -40,6 +60,34 @@ final class OverlayWindowController {
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        // Auto-resize window when content changes (e.g., error action row appears)
+        hostingView.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        hostingView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+
+        // Observe hosting view layout changes to resize the panel
+        frameObserver = NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification,
+            object: hostingView,
+            queue: .main
+        ) { [weak panel, weak hostingView] _ in
+            guard let panel = panel, let hv = hostingView else { return }
+            let newSize = hv.fittingSize
+            let newWidth = max(newSize.width, 320)
+            let newHeight = max(newSize.height, 70)
+            if abs(panel.frame.width - newWidth) > 1 || abs(panel.frame.height - newHeight) > 1 {
+                var frame = panel.frame
+                let heightDiff = newHeight - frame.height
+                frame.size.width = newWidth
+                frame.size.height = newHeight
+                frame.origin.y -= heightDiff
+                if let screen = NSScreen.main {
+                    frame.origin.x = screen.visibleFrame.midX - (newWidth / 2)
+                }
+                panel.setFrame(frame, display: true, animate: true)
+            }
+        }
+        hostingView.postsFrameChangedNotifications = true
 
         // Position near top center of screen
         if let screen = NSScreen.main {
@@ -67,136 +115,169 @@ struct RecordingOverlayView: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            // Left side: Mic icon or Copy button
-            if case .inserted = service.state {
-                // Show copy button as fallback
-                Button(action: {
-                    service.copyToClipboard()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Copy")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule()
-                            .fill(Color.green.opacity(0.6))
-                    )
-                }
-                .buttonStyle(.plain)
-            } else if case .success = service.state {
-                // No text field — show copy button
-                Button(action: {
-                    service.copyToClipboard()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Copy")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule()
-                            .fill(Color.green.opacity(0.6))
-                    )
-                }
-                .buttonStyle(.plain)
-            } else {
-                // Mic icon with pulse — tinted to model color
-                ZStack {
-                    Circle()
-                        .fill(currentModel.color.opacity(0.25))
-                        .frame(width: 36, height: 36)
+        VStack(spacing: 0) {
+            // Row 1: Main content
+            HStack(spacing: 10) {
+                // Left side: Mic icon or Copy button
+                if case .inserted = service.state {
+                    copyButton
+                } else if case .success = service.state {
+                    copyButton
+                } else {
+                    // Mic icon with pulse — tinted to model color
+                    ZStack {
+                        Circle()
+                            .fill(currentModel.color.opacity(0.25))
+                            .frame(width: 36, height: 36)
 
-                    Image(systemName: micIconName)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(statusText)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-
-                    // Clickable model badge (hide in final states)
-                    if !isInFinalState {
-                        modelBadge
+                        Image(systemName: micIconName)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
                     }
                 }
 
-                if case .recording = service.state {
-                    // Amplitude bars — tinted to model color
-                    HStack(spacing: 2) {
-                        ForEach(0..<8, id: \.self) { i in
-                            AmplitudeBar(
-                                amplitude: audioRecorder.currentAmplitude,
-                                index: i,
-                                color: currentModel.color
-                            )
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(statusText)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+
+                        // Clickable model badge (hide in final states)
+                        if !isInFinalState {
+                            modelBadge
                         }
                     }
-                    .frame(height: 20)
+
+                    if case .recording = service.state {
+                        // Amplitude bars — tinted to model color
+                        HStack(spacing: 2) {
+                            ForEach(0..<8, id: \.self) { i in
+                                AmplitudeBar(
+                                    amplitude: audioRecorder.currentAmplitude,
+                                    index: i,
+                                    color: currentModel.color
+                                )
+                            }
+                        }
+                        .frame(height: 20)
+                    }
+
+                    if case .processing = service.state {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                    }
+
+                    // Show transcribed text preview
+                    if case .success(let text) = service.state {
+                        Text(text)
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(2)
+                            .frame(maxWidth: 200, alignment: .leading)
+                    } else if case .inserted(let text) = service.state {
+                        Text(text)
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(2)
+                            .frame(maxWidth: 200, alignment: .leading)
+                    }
                 }
 
-                if case .processing = service.state {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(.white)
-                }
+                Spacer()
 
-                // Show transcribed text preview
-                if case .success(let text) = service.state {
-                    Text(text)
-                        .font(.system(size: 11))
+                // Right side: Duration or Close button
+                if case .recording = service.state {
+                    Text(formattedDuration)
+                        .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(.white.opacity(0.8))
-                        .lineLimit(2)
-                        .frame(maxWidth: 200, alignment: .leading)
-                } else if case .inserted(let text) = service.state {
-                    Text(text)
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.8))
-                        .lineLimit(2)
-                        .frame(maxWidth: 200, alignment: .leading)
+                } else {
+                    // Close button (always visible except when recording)
+                    Button(action: {
+                        service.dismiss()
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(width: 20, height: 20)
+                            .background(
+                                Circle()
+                                    .fill(.white.opacity(0.1))
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
 
-            Spacer()
+            // Row 2: Error action buttons (Retry + Save for later)
+            if case .error = service.state, service.hasRetryableAudio {
+                Divider()
+                    .background(Color.white.opacity(0.15))
+                    .padding(.horizontal, 12)
 
-            // Right side: Duration or Close button
-            if case .recording = service.state {
-                Text(formattedDuration)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.8))
-            } else {
-                // Close button (always visible except when recording)
-                Button(action: {
-                    service.dismiss()
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.6))
-                        .frame(width: 20, height: 20)
+                HStack(spacing: 8) {
+                    // Retry button with dropdown for model selection
+                    Menu {
+                        ForEach(TranscriptionModel.allCases) { model in
+                            Button {
+                                service.retryWithModel(model)
+                            } label: {
+                                HStack {
+                                    Text("\(model.shortName) (\(model.creditLabel))")
+                                    if model == service.lastFailedModel {
+                                        Text("- failed")
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Retry")
+                                .font(.system(size: 12, weight: .semibold))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
                         .background(
-                            Circle()
+                            Capsule()
+                                .fill(.white.opacity(0.2))
+                        )
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+
+                    // Save for later button
+                    Button(action: {
+                        service.saveForLater()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.down")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Save for later")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
                                 .fill(.white.opacity(0.1))
                         )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 28)
                 .fill(.ultraThinMaterial)
@@ -207,6 +288,29 @@ struct RecordingOverlayView: View {
                 .stroke(overlayBorderColor, lineWidth: 1)
         )
         .animation(.easeInOut(duration: 0.2), value: service.state)
+    }
+
+    // MARK: - Copy Button (extracted to avoid duplication)
+
+    private var copyButton: some View {
+        Button(action: {
+            service.copyToClipboard()
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: "doc.on.doc")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Copy")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(Color.green.opacity(0.6))
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Model Badge

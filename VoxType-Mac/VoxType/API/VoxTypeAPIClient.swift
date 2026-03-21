@@ -82,8 +82,8 @@ final class VoxTypeAPIClient {
         }
 
         guard httpResponse.statusCode == 200 else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            throw VoxTypeError.serverError(httpResponse.statusCode, body)
+            let message = Self.extractMessage(from: data) ?? "Unknown error"
+            throw VoxTypeError.serverError(httpResponse.statusCode, message)
         }
 
         return try JSONDecoder().decode(TrialStatus.self, from: data)
@@ -141,13 +141,13 @@ final class VoxTypeAPIClient {
                 }
 
                 if httpResponse.statusCode == 403 {
-                    let body = String(data: data, encoding: .utf8) ?? "Quota exceeded"
-                    throw VoxTypeError.quotaExceeded(body)
+                    let message = Self.extractMessage(from: data) ?? "Quota exceeded"
+                    throw VoxTypeError.quotaExceeded(message)
                 }
 
                 guard httpResponse.statusCode == 200 else {
-                    let body = String(data: data, encoding: .utf8) ?? "Unknown error"
-                    throw VoxTypeError.serverError(httpResponse.statusCode, body)
+                    let message = Self.extractMessage(from: data) ?? "Unknown error"
+                    throw VoxTypeError.serverError(httpResponse.statusCode, message)
                 }
 
                 return try JSONDecoder().decode(TranscriptionResult.self, from: data)
@@ -166,5 +166,14 @@ final class VoxTypeAPIClient {
         }
 
         throw lastError.map { VoxTypeError.networkError($0) } ?? VoxTypeError.serverError(0, "Max retries exceeded")
+    }
+
+    /// Extract "message" field from a JSON error response body.
+    private static func extractMessage(from data: Data) -> String? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let msg = json["message"] as? String else {
+            return nil
+        }
+        return msg
     }
 }

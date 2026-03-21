@@ -230,6 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             DispatchQueue.main.async { [weak self] in
                 let state = TranscriptionService.shared.state
+                NSLog("[VOXDEBUG] onRecordingStart: state=\(state)")
 
                 // If in success/inserted/error state, dismiss overlay instead of starting new recording
                 if case .success = state {
@@ -258,6 +259,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeyManager.onRecordingStop = { [weak self] in
             DispatchQueue.main.async { [weak self] in
                 let state = TranscriptionService.shared.state
+                NSLog("[VOXDEBUG] onRecordingStop: state=\(state)")
 
                 // If in success/inserted/error state, dismiss overlay
                 if case .success = state {
@@ -355,14 +357,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
 
                     // Also hide on error after showing error message
-                    if case .error = state {
+                    // But NOT if there's retryable audio — let user retry or save
+                    if case .error(let msg) = state {
+                        NSLog("[VOXDEBUG] Error state: \(msg), hasRetryableAudio=\(TranscriptionService.shared.hasRetryableAudio)")
                         self?.wasProcessing = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            // Only auto-hide if still in error state
-                            if case .error = TranscriptionService.shared.state {
-                                TranscriptionService.shared.dismiss()
-                                self?.hideOverlay()
-                                self?.hotkeyManager.isRecording = false
+                        if !TranscriptionService.shared.hasRetryableAudio {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                // Only auto-hide if still in error state and no retryable audio
+                                if case .error = TranscriptionService.shared.state,
+                                   !TranscriptionService.shared.hasRetryableAudio {
+                                    TranscriptionService.shared.dismiss()
+                                    self?.hideOverlay()
+                                    self?.hotkeyManager.isRecording = false
+                                }
                             }
                         }
                     }

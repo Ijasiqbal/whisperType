@@ -16,6 +16,17 @@ final class TranscriptionService: ObservableObject {
     private let textInsertion = TextInsertionService.shared
     private let usageManager = UsageManager.shared
 
+    // Retained audio data for retry after error
+    var lastFailedAudioData: Data?
+    var lastFailedAudioFormat: String = "wav"
+    var lastFailedDurationMs: Int = 0
+    var lastFailedModel: TranscriptionModel?
+
+    /// Whether the current error state has retryable audio data
+    var hasRetryableAudio: Bool {
+        lastFailedAudioData != nil && !(lastFailedAudioData?.isEmpty ?? true)
+    }
+
     private var selectedModel: TranscriptionModel {
         let raw = UserDefaults.standard.string(forKey: Constants.selectedModelKey) ?? ""
         return TranscriptionModel(rawValue: raw) ?? .groqTurbo
@@ -102,11 +113,16 @@ final class TranscriptionService: ObservableObject {
             guard !text.isEmpty else {
                 state = .error("No speech detected")
                 lastError = "No speech detected."
+                lastFailedAudioData = nil // Not retryable
                 clearErrorAfterDelay()
                 return
             }
 
             lastTranscription = text
+
+            // Clear failed audio on success
+            lastFailedAudioData = nil
+            lastFailedModel = nil
 
             NSLog("[VOXDEBUG] Transcription complete: \(text.prefix(50))...")
 
@@ -116,17 +132,69 @@ final class TranscriptionService: ObservableObject {
             state = .inserted(text)
             NSLog("[VOXDEBUG] Text inserted + overlay shown with copy button")
 
-        } catch let error as VoxTypeError {
-            state = .error(error.localizedDescription ?? "Unknown error")
-            lastError = error.localizedDescription
-            clearErrorAfterDelay()
-            print("[Transcription] Error: \(error)")
-
         } catch {
+            // Retain audio data for retry
+            lastFailedAudioData = audioData
+            lastFailedAudioFormat = format
+            lastFailedDurationMs = durationMs
+            lastFailedModel = model
+
             state = .error(error.localizedDescription)
             lastError = error.localizedDescription
-            clearErrorAfterDelay()
-            print("[Transcription] Error: \(error)")
+            // Do NOT auto-dismiss - let user retry or save
+            print("[Transcription] Error (retryable): \(error)")
+        }
+    }
+
+    // MARK: - Retry & Save
+
+    /// Retry the last failed transcription with an optional different model.
+    func retryWithModel(_ model: TranscriptionModel? = nil) {
+        guard let audioData = lastFailedAudioData, !audioData.isEmpty else {
+            print("[Transcription] No audio data to retry")
+            return
+        }
+
+        let targetModel = model ?? lastFailedModel ?? selectedModel
+        let format = lastFailedAudioFormat
+        let durationMs = lastFailedDurationMs
+
+        state = .processing
+
+        Task {
+            await transcribeAndInsert(audioData: audioData, format: format, durationMs: durationMs, model: targetModel)
+        }
+    }
+
+    /// Save the last failed audio to local storage for later retry.
+    func saveForLater() {
+        guard let audioData = lastFailedAudioData, !audioData.isEmpty else {
+            print("[Transcription] No audio data to save")
+            return
+        }
+
+        let model = lastFailedModel ?? selectedModel
+        let errorMsg = lastError ?? "Unknown error"
+
+        PendingTranscriptionManager.shared.save(
+            audioData: audioData,
+            audioFormat: lastFailedAudioFormat,
+            durationMs: lastFailedDurationMs,
+            failedModel: model,
+            errorMessage: errorMsg
+        )
+
+        // Clear retained audio
+        lastFailedAudioData = nil
+        lastFailedModel = nil
+
+        // Brief "Saved" confirmation then dismiss
+        state = .inserted("Saved for later")
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(Constants.successMessageDelayMs) * 1_000_000)
+            if case .inserted("Saved for later") = state {
+                state = .idle
+            }
         }
     }
 
@@ -147,7 +215,12 @@ final class TranscriptionService: ObservableObject {
     func dismiss() {
         if case .success = state { state = .idle }
         else if case .inserted = state { state = .idle }
-        else if case .error = state { state = .idle }
+        else if case .error = state {
+            // Clear retained audio data to free memory
+            lastFailedAudioData = nil
+            lastFailedModel = nil
+            state = .idle
+        }
     }
 
     /// Copy text to clipboard

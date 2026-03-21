@@ -1264,6 +1264,7 @@ fun MainScreen(
  */
 enum class BottomNavTab(val label: String, val iconRes: Int) {
     HOME("Home", R.drawable.ic_home),
+    PENDING("Pending", R.drawable.ic_pending),
     PROFILE("Profile", R.drawable.ic_person),
     PLAN("Pricing", R.drawable.ic_plan)
 }
@@ -1366,6 +1367,16 @@ fun AppWithBottomNav(
         }
     }
     
+    // Pending transcription count for badge
+    val pendingContext = LocalContext.current
+    val pendingManager = remember { com.whispertype.app.data.PendingTranscriptionManager.getInstance(pendingContext) }
+    var pendingCount by remember { mutableIntStateOf(pendingManager.getPendingCount()) }
+
+    // Refresh pending count when switching to pending tab
+    LaunchedEffect(selectedTab) {
+        pendingCount = pendingManager.getPendingCount()
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar(
@@ -1380,11 +1391,33 @@ fun AppWithBottomNav(
                         selected = selectedTab == tab,
                         onClick = { selectedTab = tab },
                         icon = {
-                            Icon(
-                                painter = painterResource(id = tab.iconRes),
-                                contentDescription = tab.label,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            if (tab == BottomNavTab.PENDING && pendingCount > 0) {
+                                BadgedBox(
+                                    badge = {
+                                        Badge(
+                                            containerColor = Color(0xFFEF4444)
+                                        ) {
+                                            Text(
+                                                text = pendingCount.toString(),
+                                                fontSize = 10.sp,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = tab.iconRes),
+                                        contentDescription = tab.label,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            } else {
+                                Icon(
+                                    painter = painterResource(id = tab.iconRes),
+                                    contentDescription = tab.label,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         },
                         label = {
                             Text(
@@ -1461,6 +1494,11 @@ fun AppWithBottomNav(
                                 }
                             }
                         }
+                    )
+                }
+                BottomNavTab.PENDING -> {
+                    com.whispertype.app.ui.PendingScreen(
+                        onPendingCountChanged = { count -> pendingCount = count }
                     )
                 }
                 BottomNavTab.PLAN -> {

@@ -29,238 +29,299 @@ Layout (left to right):
     android:clipChildren="false"
     android:clipToPadding="false">
 
-    <!-- Main pill container - Liquid Glass effect -->
+    <!-- Main pill container - Liquid Glass effect (vertical to support error action row) -->
     <LinearLayout
         android:id="@+id/pill_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:minHeight="52dp"
         android:minWidth="220dp"
         android:maxWidth="380dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
+        android:orientation="vertical"
         android:background="@drawable/pill_liquid_glass_background"
-        android:paddingStart="8dp"
-        android:paddingEnd="6dp"
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
         android:elevation="8dp"
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <!-- Close button (left side - less used) -->
-        <ImageButton
-            android:id="@+id/btn_close"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:padding="6dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_close"
-            android:contentDescription="Close overlay"
-            android:scaleType="centerInside"
-            android:alpha="0.8" />
-
-        <!-- Text container - stacks status and preview vertically -->
+        <!-- Row 1: Main content (close, status, waveform, copy, mic, options) -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="6dp"
-            android:layout_marginEnd="8dp"
-            android:orientation="vertical"
-            android:gravity="center_vertical">
+            android:minHeight="52dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="6dp">
 
-            <!-- Status row with auto-send badge -->
+            <!-- Close button (left side - less used) -->
+            <ImageButton
+                android:id="@+id/btn_close"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:padding="6dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_close"
+                android:contentDescription="Close overlay"
+                android:scaleType="centerInside"
+                android:alpha="0.8" />
+
+            <!-- Text container - stacks status and preview vertically -->
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="8dp"
+                android:orientation="vertical"
                 android:gravity="center_vertical">
 
-                <!-- Auto-send badge (inline, hidden by default) -->
-                <!-- Auto-send badge (inline, hidden by default) -->
-                <ImageView
-                    android:id="@+id/badge_auto_send"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:src="@drawable/ic_send"
-                    android:contentDescription="Auto-send enabled"
-                    android:layout_marginEnd="4dp"
-                    android:visibility="gone"
-                    app:tint="#F0FFFFFF"
-                    tools:visibility="visible" />
-
-                <!-- Status text -->
-                <TextView
-                    android:id="@+id/tv_status"
-                    android:layout_width="0dp"
+                <!-- Status row with auto-send badge -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/overlay_ready"
-                    android:textColor="#F0FFFFFF"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:maxLines="2"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <!-- Auto-send badge (inline, hidden by default) -->
+                    <!-- Auto-send badge (inline, hidden by default) -->
+                    <ImageView
+                        android:id="@+id/badge_auto_send"
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:src="@drawable/ic_send"
+                        android:contentDescription="Auto-send enabled"
+                        android:layout_marginEnd="4dp"
+                        android:visibility="gone"
+                        app:tint="#F0FFFFFF"
+                        tools:visibility="visible" />
+
+                    <!-- Status text -->
+                    <TextView
+                        android:id="@+id/tv_status"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/overlay_ready"
+                        android:textColor="#F0FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:maxLines="2"
+                        android:ellipsize="end"
+                        android:gravity="start|center_vertical" />
+
+                </LinearLayout>
+
+                <!-- Preview text (for partial transcription - shows below status) -->
+                <TextView
+                    android:id="@+id/tv_preview"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="12sp"
+                    android:maxLines="3"
                     android:ellipsize="end"
-                    android:gravity="start|center_vertical" />
+                    android:gravity="start|center_vertical"
+                    android:visibility="gone"
+                    tools:text="Hello world this is a longer transcription preview text..."
+                    tools:visibility="visible" />
 
             </LinearLayout>
 
-            <!-- Preview text (for partial transcription - shows below status) -->
-            <TextView
-                android:id="@+id/tv_preview"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="#B3FFFFFF"
-                android:textSize="12sp"
-                android:maxLines="3"
-                android:ellipsize="end"
-                android:gravity="start|center_vertical"
+            <!-- Inline waveform visualizer (visible during recording) -->
+            <com.whispertype.app.view.LinearWaveformView
+                android:id="@+id/linear_waveform"
+                android:layout_width="56dp"
+                android:layout_height="28dp"
+                android:layout_marginEnd="8dp"
                 android:visibility="gone"
-                tools:text="Hello world this is a longer transcription preview text..."
                 tools:visibility="visible" />
+
+            <!-- Copy button with icon (visible in NO_FOCUS state) - combines icon + text -->
+            <Button
+                android:id="@+id/btn_copy"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="16dp"
+                android:text="@string/btn_copy_clipboard"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13sp"
+                android:textAllCaps="false"
+                android:drawableStart="@drawable/ic_content_copy"
+                android:drawablePadding="6dp"
+                android:drawableTint="#FFFFFFFF"
+                android:background="@drawable/copy_button_liquid_pill"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
+            <!-- Mic button wrapper with pulse rings (RIGHT side - primary action) -->
+            <FrameLayout
+                android:id="@+id/mic_button_wrapper"
+                android:layout_width="44dp"
+                android:layout_height="44dp">
+
+                <!-- Outer pulse ring (behind, for animation) -->
+                <View
+                    android:id="@+id/pulse_ring_outer"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/pulse_ring_violet"
+                    android:alpha="0"
+                    android:visibility="gone" />
+
+                <!-- Inner pulse ring -->
+                <View
+                    android:id="@+id/pulse_ring_inner"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/pulse_ring_violet"
+                    android:alpha="0"
+                    android:visibility="gone" />
+
+                <!-- Mic button container -->
+                <FrameLayout
+                    android:id="@+id/mic_button_container"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/mic_button_liquid_glass">
+
+                    <!-- Mic icon -->
+                    <ImageView
+                        android:id="@+id/ic_mic"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_mic"
+                        android:contentDescription="Microphone button" />
+
+                    <!-- Stop icon (shown during recording) -->
+                    <ImageView
+                        android:id="@+id/ic_stop"
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_stop"
+                        android:contentDescription="Stop recording"
+                        android:visibility="gone" />
+
+                    <!-- Success checkmark icon (hidden by default) -->
+                    <ImageView
+                        android:id="@+id/ic_success"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_check"
+                        android:contentDescription="Success"
+                        android:visibility="gone"
+                        android:scaleX="0"
+                        android:scaleY="0" />
+
+                    <!-- Error/Warning icon (hidden by default) -->
+                    <ImageView
+                        android:id="@+id/ic_error"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_warning"
+                        android:contentDescription="Error"
+                        android:visibility="gone" />
+
+                    <!-- Clipboard icon (hidden by default, for NO_FOCUS state) -->
+                    <ImageView
+                        android:id="@+id/ic_clipboard"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_content_copy"
+                        android:contentDescription="Copy to clipboard"
+                        android:visibility="gone" />
+
+                    <!-- Loading spinner (hidden by default) -->
+                    <ProgressBar
+                        android:id="@+id/progress_indicator"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:indeterminateTint="#FFFFFF"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
+
+                </FrameLayout>
+            </FrameLayout>
+
+            <!-- Options button (3-dot menu - to the right of mic button) -->
+            <ImageButton
+                android:id="@+id/btn_options"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:padding="8dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/options_button_background"
+                android:src="@drawable/ic_more_vert"
+                android:contentDescription="Options menu"
+                android:scaleType="centerInside"
+                android:tint="#F0FFFFFF"
+                android:alpha="0.9" />
 
         </LinearLayout>
 
-        <!-- Inline waveform visualizer (visible during recording) -->
-        <com.whispertype.app.view.LinearWaveformView
-            android:id="@+id/linear_waveform"
-            android:layout_width="56dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="8dp"
-            android:visibility="gone"
-            tools:visibility="visible" />
-
-        <!-- Copy button with icon (visible in NO_FOCUS state) - combines icon + text -->
-        <Button
-            android:id="@+id/btn_copy"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
+        <!-- Row 2: Error action buttons (hidden by default, shown on error) -->
+        <LinearLayout
+            android:id="@+id/error_actions_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
             android:paddingStart="12dp"
-            android:paddingEnd="16dp"
-            android:text="@string/btn_copy_clipboard"
-            android:textColor="#FFFFFFFF"
-            android:textSize="13sp"
-            android:textAllCaps="false"
-            android:drawableStart="@drawable/ic_content_copy"
-            android:drawablePadding="6dp"
-            android:drawableTint="#FFFFFFFF"
-            android:background="@drawable/copy_button_liquid_pill"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
             android:visibility="gone"
-            tools:visibility="visible" />
+            tools:visibility="visible">
 
-        <!-- Mic button wrapper with pulse rings (RIGHT side - primary action) -->
-        <FrameLayout
-            android:id="@+id/mic_button_wrapper"
-            android:layout_width="44dp"
-            android:layout_height="44dp">
+            <!-- Retry button with dropdown arrow -->
+            <Button
+                android:id="@+id/btn_retry"
+                android:layout_width="0dp"
+                android:layout_height="34dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:text="Retry"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:drawableStart="@drawable/ic_retry"
+                android:drawableEnd="@drawable/ic_arrow_drop_down"
+                android:drawablePadding="4dp"
+                android:drawableTint="#FFFFFFFF"
+                android:background="@drawable/retry_button_primary"
+                android:paddingStart="10dp"
+                android:paddingEnd="6dp" />
 
-            <!-- Outer pulse ring (behind, for animation) -->
-            <View
-                android:id="@+id/pulse_ring_outer"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_gravity="center"
-                android:background="@drawable/pulse_ring_violet"
-                android:alpha="0"
-                android:visibility="gone" />
+            <!-- Save for later button -->
+            <Button
+                android:id="@+id/btn_save_for_later"
+                android:layout_width="0dp"
+                android:layout_height="34dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:text="Save for later"
+                android:textColor="#CCFFFFFF"
+                android:textSize="12sp"
+                android:textAllCaps="false"
+                android:drawableStart="@drawable/ic_save"
+                android:drawablePadding="4dp"
+                android:drawableTint="#CCFFFFFF"
+                android:background="@drawable/retry_button_secondary"
+                android:paddingStart="10dp"
+                android:paddingEnd="12dp" />
 
-            <!-- Inner pulse ring -->
-            <View
-                android:id="@+id/pulse_ring_inner"
-                android:layout_width="38dp"
-                android:layout_height="38dp"
-                android:layout_gravity="center"
-                android:background="@drawable/pulse_ring_violet"
-                android:alpha="0"
-                android:visibility="gone" />
-
-            <!-- Mic button container -->
-            <FrameLayout
-                android:id="@+id/mic_button_container"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_gravity="center"
-                android:background="@drawable/mic_button_liquid_glass">
-
-                <!-- Mic icon -->
-                <ImageView
-                    android:id="@+id/ic_mic"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_mic"
-                    android:contentDescription="Microphone button" />
-
-                <!-- Stop icon (shown during recording) -->
-                <ImageView
-                    android:id="@+id/ic_stop"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_stop"
-                    android:contentDescription="Stop recording"
-                    android:visibility="gone" />
-
-                <!-- Success checkmark icon (hidden by default) -->
-                <ImageView
-                    android:id="@+id/ic_success"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_check"
-                    android:contentDescription="Success"
-                    android:visibility="gone"
-                    android:scaleX="0"
-                    android:scaleY="0" />
-
-                <!-- Error/Warning icon (hidden by default) -->
-                <ImageView
-                    android:id="@+id/ic_error"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_warning"
-                    android:contentDescription="Error"
-                    android:visibility="gone" />
-
-                <!-- Clipboard icon (hidden by default, for NO_FOCUS state) -->
-                <ImageView
-                    android:id="@+id/ic_clipboard"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_content_copy"
-                    android:contentDescription="Copy to clipboard"
-                    android:visibility="gone" />
-
-                <!-- Loading spinner (hidden by default) -->
-                <ProgressBar
-                    android:id="@+id/progress_indicator"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_gravity="center"
-                    android:indeterminateTint="#FFFFFF"
-                    android:visibility="gone"
-                    tools:visibility="visible" />
-
-            </FrameLayout>
-        </FrameLayout>
-
-        <!-- Options button (3-dot menu - to the right of mic button) -->
-        <ImageButton
-            android:id="@+id/btn_options"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:padding="8dp"
-            android:layout_marginStart="4dp"
-            android:background="@drawable/options_button_background"
-            android:src="@drawable/ic_more_vert"
-            android:contentDescription="Options menu"
-            android:scaleType="centerInside"
-            android:tint="#F0FFFFFF"
-            android:alpha="0.9" />
+        </LinearLayout>
 
     </LinearLayout>
 

@@ -197,6 +197,27 @@ class OverlayService : Service() {
     @Volatile
     private var isWarningDialogVisible = false
 
+    // Error action row (retry + save for later)
+    private var errorActionsRowRef: WeakReference<View>? = null
+    private val errorActionsRow: View? get() = errorActionsRowRef?.get()
+
+    private var retryButtonRef: WeakReference<Button>? = null
+    private val retryButton: Button? get() = retryButtonRef?.get()
+
+    private var saveForLaterButtonRef: WeakReference<Button>? = null
+    private val saveForLaterButton: Button? get() = saveForLaterButtonRef?.get()
+
+    // Pending audio data for retry (kept in memory after error)
+    private var lastFailedAudioBytes: ByteArray? = null
+    private var lastFailedAudioFormat: String = "ogg"
+    private var lastFailedDurationMs: Long = 0L
+    private var lastFailedModelTier: ShortcutPreferences.ModelTier? = null
+
+    // Pending transcription manager for saving failed audio locally
+    private val pendingTranscriptionManager by lazy {
+        com.whispertype.app.data.PendingTranscriptionManager.getInstance(this)
+    }
+
     // Pending text for clipboard copy (when no text field is focused)
     private var pendingText: String? = null
     
@@ -269,13 +290,29 @@ class OverlayService : Service() {
                 Log.e(TAG, "Speech error: $errorMessage")
                 updateUI(State.ERROR)
                 statusText?.text = errorMessage
-                
-                // Reset to ready state after a delay (using shared handler for better battery)
-                uiHandler.postDelayed({
-                    if (!isListening) {
-                        updateUI(State.IDLE)
-                    }
-                }, Constants.ERROR_MESSAGE_DELAY_MS)
+
+                // Capture audio data and model tier for retry
+                lastFailedModelTier = ShortcutPreferences.getModelTier(this@OverlayService)
+                lastFailedAudioBytes = speechHelper?.lastTranscribedAudioBytes
+                lastFailedAudioFormat = speechHelper?.lastTranscribedAudioFormat ?: "ogg"
+                lastFailedDurationMs = speechHelper?.lastTranscribedDurationMs ?: 0L
+                // Clear helper's copy to avoid duplicate retention
+                speechHelper?.lastTranscribedAudioBytes = null
+
+                // Check if we have audio data (retryable error) vs permission/recording error
+                if (lastFailedAudioBytes != null && lastFailedAudioBytes!!.isNotEmpty()) {
+                    // Show retry + save buttons, do NOT auto-dismiss
+                    errorActionsRow?.visibility = View.VISIBLE
+                    Log.d(TAG, "Error with audio data available - showing retry options")
+                } else {
+                    // No audio data (permission error, no audio recorded, etc.) - auto-dismiss
+                    errorActionsRow?.visibility = View.GONE
+                    uiHandler.postDelayed({
+                        if (!isListening) {
+                            updateUI(State.IDLE)
+                        }
+                    }, Constants.ERROR_MESSAGE_DELAY_MS)
+                }
             }
             
             override fun onEndOfSpeech() {
@@ -378,6 +415,11 @@ class OverlayService : Service() {
         
         // Linear waveform visualizer (inline in pill)
         linearWaveformRef = WeakReference(view.findViewById(R.id.linear_waveform))
+
+        // Error action row (retry + save for later)
+        errorActionsRowRef = WeakReference(view.findViewById(R.id.error_actions_row))
+        retryButtonRef = WeakReference(view.findViewById(R.id.btn_retry))
+        saveForLaterButtonRef = WeakReference(view.findViewById(R.id.btn_save_for_later))
         
         // Enable smooth layout transitions for state changes
         setupLayoutTransitions()
@@ -461,6 +503,10 @@ class OverlayService : Service() {
 
         // Hide warning dialog if visible
         hideWarningDialog()
+
+        // Clear retained failed audio data
+        lastFailedAudioBytes = null
+        lastFailedModelTier = null
 
         // Remove layout listener before removing view
         overlayView?.let { view ->
@@ -701,6 +747,16 @@ class OverlayService : Service() {
         // Options button shows/hides the options menu
         optionsButton?.setOnClickListener {
             toggleOptionsMenu()
+        }
+
+        // Retry button - tap retries with same model, shows popup for model selection
+        retryButton?.setOnClickListener { view ->
+            showRetryModelPopup(view)
+        }
+
+        // Save for later button - saves audio locally for retry from app
+        saveForLaterButton?.setOnClickListener {
+            saveFailedAudioForLater()
         }
     }
     
@@ -1123,7 +1179,11 @@ class OverlayService : Service() {
      */
     private fun handleRecognitionResult(text: String) {
         isListening = false
-        
+
+        // Clear retained audio from any previous failure — transcription succeeded
+        lastFailedAudioBytes = null
+        lastFailedModelTier = null
+
         if (text.isBlank()) {
             updateUI(State.ERROR)
             statusText?.text = getString(R.string.error_no_match)
@@ -1196,6 +1256,7 @@ class OverlayService : Service() {
         errorIcon?.visibility = View.GONE
         clipboardIcon?.visibility = View.GONE
         stopIcon?.visibility = View.GONE
+        errorActionsRow?.visibility = View.GONE  // Hide retry/save buttons
         micButtonWrapper?.visibility = View.VISIBLE  // Restore wrapper if coming from NO_FOCUS
         micButton?.visibility = View.VISIBLE
         
@@ -1316,6 +1377,87 @@ class OverlayService : Service() {
         }, Constants.SUCCESS_MESSAGE_DELAY_MS)
     }
     
+    /**
+     * Show retry popup menu with model tier options.
+     * Tapping a model retries transcription with that provider.
+     */
+    private fun showRetryModelPopup(anchorView: View) {
+        val popup = android.widget.PopupMenu(this, anchorView)
+        val currentFailedTier = lastFailedModelTier
+        val tiers = ShortcutPreferences.ModelTier.entries
+
+        tiers.forEachIndexed { index, tier ->
+            val label = if (tier == currentFailedTier) {
+                "${tier.displayName} (${tier.creditCost}) - failed"
+            } else {
+                "${tier.displayName} (${tier.creditCost})"
+            }
+            popup.menu.add(0, index, index, label)
+        }
+
+        popup.setOnMenuItemClickListener { menuItem ->
+            val selectedTier = tiers.getOrNull(menuItem.itemId)
+            if (selectedTier != null) {
+                retryTranscription(selectedTier)
+            }
+            true
+        }
+
+        popup.show()
+    }
+
+    /**
+     * Retry transcription with the specified model tier.
+     */
+    private fun retryTranscription(tier: ShortcutPreferences.ModelTier) {
+        Log.d(TAG, "Retrying transcription with tier: ${tier.name}")
+
+        // Hide error actions and show processing state
+        errorActionsRow?.visibility = View.GONE
+        updateUI(State.PROCESSING)
+
+        speechHelper?.retryWithTier(
+            tier = tier,
+            audioBytes = lastFailedAudioBytes,
+            audioFormat = lastFailedAudioFormat,
+            durationMs = lastFailedDurationMs
+        )
+    }
+
+    /**
+     * Save failed audio to local storage for later retry from the app.
+     */
+    private fun saveFailedAudioForLater() {
+        val audioBytes = lastFailedAudioBytes
+        if (audioBytes == null || audioBytes.isEmpty()) {
+            Log.w(TAG, "No audio data to save")
+            return
+        }
+
+        val tier = lastFailedModelTier?.name ?: "UNKNOWN"
+        val errorMsg = statusText?.text?.toString() ?: "Unknown error"
+
+        pendingTranscriptionManager.save(
+            audioBytes = audioBytes,
+            audioFormat = lastFailedAudioFormat,
+            durationMs = lastFailedDurationMs,
+            failedModelTier = tier,
+            errorMessage = errorMsg
+        )
+
+        // Show "Saved" confirmation
+        updateUI(State.SUCCESS)
+        statusText?.text = "Saved for later"
+
+        // Clear retained audio
+        lastFailedAudioBytes = null
+
+        // Auto-hide after confirmation
+        uiHandler.postDelayed({
+            hideOverlay()
+        }, Constants.SUCCESS_MESSAGE_DELAY_MS)
+    }
+
     /**
      * Toggle the options menu visibility
      */

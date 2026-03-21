@@ -73,6 +73,14 @@ class SpeechRecognitionHelper(
     private var pendingAudioFormat: String = "ogg"  // "ogg" for ParallelOpusRecorder, "wav" for fallback
     private var pendingDurationMs: Long = 0L
 
+    // Last audio data that was sent for transcription (kept for retry on failure)
+    // No private set — OverlayService clears this after capturing the bytes
+    var lastTranscribedAudioBytes: ByteArray? = null
+    var lastTranscribedAudioFormat: String = "ogg"
+        private set
+    var lastTranscribedDurationMs: Long = 0L
+        private set
+
     // Track which recorder is active (for cleanup)
     private var usingFallbackRecorder = false
 
@@ -274,9 +282,43 @@ class SpeechRecognitionHelper(
             Log.d(TAG, "Routing to transcription: tier=$currentTier, flow=${flow.name}, " +
                     "format=$pendingAudioFormat, size=${trimmedAudio.size} bytes")
 
+            // Save audio data for potential retry
+            lastTranscribedAudioBytes = trimmedAudio
+            lastTranscribedAudioFormat = pendingAudioFormat
+            lastTranscribedDurationMs = pendingDurationMs
+
             // Route to appropriate transcription backend
             transcribeWithFlow(trimmedAudio, pendingAudioFormat, pendingDurationMs, flow)
         }, 100)
+    }
+
+    /**
+     * Retry transcription with the given model tier using the last recorded audio.
+     * Called from OverlayService when user taps retry button.
+     *
+     * @param tier The model tier to retry with
+     * @param audioBytes Optional audio bytes (if retrying from saved pending transcription)
+     * @param audioFormat Optional audio format
+     * @param durationMs Optional duration in ms
+     */
+    fun retryWithTier(
+        tier: ShortcutPreferences.ModelTier,
+        audioBytes: ByteArray? = null,
+        audioFormat: String? = null,
+        durationMs: Long? = null
+    ) {
+        val audio = audioBytes ?: lastTranscribedAudioBytes
+        val format = audioFormat ?: lastTranscribedAudioFormat
+        val duration = durationMs ?: lastTranscribedDurationMs
+
+        if (audio == null || audio.isEmpty()) {
+            callback.onError("No audio available for retry")
+            return
+        }
+
+        val flow = TranscriptionFlow.fromModelTier(tier)
+        Log.d(TAG, "Retrying transcription: tier=$tier, flow=${flow.name}, size=${audio.size} bytes")
+        transcribeWithFlow(audio, format, duration, flow)
     }
 
     /**
@@ -369,6 +411,7 @@ class SpeechRecognitionHelper(
                 override fun onSuccess(text: String) {
                     Log.d(TAG, "[Groq] Transcription successful: ${text.take(50)}...")
                     mainHandler.post {
+                        lastTranscribedAudioBytes = null
                         callback.onResults(text)
                     }
                 }
@@ -423,6 +466,7 @@ class SpeechRecognitionHelper(
                 override fun onSuccess(text: String) {
                     Log.d(TAG, "[Groq Turbo] Transcription successful: ${text.take(50)}...")
                     mainHandler.post {
+                        lastTranscribedAudioBytes = null
                         callback.onResults(text)
                     }
                 }
@@ -478,6 +522,7 @@ class SpeechRecognitionHelper(
                 override fun onSuccess(text: String) {
                     Log.d(TAG, "[OpenAI] Transcription successful: ${text.take(50)}...")
                     mainHandler.post {
+                        lastTranscribedAudioBytes = null
                         callback.onResults(text)
                     }
                 }
@@ -515,7 +560,10 @@ class SpeechRecognitionHelper(
             whisperApiClient.transcribeWithTwoStage(audioBytes, token, audioFormat, durationMs, llmModel, tier,
                 object : WhisperApiClient.TranscriptionCallback {
                     override fun onSuccess(text: String) {
-                        mainHandler.post { callback.onResults(text) }
+                        mainHandler.post {
+                            lastTranscribedAudioBytes = null
+                            callback.onResults(text)
+                        }
                     }
                     override fun onError(error: String) {
                         mainHandler.post { callback.onError(error) }
