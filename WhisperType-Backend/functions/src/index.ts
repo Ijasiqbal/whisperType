@@ -1326,6 +1326,9 @@ interface DeductionResult {
 /**
  * Validates and resolves audio duration for billing.
  * Clamps to minimum 1s, defaults to 60s if invalid.
+ * @param {unknown} audioDurationMs - Raw duration from request
+ * @param {string} logPrefix - Prefix for log messages
+ * @return {number} Resolved duration in milliseconds
  */
 function resolveAudioDuration(
   audioDurationMs: unknown,
@@ -3293,7 +3296,8 @@ export const adminAdjustCredits = onRequest(
 /**
  * Update user plan
  * POST /adminUpdateUserPlan
- * Body: { uid, plan, resetCredits?, extendTrialDays?, proCreditsLimit?, grantDurationMonths? }
+ * Body: { uid, plan, resetCredits?, extendTrialDays?,
+ *         proCreditsLimit?, grantDurationMonths? }
  */
 export const adminUpdateUserPlan = onRequest(
   {region: ["asia-south1"]},
@@ -3347,8 +3351,9 @@ export const adminUpdateUserPlan = onRequest(
       if (plan === "pro" && currentPlan !== "pro") {
         if (!userData.proSubscription ||
             userData.proSubscription.status !== "active") {
-          const months = grantDurationMonths && grantDurationMonths > 0
-            ? grantDurationMonths : 1;
+          const months =
+            grantDurationMonths && grantDurationMonths > 0 ?
+              grantDurationMonths : 1;
           const now = new Date();
           const periodEnd = new Date(now);
           periodEnd.setMonth(periodEnd.getMonth() + months);
@@ -3380,7 +3385,7 @@ export const adminUpdateUserPlan = onRequest(
 
       if (resetCredits) {
         if (plan === "pro" && !updateData.proSubscription) {
-          // Only use dot-notation when we didn't set a full proSubscription object
+          // Dot-notation: no full proSubscription set
           updateData["proSubscription.proCreditsUsed"] = 0;
         } else if (plan !== "pro") {
           updateData.freeCreditsUsed = 0;
