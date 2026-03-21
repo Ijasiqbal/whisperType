@@ -16,9 +16,9 @@
   const COUNT = isMobile ? 40 : 80;
 
   const COLORS = [
-    { r: 108, g: 92, b: 231 },  // purple
-    { r: 0, g: 206, b: 201 },   // cyan
-    { r: 200, g: 200, b: 220 }, // soft white
+    { r: 91, g: 164, b: 207 },  // steel blue
+    { r: 148, g: 184, b: 212 }, // silver blue
+    { r: 180, g: 195, b: 210 }, // soft blue white
   ];
 
   // 3 depth layers: far (slow), mid, near (fast)
