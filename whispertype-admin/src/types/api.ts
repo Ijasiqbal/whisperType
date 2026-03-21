@@ -10,7 +10,6 @@ export interface ApiResponse<T> {
 export interface ListUsersResponse {
   users: UserListItem[];
   nextPageToken: string | null;
-  totalCount: number;
 }
 
 export interface GetUserDetailsResponse {
@@ -37,6 +36,7 @@ export interface UpdateUserPlanRequest {
   resetCredits?: boolean;
   extendTrialDays?: number;
   proCreditsLimit?: number;
+  grantDurationMonths?: number;
 }
 
 export interface UpdateUserPlanResponse {

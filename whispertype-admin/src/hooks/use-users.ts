@@ -18,7 +18,6 @@ export function useUsers(options: UseUsersOptions = {}) {
   const [planFilter, setPlanFilter] = useState<"free" | "pro" | "all">("all");
   const [pageToken, setPageToken] = useState<string | null>(null);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
   const [limit] = useState(initialLimit);
 
   const fetchUsers = useCallback(
@@ -35,7 +34,6 @@ export function useUsers(options: UseUsersOptions = {}) {
         });
         setUsers(result.users);
         setNextPageToken(result.nextPageToken);
-        setTotalCount(result.totalCount);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch users");
         setUsers([]);
@@ -77,7 +75,6 @@ export function useUsers(options: UseUsersOptions = {}) {
     setSearch,
     planFilter,
     setPlanFilter,
-    totalCount,
     hasNextPage: !!nextPageToken,
     hasPreviousPage: !!pageToken,
     goToNextPage,

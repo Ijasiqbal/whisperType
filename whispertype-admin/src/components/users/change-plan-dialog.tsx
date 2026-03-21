@@ -40,10 +40,31 @@ export function ChangePlanDialog({
   const [plan, setPlan] = useState<"free" | "pro">(currentPlan);
   const [resetCredits, setResetCredits] = useState(false);
   const [extendTrialDays, setExtendTrialDays] = useState("");
+  const [grantDuration, setGrantDuration] = useState("1");
+  const [customMonths, setCustomMonths] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const isUpgradingToPro = plan === "pro" && currentPlan !== "pro";
+
+  const getGrantMonths = (): number | undefined => {
+    if (!isUpgradingToPro) return undefined;
+    if (grantDuration === "custom") {
+      const parsed = parseInt(customMonths, 10);
+      return parsed > 0 ? parsed : undefined;
+    }
+    return parseInt(grantDuration, 10);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isUpgradingToPro) {
+      const months = getGrantMonths();
+      if (!months || months <= 0) {
+        toast.error("Please select a valid grant duration");
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -52,9 +73,12 @@ export function ChangePlanDialog({
         plan,
         resetCredits,
         extendTrialDays: extendTrialDays ? parseInt(extendTrialDays, 10) : undefined,
+        grantDurationMonths: getGrantMonths(),
       });
 
-      toast.success(`User plan updated to ${plan}`);
+      const months = getGrantMonths();
+      const durationText = months ? ` for ${months} month${months > 1 ? "s" : ""}` : "";
+      toast.success(`User plan updated to ${plan}${durationText}`);
       onSuccess();
       onOpenChange(false);
     } catch (err) {
@@ -88,6 +112,38 @@ export function ChangePlanDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {isUpgradingToPro && (
+            <div className="space-y-2">
+              <Label>Grant Duration</Label>
+              <Select value={grantDuration} onValueChange={setGrantDuration}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Month</SelectItem>
+                  <SelectItem value="2">2 Months</SelectItem>
+                  <SelectItem value="3">3 Months</SelectItem>
+                  <SelectItem value="6">6 Months</SelectItem>
+                  <SelectItem value="12">12 Months</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
+              {grantDuration === "custom" && (
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="Number of months"
+                  value={customMonths}
+                  onChange={(e) => setCustomMonths(e.target.value)}
+                />
+              )}
+              <p className="text-sm text-muted-foreground">
+                After this period, the user must subscribe via Google Play to
+                continue pro access.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center space-x-2">
             <input

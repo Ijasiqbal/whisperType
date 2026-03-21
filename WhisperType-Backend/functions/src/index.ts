@@ -192,6 +192,7 @@ const DEFAULT_PRO_TIER_CREDITS = 10000;
 const DEFAULT_SECONDS_PER_CREDIT = 6;
 const DEFAULT_TRIAL_DURATION_MONTHS = 3;
 const DEFAULT_PRO_PRODUCT_ID = "whispertype_pro_monthly";
+const ADMIN_GRANTED_TOKEN = "admin_granted";
 const DEFAULT_GUEST_LOGIN_ENABLED = false;
 
 /**
@@ -560,6 +561,25 @@ async function reVerifyProSubscriptionWithGooglePlay(
   const sub = user.proSubscription;
   if (!sub || !sub.purchaseToken || !sub.productId) {
     logger.warn(`Cannot re-verify: no subscription data for ${uid}`);
+    return {
+      renewed: false,
+      proStatus: checkProStatus(user),
+    };
+  }
+
+  // Admin-granted subscriptions are not from Google Play — skip verification
+  if (sub.purchaseToken === ADMIN_GRANTED_TOKEN) {
+    const periodEndMs = sub.currentPeriodEnd?.toMillis() ?? 0;
+    if (Date.now() > periodEndMs && sub.status === "active") {
+      // Mark expired in Firestore so we don't re-check on every request
+      await db.collection("users").doc(uid).update({
+        "proSubscription.status": "expired",
+        "plan": "free",
+      });
+      logger.info(
+        `Admin-granted subscription expired for ${uid}, marked as expired`
+      );
+    }
     return {
       renewed: false,
       proStatus: checkProStatus(user),
@@ -2892,53 +2912,147 @@ export const adminListUsers = onRequest(
         `search=${search}, plan=${planFilter}`
       );
 
-      // Get users from Firebase Auth
-      const listResult = await admin.auth().listUsers(limit, pageToken);
+      // Helper to build user data object from auth record + Firestore
+      const buildUserData = async (
+        userRecord: admin.auth.UserRecord
+      ) => {
+        const userDoc = await db
+          .collection("users").doc(userRecord.uid).get();
+        const userData = userDoc.exists ?
+          userDoc.data() as UserDocument : null;
 
-      // Get Firestore data for each user
-      const usersWithData = await Promise.all(
-        listResult.users.map(async (userRecord) => {
-          const userDoc = await db
-            .collection("users").doc(userRecord.uid).get();
-          const userData = userDoc.exists ?
-            userDoc.data() as UserDocument : null;
+        return {
+          uid: userRecord.uid,
+          email: userRecord.email || null,
+          displayName: userRecord.displayName || null,
+          photoURL: userRecord.photoURL || null,
+          plan: userData?.plan || "free",
+          freeCreditsUsed: userData?.freeCreditsUsed || 0,
+          createdAt: userRecord.metadata.creationTime ?
+            new Date(userRecord.metadata.creationTime).getTime() : 0,
+          lastSignInTime: userRecord.metadata.lastSignInTime || null,
+          disabled: userRecord.disabled,
+        };
+      };
 
-          return {
-            uid: userRecord.uid,
-            email: userRecord.email || null,
-            displayName: userRecord.displayName || null,
-            photoURL: userRecord.photoURL || null,
-            plan: userData?.plan || "free",
-            freeCreditsUsed: userData?.freeCreditsUsed || 0,
-            createdAt: userRecord.metadata.creationTime ?
-              new Date(userRecord.metadata.creationTime).getTime() : 0,
-            lastSignInTime: userRecord.metadata.lastSignInTime || null,
-            disabled: userRecord.disabled,
-          };
-        })
-      );
+      let filteredUsers;
+      let nextToken: string | undefined;
 
-      // Filter by search if provided
-      let filteredUsers = usersWithData;
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filteredUsers = filteredUsers.filter(
-          (u) =>
-            u.email?.toLowerCase().includes(searchLower) ||
-            u.uid.toLowerCase().includes(searchLower) ||
-            u.displayName?.toLowerCase().includes(searchLower)
+      if (search && search.trim().length > 0) {
+        // Direct lookup: try email first, then UID
+        const foundRecords: admin.auth.UserRecord[] = [];
+
+        // Try exact email lookup
+        if (search.includes("@")) {
+          try {
+            const user = await admin.auth().getUserByEmail(search.trim());
+            foundRecords.push(user);
+          } catch {
+            // Not found by email — fall through
+          }
+        }
+
+        // Try exact UID lookup (if not already found)
+        if (foundRecords.length === 0) {
+          try {
+            const user = await admin.auth().getUser(search.trim());
+            foundRecords.push(user);
+          } catch {
+            // Not found by UID — fall through
+          }
+        }
+
+        // If direct lookup found results, use them
+        if (foundRecords.length > 0) {
+          let results = await Promise.all(
+            foundRecords.map(buildUserData)
+          );
+          if (planFilter && planFilter !== "all") {
+            results = results.filter((u) => u.plan === planFilter);
+          }
+          filteredUsers = results;
+          nextToken = undefined;
+        } else {
+          // Partial search: iterate pages, batch Firestore reads per page
+          const matchedUsers: Awaited<ReturnType<typeof buildUserData>>[] = [];
+          let iterToken: string | undefined = pageToken;
+          const searchLower = search.toLowerCase();
+          const maxPages = 10;
+
+          for (let page = 0; page < maxPages; page++) {
+            const batch = await admin.auth().listUsers(100, iterToken);
+            const textMatches = batch.users.filter(
+              (user) =>
+                user.email?.toLowerCase().includes(searchLower) ||
+                user.uid.toLowerCase().includes(searchLower) ||
+                user.displayName?.toLowerCase().includes(searchLower)
+            );
+
+            if (textMatches.length > 0) {
+              let batchResults = await Promise.all(
+                textMatches.map(buildUserData)
+              );
+              if (planFilter && planFilter !== "all") {
+                batchResults = batchResults.filter(
+                  (u) => u.plan === planFilter
+                );
+              }
+              for (const u of batchResults) {
+                matchedUsers.push(u);
+                if (matchedUsers.length >= limit) break;
+              }
+            }
+
+            if (matchedUsers.length >= limit) {
+              nextToken = batch.pageToken;
+              break;
+            }
+            if (!batch.pageToken) break;
+            iterToken = batch.pageToken;
+          }
+
+          filteredUsers = matchedUsers;
+          if (!nextToken) nextToken = undefined;
+        }
+      } else if (planFilter && planFilter !== "all") {
+        // Paginated listing with plan filter — iterate until enough matches
+        const collected: Awaited<ReturnType<typeof buildUserData>>[] = [];
+        let iterToken: string | undefined = pageToken || undefined;
+        const maxPages = 10;
+
+        for (let page = 0; page < maxPages; page++) {
+          const batch = await admin.auth().listUsers(100, iterToken);
+          const batchData = await Promise.all(
+            batch.users.map(buildUserData)
+          );
+          for (const u of batchData) {
+            if (u.plan === planFilter) {
+              collected.push(u);
+              if (collected.length >= limit) break;
+            }
+          }
+          if (collected.length >= limit) {
+            nextToken = batch.pageToken;
+            break;
+          }
+          if (!batch.pageToken) break;
+          iterToken = batch.pageToken;
+        }
+
+        filteredUsers = collected;
+        if (!nextToken) nextToken = undefined;
+      } else {
+        // No search, no plan filter — simple paginated listing
+        const listResult = await admin.auth().listUsers(limit, pageToken);
+        filteredUsers = await Promise.all(
+          listResult.users.map(buildUserData)
         );
-      }
-
-      // Filter by plan if provided
-      if (planFilter && planFilter !== "all") {
-        filteredUsers = filteredUsers.filter((u) => u.plan === planFilter);
+        nextToken = listResult.pageToken;
       }
 
       response.status(200).json({
         users: filteredUsers,
-        nextPageToken: listResult.pageToken || null,
-        totalCount: filteredUsers.length,
+        nextPageToken: nextToken || null,
       });
     } catch (error) {
       logger.error("[Admin] Error listing users", error);
@@ -3179,7 +3293,7 @@ export const adminAdjustCredits = onRequest(
 /**
  * Update user plan
  * POST /adminUpdateUserPlan
- * Body: { uid, plan, resetCredits?, extendTrialDays?, proCreditsLimit? }
+ * Body: { uid, plan, resetCredits?, extendTrialDays?, proCreditsLimit?, grantDurationMonths? }
  */
 export const adminUpdateUserPlan = onRequest(
   {region: ["asia-south1"]},
@@ -3206,7 +3320,8 @@ export const adminUpdateUserPlan = onRequest(
         return;
       }
 
-      const {uid, plan, resetCredits, extendTrialDays} = request.body;
+      const {uid, plan, resetCredits, extendTrialDays, grantDurationMonths} =
+        request.body;
       if (!uid || !["free", "pro"].includes(plan)) {
         response.status(400).json({
           error: "Missing required fields: uid, plan (free|pro)",
@@ -3224,18 +3339,55 @@ export const adminUpdateUserPlan = onRequest(
         return;
       }
 
+      const userData = userDoc.data() as UserDocument;
+      const currentPlan = userData.plan ?? "free";
       const updateData: Record<string, unknown> = {plan};
+      let subscriptionAction: "created" | "cancelled" | "none" = "none";
+
+      if (plan === "pro" && currentPlan !== "pro") {
+        if (!userData.proSubscription ||
+            userData.proSubscription.status !== "active") {
+          const months = grantDurationMonths && grantDurationMonths > 0
+            ? grantDurationMonths : 1;
+          const now = new Date();
+          const periodEnd = new Date(now);
+          periodEnd.setMonth(periodEnd.getMonth() + months);
+
+          updateData.proSubscription = {
+            purchaseToken: ADMIN_GRANTED_TOKEN,
+            productId: DEFAULT_PRO_PRODUCT_ID,
+            status: "active",
+            startDate: admin.firestore.Timestamp.fromDate(now),
+            currentPeriodStart: admin.firestore.Timestamp.fromDate(now),
+            currentPeriodEnd: admin.firestore.Timestamp.fromDate(periodEnd),
+            proCreditsUsed: 0,
+          };
+
+          subscriptionAction = "created";
+          logger.info(
+            `[Admin] Granting pro to ${uid} for ${months} month(s), ` +
+            `expires ${periodEnd.toISOString()}`
+          );
+        }
+      }
+
+      if (plan === "free" && currentPlan === "pro") {
+        if (userData.proSubscription) {
+          updateData["proSubscription.status"] = "cancelled";
+          subscriptionAction = "cancelled";
+        }
+      }
 
       if (resetCredits) {
-        if (plan === "pro") {
+        if (plan === "pro" && !updateData.proSubscription) {
+          // Only use dot-notation when we didn't set a full proSubscription object
           updateData["proSubscription.proCreditsUsed"] = 0;
-        } else {
+        } else if (plan !== "pro") {
           updateData.freeCreditsUsed = 0;
         }
       }
 
       if (extendTrialDays && plan === "free") {
-        const userData = userDoc.data() as UserDocument;
         const currentExpiry = userData.trialExpiryDate?.toDate() || new Date();
         currentExpiry.setDate(currentExpiry.getDate() + extendTrialDays);
         updateData.trialExpiryDate =
@@ -3252,6 +3404,8 @@ export const adminUpdateUserPlan = onRequest(
         newPlan: plan,
         resetCredits: !!resetCredits,
         extendTrialDays: extendTrialDays || 0,
+        grantDurationMonths: grantDurationMonths || 0,
+        subscriptionAction,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 

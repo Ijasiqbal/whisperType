@@ -20,7 +20,6 @@ import { format } from "date-fns";
 interface UserTableProps {
   users: UserListItem[];
   loading: boolean;
-  totalCount: number;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
   onNextPage: () => void;
@@ -30,7 +29,6 @@ interface UserTableProps {
 export function UserTable({
   users,
   loading,
-  totalCount,
   hasNextPage,
   hasPreviousPage,
   onNextPage,
@@ -138,7 +136,7 @@ export function UserTable({
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Showing {users.length} of {totalCount} users
+          Showing {users.length} user{users.length !== 1 ? "s" : ""}
         </p>
         <div className="flex items-center gap-2">
           <Button

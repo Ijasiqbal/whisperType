@@ -15,7 +15,6 @@ export default function UsersPage() {
     setSearch,
     planFilter,
     setPlanFilter,
-    totalCount,
     hasNextPage,
     hasPreviousPage,
     goToNextPage,
@@ -53,7 +52,6 @@ export default function UsersPage() {
       <UserTable
         users={users}
         loading={loading}
-        totalCount={totalCount}
         hasNextPage={hasNextPage}
         hasPreviousPage={hasPreviousPage}
         onNextPage={goToNextPage}
