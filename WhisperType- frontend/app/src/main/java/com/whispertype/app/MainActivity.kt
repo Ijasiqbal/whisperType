@@ -53,6 +53,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import com.whispertype.app.ui.theme.VozcribeTheme
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -139,7 +140,7 @@ class MainActivity : ComponentActivity() {
         }
         
         setContent {
-            WhisperTypeTheme {
+            VozcribeTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -1716,21 +1717,3 @@ fun checkAccessibilityEnabled(context: Context): Boolean {
     return isEnabled
 }
 
-/**
- * App theme wrapper
- */
-@Composable
-fun WhisperTypeTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = Color(0xFFC45D3E),
-            onPrimary = Color.White,
-            secondary = Color(0xFF10B981),
-            background = Color(0xFFF8FAFC),
-            surface = Color.White,
-            onBackground = Color(0xFF1E293B),
-            onSurface = Color(0xFF1E293B)
-        ),
-        content = content
-    )
-}

@@ -12,21 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.whispertype.app.ui.theme.Slate200
+import com.whispertype.app.ui.theme.Slate100
 
-/**
- * Shimmer effect brush for skeleton loading animation
- */
+private val ShimmerColors = listOf(Slate200, Slate100, Slate200)
+
 @Composable
 fun shimmerBrush(): Brush {
-    val shimmerColors = listOf(
-        Color(0xFFE2E8F0),
-        Color(0xFFF1F5F9),
-        Color(0xFFE2E8F0)
-    )
-    
     val transition = rememberInfiniteTransition(label = "shimmer")
     val translateAnimation by transition.animateFloat(
         initialValue = 0f,
@@ -37,9 +31,9 @@ fun shimmerBrush(): Brush {
         ),
         label = "shimmer_translate"
     )
-    
+
     return Brush.linearGradient(
-        colors = shimmerColors,
+        colors = ShimmerColors,
         start = Offset(translateAnimation - 500f, 0f),
         end = Offset(translateAnimation, 0f)
     )
@@ -108,27 +102,27 @@ fun ProfileScreenSkeleton(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         // Avatar skeleton
         SkeletonCircle(size = 100.dp)
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Email skeleton
         SkeletonText(width = 180.dp, height = 20.dp)
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         // Trial status card skeleton
         SkeletonCard(height = 200.dp)
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Usage card skeleton
         SkeletonCard(height = 150.dp)
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Last transcription skeleton
         SkeletonCard(height = 60.dp)
     }

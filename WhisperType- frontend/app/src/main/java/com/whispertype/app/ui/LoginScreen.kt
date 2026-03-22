@@ -15,19 +15,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.whispertype.app.R
 import com.whispertype.app.auth.AuthResult
 import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.config.RemoteConfigManager
+import com.whispertype.app.ui.theme.*
 import kotlinx.coroutines.launch
 
 /**
@@ -50,17 +47,17 @@ fun LoginScreen(
 
     // Animation states
     var isVisible by remember { mutableStateOf(false) }
-    
+
     // Trigger entrance animation on composition
     LaunchedEffect(Unit) {
         isVisible = true
     }
-    
+
     // Handle Google Sign-In
     fun handleGoogleSignIn() {
         isLoading = true
         errorMessage = null
-        
+
         scope.launch {
             val result = authManager.signInWithGoogle(context)
             isLoading = false
@@ -70,12 +67,12 @@ fun LoginScreen(
             }
         }
     }
-    
+
     // Handle Anonymous Sign-In
     fun handleAnonymousSignIn() {
         isLoading = true
         errorMessage = null
-        
+
         scope.launch {
             val user = authManager.ensureSignedIn()
             isLoading = false
@@ -86,20 +83,13 @@ fun LoginScreen(
             }
         }
     }
-    
+
     // Gradient background
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFEEF2FF),  // Light indigo center
-                        Color(0xFFF8FAFC)   // Fade to white
-                    ),
-                    center = Offset(0.5f, 0f),  // Top center
-                    radius = 1500f
-                )
+                ScreenBackground
             )
     ) {
         Column(
@@ -123,17 +113,12 @@ fun LoginScreen(
                         .shadow(
                             elevation = 16.dp,
                             shape = CircleShape,
-                            ambientColor = Color(0xFFC45D3E).copy(alpha = 0.3f),
-                            spotColor = Color(0xFFC45D3E).copy(alpha = 0.3f)
+                            ambientColor = Rust.copy(alpha = 0.3f),
+                            spotColor = Rust.copy(alpha = 0.3f)
                         )
                         .clip(CircleShape)
                         .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFFC45D3E),
-                                    Color(0xFFD4845A)
-                                )
-                            )
+                            RustGradient
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -145,9 +130,9 @@ fun LoginScreen(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(20.dp))
-            
+
             // Animated Title
             AnimatedVisibility(
                 visible = isVisible,
@@ -159,23 +144,22 @@ fun LoginScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Vozcribe",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
+                        style = MaterialTheme.typography.displayMedium,
+                        color = Slate800
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Text(
                         text = "Sign in to continue",
-                        fontSize = 16.sp,
-                        color = Color(0xFF64748B)
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Slate500
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             // Animated Login Card
             AnimatedVisibility(
                 visible = isVisible,
@@ -188,7 +172,7 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    border = BorderStroke(1.dp, Slate200)
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp)
@@ -197,14 +181,14 @@ fun LoginScreen(
                         if (errorMessage != null) {
                             Text(
                                 text = errorMessage!!,
-                                color = Color(0xFFDC2626),
-                                fontSize = 14.sp,
+                                color = ErrorDark,
+                                style = MaterialTheme.typography.bodyMedium,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                         }
-                        
+
                         // Google Sign-In button with icon
                         Button(
                             onClick = { handleGoogleSignIn() },
@@ -214,12 +198,12 @@ fun LoginScreen(
                                 .shadow(
                                     elevation = 8.dp,
                                     shape = RoundedCornerShape(12.dp),
-                                    ambientColor = Color(0xFFC45D3E).copy(alpha = 0.4f),
-                                    spotColor = Color(0xFFC45D3E).copy(alpha = 0.4f)
+                                    ambientColor = Rust.copy(alpha = 0.4f),
+                                    spotColor = Rust.copy(alpha = 0.4f)
                                 ),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFC45D3E)
+                                containerColor = Rust
                             ),
                             enabled = !isLoading
                         ) {
@@ -243,18 +227,17 @@ fun LoginScreen(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = "Continue with Google",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Medium
+                                        style = MaterialTheme.typography.labelLarge
                                     )
                                 }
                             }
                         }
-                        
-                        
+
+
                         // Guest login - controlled by Firebase Remote Config
                         if (guestLoginEnabled) {
                             Spacer(modifier = Modifier.height(16.dp))
-                            
+
                             // Divider
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -263,14 +246,14 @@ fun LoginScreen(
                                 Divider(modifier = Modifier.weight(1f))
                                 Text(
                                     text = "  or  ",
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 14.sp
+                                    color = Slate400,
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
                                 Divider(modifier = Modifier.weight(1f))
                             }
-                            
+
                             Spacer(modifier = Modifier.height(16.dp))
-                            
+
                             // Anonymous Sign-In button
                             OutlinedButton(
                                 onClick = { handleAnonymousSignIn() },
@@ -279,14 +262,13 @@ fun LoginScreen(
                                     .height(50.dp),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF64748B)
+                                    contentColor = Slate500
                                 ),
                                 enabled = !isLoading
                             ) {
                                 Text(
                                     text = "Continue as Guest",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
+                                    style = MaterialTheme.typography.labelLarge
                                 )
                             }
                         }

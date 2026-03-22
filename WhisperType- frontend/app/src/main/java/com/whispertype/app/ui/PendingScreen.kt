@@ -21,7 +21,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +31,7 @@ import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.data.PendingTranscriptionManager
 import com.whispertype.app.data.PendingTranscriptionManager.PendingTranscription
 import com.whispertype.app.speech.TranscriptionFlow
+import com.whispertype.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,7 +63,7 @@ fun PendingScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Slate50)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -71,9 +71,8 @@ fun PendingScreen(
             // Header
             Text(
                 text = "Pending Transcriptions",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B),
+                style = MaterialTheme.typography.headlineLarge,
+                color = Slate800,
                 modifier = Modifier.padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 8.dp)
             )
 
@@ -88,19 +87,19 @@ fun PendingScreen(
                             painter = painterResource(id = R.drawable.ic_check),
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
-                            tint = Color(0xFF94A3B8)
+                            tint = Slate400
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "No pending transcriptions",
-                            fontSize = 16.sp,
-                            color = Color(0xFF94A3B8)
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Slate400
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Failed recordings will appear here",
-                            fontSize = 13.sp,
-                            color = Color(0xFFCBD5E1)
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Slate300
                         )
                     }
                 }
@@ -123,7 +122,7 @@ fun PendingScreen(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFC45D3E)
+                            containerColor = Rust
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -135,7 +134,10 @@ fun PendingScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Retry All")
+                        Text(
+                            "Retry All",
+                            style = MaterialTheme.typography.labelLarge
+                        )
                     }
                 }
 
@@ -208,32 +210,31 @@ private fun PendingTranscriptionCard(
                         ),
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = if (isCompleted) Color(0xFF10B981) else Color(0xFFC45D3E)
+                        tint = if (isCompleted) Emerald else Rust
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = dateFormat.format(Date(entry.timestamp)),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF475569)
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Slate600
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "${entry.durationMs / 1000}s",
-                        fontSize = 12.sp,
-                        color = Color(0xFF94A3B8)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Slate400
                     )
                 }
 
                 // Model tier badge
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFEEF2FF)
+                    color = IndigoTint
                 ) {
                     Text(
                         text = entry.failedModelTier,
-                        fontSize = 11.sp,
-                        color = Color(0xFFC45D3E),
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp),
+                        color = Rust,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
                 }
@@ -245,14 +246,14 @@ private fun PendingTranscriptionCard(
                 // Show transcribed text
                 Text(
                     text = entry.transcribedText!!,
-                    fontSize = 14.sp,
-                    color = Color(0xFF1E293B),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Slate800,
                     maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFF8FAFC))
+                        .background(Slate50)
                         .padding(12.dp)
                 )
 
@@ -266,7 +267,7 @@ private fun PendingTranscriptionCard(
                     Button(
                         onClick = { onCopy(entry.transcribedText!!) },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFC45D3E)
+                            containerColor = Rust
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -276,14 +277,14 @@ private fun PendingTranscriptionCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Copy", fontSize = 13.sp)
+                        Text("Copy", style = MaterialTheme.typography.labelMedium)
                     }
 
                     IconButton(onClick = onDelete) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete",
-                            tint = Color(0xFF94A3B8)
+                            tint = Slate400
                         )
                     }
                 }
@@ -291,8 +292,8 @@ private fun PendingTranscriptionCard(
                 // Show error message
                 Text(
                     text = entry.errorMessage,
-                    fontSize = 12.sp,
-                    color = Color(0xFFEF4444),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Error,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -304,7 +305,7 @@ private fun PendingTranscriptionCard(
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp,
-                        color = Color(0xFFC45D3E)
+                        color = Rust
                     )
                 } else {
                     var showModelMenu by remember { mutableStateOf(false) }
@@ -318,7 +319,7 @@ private fun PendingTranscriptionCard(
                         Button(
                             onClick = { onRetry(null) },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFC45D3E)
+                                containerColor = Rust
                             ),
                             shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
@@ -330,7 +331,7 @@ private fun PendingTranscriptionCard(
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Retry", fontSize = 12.sp)
+                            Text("Retry", style = MaterialTheme.typography.labelSmall)
                         }
 
                         // Model picker pill (outlined)
@@ -339,9 +340,9 @@ private fun PendingTranscriptionCard(
                                 onClick = { showModelMenu = true },
                                 shape = PillShape,
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFFC45D3E)
+                                    contentColor = Rust
                                 ),
-                                border = BorderStroke(1.dp, Color(0xFFC45D3E)),
+                                border = BorderStroke(1.dp, Rust),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                                 modifier = Modifier.height(32.dp)
                             ) {
@@ -349,7 +350,7 @@ private fun PendingTranscriptionCard(
                                     text = try {
                                         ShortcutPreferences.ModelTier.valueOf(entry.failedModelTier).displayName
                                     } catch (_: Exception) { entry.failedModelTier },
-                                    fontSize = 12.sp
+                                    style = MaterialTheme.typography.labelSmall
                                 )
                                 Icon(
                                     imageVector = Icons.Default.ArrowDropDown,
@@ -367,7 +368,8 @@ private fun PendingTranscriptionCard(
                                         text = {
                                             Text(
                                                 "${tier.displayName} (${tier.creditCost})" +
-                                                    if (tier.name == entry.failedModelTier) " - failed" else ""
+                                                    if (tier.name == entry.failedModelTier) " - failed" else "",
+                                                style = MaterialTheme.typography.bodyMedium
                                             )
                                         },
                                         onClick = {
@@ -392,13 +394,13 @@ private fun PendingTranscriptionCard(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Delete",
                                 modifier = Modifier.size(14.dp),
-                                tint = Color(0xFF94A3B8)
+                                tint = Slate400
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 "Delete",
-                                fontSize = 12.sp,
-                                color = Color(0xFF94A3B8)
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Slate400
                             )
                         }
                     }

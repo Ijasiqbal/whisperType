@@ -13,13 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.whispertype.app.BuildConfig
+import com.whispertype.app.ui.theme.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -59,17 +58,16 @@ fun ReportIssueBottomSheet(
             // Title
             Text(
                 text = "Report an Issue",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B)
+                style = MaterialTheme.typography.headlineMedium,
+                color = Slate800
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
                 text = "Describe the problem and we'll look into it",
-                fontSize = 14.sp,
-                color = Color(0xFF64748B)
+                style = MaterialTheme.typography.bodyMedium,
+                color = Slate500
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -77,9 +75,8 @@ fun ReportIssueBottomSheet(
             // Category dropdown
             Text(
                 text = "Category",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF1E293B)
+                style = MaterialTheme.typography.titleSmall,
+                color = Slate800
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -101,13 +98,13 @@ fun ReportIssueBottomSheet(
                     ) {
                         Text(
                             text = selectedCategory.label,
-                            fontSize = 16.sp,
-                            color = Color(0xFF1E293B)
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Slate800
                         )
                         Icon(
                             imageVector = Icons.Filled.ArrowDropDown,
                             contentDescription = "Select category",
-                            tint = Color(0xFF64748B)
+                            tint = Slate500
                         )
                     }
                 }
@@ -122,8 +119,8 @@ fun ReportIssueBottomSheet(
                             text = {
                                 Text(
                                     text = category.label,
-                                    fontSize = 16.sp,
-                                    color = Color(0xFF1E293B)
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Slate800
                                 )
                             },
                             onClick = {
@@ -140,9 +137,8 @@ fun ReportIssueBottomSheet(
             // Description field
             Text(
                 text = "Description",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF1E293B)
+                style = MaterialTheme.typography.titleSmall,
+                color = Slate800
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -156,14 +152,14 @@ fun ReportIssueBottomSheet(
                 placeholder = {
                     Text(
                         text = "Describe the issue you're experiencing...",
-                        color = Color(0xFF94A3B8)
+                        color = Slate400
                     )
                 },
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFC45D3E),
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = Color(0xFFC45D3E)
+                    focusedBorderColor = Rust,
+                    unfocusedBorderColor = Slate200,
+                    cursorColor = Rust
                 )
             )
 
@@ -172,8 +168,8 @@ fun ReportIssueBottomSheet(
             // Device info hint
             Text(
                 text = "Device info will be attached automatically",
-                fontSize = 12.sp,
-                color = Color(0xFF94A3B8)
+                style = MaterialTheme.typography.bodySmall,
+                color = Slate400
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -221,8 +217,8 @@ fun ReportIssueBottomSheet(
                 enabled = !isSubmitting && description.isNotBlank(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFC45D3E),
-                    disabledContainerColor = Color(0xFFC45D3E).copy(alpha = 0.5f)
+                    containerColor = Rust,
+                    disabledContainerColor = Rust.copy(alpha = 0.5f)
                 )
             ) {
                 if (isSubmitting) {
@@ -235,8 +231,7 @@ fun ReportIssueBottomSheet(
                 }
                 Text(
                     text = if (isSubmitting) "Submitting..." else "Submit",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
             }

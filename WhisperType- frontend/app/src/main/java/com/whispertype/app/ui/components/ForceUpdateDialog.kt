@@ -15,12 +15,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.whispertype.app.ui.theme.*
 
 /**
  * Opens the Play Store page for this app.
@@ -46,12 +46,6 @@ private fun openPlayStore(context: Context) {
 
 /**
  * ForceUpdateDialog - Blocking dialog that requires user to update the app
- * 
- * Features:
- * - Non-dismissible (cannot be closed by clicking outside or back button)
- * - Opens Play Store when user clicks Update
- * - Option to exit app
- * - Matches app's design language (indigo theme)
  */
 @Composable
 fun ForceUpdateDialog(
@@ -60,7 +54,7 @@ fun ForceUpdateDialog(
     onDismissRequest: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    
+
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
@@ -90,7 +84,7 @@ fun ForceUpdateDialog(
                     modifier = Modifier
                         .size(64.dp)
                         .background(
-                            color = Color(0xFFFEF3C7), // Amber-100
+                            color = WarningTint,
                             shape = RoundedCornerShape(32.dp)
                         ),
                     contentAlignment = Alignment.Center
@@ -98,35 +92,34 @@ fun ForceUpdateDialog(
                     Icon(
                         imageVector = Icons.Filled.Warning,
                         contentDescription = "Update Required",
-                        tint = Color(0xFFF59E0B), // Amber-500
+                        tint = Warning,
                         modifier = Modifier.size(36.dp)
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(20.dp))
-                
+
                 // Title
                 Text(
                     text = title,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Slate800,
                     textAlign = TextAlign.Center
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 // Message
                 Text(
                     text = message,
-                    fontSize = 15.sp,
-                    color = Color(0xFF64748B),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Slate500,
                     textAlign = TextAlign.Center,
                     lineHeight = 22.sp
                 )
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 // Update button
                 Button(
                     onClick = { openPlayStore(context) },
@@ -135,22 +128,20 @@ fun ForceUpdateDialog(
                         .height(50.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFC45D3E) // Indigo-500
+                        containerColor = Rust
                     )
                 ) {
                     Text(
                         text = "Update Now",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.labelLarge
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 // Exit button
                 OutlinedButton(
                     onClick = {
-                        // Exit the app safely
                         (context as? Activity)?.finishAffinity()
                     },
                     modifier = Modifier
@@ -158,13 +149,12 @@ fun ForceUpdateDialog(
                         .height(50.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF64748B)
+                        contentColor = Slate500
                     )
                 ) {
                     Text(
                         text = "Exit App",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        style = MaterialTheme.typography.labelLarge
                     )
                 }
             }
@@ -174,25 +164,20 @@ fun ForceUpdateDialog(
 
 /**
  * SoftUpdateDialog - Dismissible dialog suggesting user to update
- * 
- * Features:
- * - Can be dismissed by user
- * - Opens Play Store when user clicks Update
- * - Option to continue with current version
  */
 @Composable
 fun SoftUpdateDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
             Icon(
                 imageVector = Icons.Filled.Warning,
                 contentDescription = "Update Available",
-                tint = Color(0xFFC45D3E),
+                tint = Rust,
                 modifier = Modifier.size(32.dp)
             )
         },
@@ -206,7 +191,7 @@ fun SoftUpdateDialog(
             Text(
                 text = "A new version of Vozcribe is available. We recommend updating for the best experience and latest features.",
                 textAlign = TextAlign.Center,
-                color = Color(0xFF64748B)
+                color = Slate500
             )
         },
         confirmButton = {
@@ -216,7 +201,7 @@ fun SoftUpdateDialog(
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFC45D3E)
+                    containerColor = Rust
                 )
             ) {
                 Text("Update")
@@ -224,7 +209,7 @@ fun SoftUpdateDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Later", color = Color(0xFF64748B))
+                Text("Later", color = Slate500)
             }
         },
         containerColor = Color.White,

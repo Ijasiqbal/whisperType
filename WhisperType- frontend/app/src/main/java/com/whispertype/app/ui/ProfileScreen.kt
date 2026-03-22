@@ -25,16 +25,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.whispertype.app.R
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.ui.components.SkeletonText
-import kotlinx.coroutines.delay
+import com.whispertype.app.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -50,24 +47,17 @@ fun ProfileScreen(
 ) {
     val usageState by UsageDataManager.usageState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
-    
+
     // Animation state - trigger on first composition
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isVisible = true }
-    
+
     // Gradient background matching app theme
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFEEF2FF),  // Light indigo center
-                        Color(0xFFF8FAFC)   // Fade to white
-                    ),
-                    center = Offset(0.5f, 0f),  // Top center
-                    radius = 1500f
-                )
+                ScreenBackground
             )
     ) {
         Column(
@@ -78,7 +68,7 @@ fun ProfileScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         // Animated Profile icon - using person icon instead of mic
         AnimatedVisibility(
             visible = isVisible,
@@ -93,17 +83,12 @@ fun ProfileScreen(
                     .shadow(
                         elevation = 16.dp,
                         shape = CircleShape,
-                        ambientColor = Color(0xFFC45D3E).copy(alpha = 0.3f),
-                        spotColor = Color(0xFFC45D3E).copy(alpha = 0.3f)
+                        ambientColor = Rust.copy(alpha = 0.3f),
+                        spotColor = Rust.copy(alpha = 0.3f)
                     )
                     .clip(CircleShape)
                     .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFFC45D3E),
-                                Color(0xFFD4845A)
-                            )
-                        )
+                        RustGradient
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -115,9 +100,9 @@ fun ProfileScreen(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Animated User email and PRO badge
         AnimatedVisibility(
             visible = isVisible,
@@ -130,12 +115,11 @@ fun ProfileScreen(
                 if (userEmail != null) {
                     Text(
                         text = userEmail,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF1E293B)
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Slate800
                     )
                 }
-                
+
                 // PRO Member badge (only for PRO users)
                 if (usageState.isProUser) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -143,12 +127,7 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .background(
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        Color(0xFFC45D3E),
-                                        Color(0xFFD4845A)
-                                    )
-                                ),
+                                RustGradient,
                                 shape = RoundedCornerShape(16.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -162,17 +141,16 @@ fun ProfileScreen(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "PRO Member",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleSmall,
                             color = Color.White
                         )
                     }
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         // Animated content
         AnimatedVisibility(
             visible = isVisible,
@@ -188,9 +166,9 @@ fun ProfileScreen(
                 } else {
                     TrialStatusCard(usageState)
                 }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Usage Card (Monthly - keeping for backward compatibility)
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -203,18 +181,16 @@ fun ProfileScreen(
             ) {
                 Text(
                     text = "Usage This Month",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF64748B)
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Slate500
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 Row(
                     verticalAlignment = Alignment.Bottom
                 ) {
                     if (usageState.isLoading) {
-                        // Show skeleton while loading - 48sp ≈ 58dp with font metrics
                         SkeletonText(
                             width = 100.dp,
                             height = 58.dp
@@ -222,14 +198,12 @@ fun ProfileScreen(
                     } else {
                         Text(
                             text = usageState.formattedMonthlyUsage,
-                            fontSize = 48.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
+                            style = MaterialTheme.typography.displayLarge,
+                            color = Slate800
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     if (usageState.isLoading) {
-                        // Skeleton for "used" label - 18sp ≈ 22dp
                         SkeletonText(
                             width = 40.dp,
                             height = 22.dp,
@@ -238,24 +212,24 @@ fun ProfileScreen(
                     } else {
                         Text(
                             text = "used",
-                            fontSize = 18.sp,
-                            color = Color(0xFF64748B),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Slate500,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
                 }
-                
+
                 if (usageState.lastUpdated > 0) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Last updated: ${formatTimestamp(usageState.lastUpdated)}",
-                        fontSize = 12.sp,
-                        color = Color(0xFF94A3B8)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Slate400
                     )
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Last transcription info
@@ -263,7 +237,7 @@ fun ProfileScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9))
+                colors = CardDefaults.cardColors(containerColor = Slate100)
             ) {
                 Row(
                     modifier = Modifier
@@ -274,27 +248,26 @@ fun ProfileScreen(
                     Icon(
                         imageVector = Icons.Filled.Edit,
                         contentDescription = "Transcription",
-                        tint = Color(0xFFC45D3E),
+                        tint = Rust,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             text = "Last Transcription",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1E293B)
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Slate800
                         )
                         Text(
                             text = "${usageState.lastCreditsUsed} credits",
-                            fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
                     }
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // Report an Issue button
@@ -303,7 +276,7 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = Color(0xFFC45D3E)
+                contentColor = Rust
             )
         ) {
             Icon(
@@ -314,7 +287,7 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Report an Issue",
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         }
@@ -327,16 +300,16 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = Color(0xFFDC2626)
+                contentColor = ErrorDark
             )
         ) {
             Text(
                 text = "Sign Out",
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         }
-        
+
             }
         }
         }
@@ -349,12 +322,12 @@ fun ProfileScreen(
 @Composable
 private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
     val progressColor = when (usageState.warningLevel) {
-        UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> Color(0xFFDC2626)
-        UsageDataManager.WarningLevel.EIGHTY_PERCENT -> Color(0xFFF97316)
-        UsageDataManager.WarningLevel.FIFTY_PERCENT -> Color(0xFFEAB308)
-        else -> Color(0xFF22C55E)
+        UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> ErrorDark
+        UsageDataManager.WarningLevel.EIGHTY_PERCENT -> WarningOrange
+        UsageDataManager.WarningLevel.FIFTY_PERCENT -> WarningYellow
+        else -> Success
     }
-    
+
     val warningMessage = when (usageState.warningLevel) {
         UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT ->
             "You're almost out of free credits!"
@@ -364,19 +337,19 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
             "50% of your free credits used"
         else -> null
     }
-    
+
     val warningIcon = when (usageState.warningLevel) {
         UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT,
         UsageDataManager.WarningLevel.EIGHTY_PERCENT -> Icons.Filled.Warning
         UsageDataManager.WarningLevel.FIFTY_PERCENT -> Icons.Filled.Info
         else -> null
     }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (usageState.isTrialValid) Color.White else Color(0xFFFEE2E2)
+            containerColor = if (usageState.isTrialValid) Color.White else RedTint
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -390,18 +363,17 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
             ) {
                 Text(
                     text = "Free Trial",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF64748B)
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Slate500
                 )
-                
+
                 // Status badge
                 val (badgeColor, badgeText) = if (usageState.isTrialValid) {
-                    Color(0xFF22C55E) to "Active"
+                    Success to "Active"
                 } else {
-                    Color(0xFFDC2626) to "Expired"
+                    ErrorDark to "Expired"
                 }
-                
+
                 Box(
                     modifier = Modifier
                         .background(
@@ -412,15 +384,14 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                 ) {
                     Text(
                         text = badgeText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.labelSmall,
                         color = badgeColor
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Progress bar
             val progress = (usageState.usagePercentage / 100f).coerceIn(0f, 1f)
             @Suppress("DEPRECATION")
@@ -431,11 +402,11 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
                 color = progressColor,
-                trackColor = Color(0xFFE2E8F0)
+                trackColor = Slate200
             )
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // Credits remaining
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -443,79 +414,73 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
             ) {
                 Column {
                     if (usageState.isLoading) {
-                        // 32sp ≈ 40dp with font metrics
                         SkeletonText(width = 80.dp, height = 40.dp)
                     } else {
                         Text(
                             text = "${usageState.freeCreditsRemaining}",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
+                            style = MaterialTheme.typography.displayMedium,
+                            color = Slate800
                         )
                     }
                     if (usageState.isLoading) {
-                        // Skeleton for "credits remaining" label - 14sp ≈ 18dp
                         Spacer(modifier = Modifier.height(4.dp))
                         SkeletonText(width = 100.dp, height = 18.dp)
                     } else {
                         Text(
                             text = "credits remaining",
-                            fontSize = 14.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Slate500
                         )
                     }
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
                     if (usageState.isLoading) {
-                        // 24sp ≈ 30dp with font metrics
                         SkeletonText(width = 60.dp, height = 30.dp)
                     } else {
                         Text(
                             text = "${usageState.freeCreditsUsed}",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF94A3B8)
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = Slate400
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     if (usageState.isLoading) {
-                        // 12sp ≈ 16dp with font metrics
                         SkeletonText(width = 100.dp, height = 16.dp)
                     } else {
                         Text(
                             text = "of ${usageState.freeTierCredits} used",
-                            fontSize = 12.sp,
-                            color = Color(0xFF94A3B8)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate400
                         )
                     }
                 }
             }
-            
+
             // Trial expiry date
             if (usageState.trialExpiryDateMs > 0) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Divider(color = Color(0xFFE2E8F0))
+                Divider(color = Slate200)
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Filled.DateRange,
                         contentDescription = "Calendar",
-                        tint = Color(0xFF64748B),
+                        tint = Slate500,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Trial expires: ${formatTrialExpiry(usageState.trialExpiryDateMs)}",
-                        fontSize = 14.sp,
-                        color = Color(0xFF64748B)
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Slate500
                     )
                 }
             }
-            
+
             // Warning message with icon
             if (warningMessage != null && warningIcon != null && usageState.isTrialValid) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -540,7 +505,7 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = warningMessage,
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = progressColor
                         )
                     }
@@ -578,7 +543,7 @@ private fun ProStatusCard(
     val usagePercentage = if (usageState.proCreditsLimit > 0) {
         (usageState.proCreditsUsed.toFloat() / usageState.proCreditsLimit.toFloat())
     } else 0f
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -589,12 +554,7 @@ private fun ProStatusCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFFC45D3E),
-                            Color(0xFFD4845A)
-                        )
-                    )
+                    RustGradient
                 )
                 .padding(20.dp)
         ) {
@@ -606,31 +566,29 @@ private fun ProStatusCard(
                 ) {
                     Text(
                         text = "PRO Subscription",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleMedium,
                         color = Color.White.copy(alpha = 0.9f)
                     )
-                    
+
                     // Active badge
                     Box(
                         modifier = Modifier
                             .background(
-                                color = Color(0xFF10B981).copy(alpha = 0.2f),
+                                color = Emerald.copy(alpha = 0.2f),
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
                             text = "Active",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF10B981)
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Emerald
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Usage progress bar
                 @Suppress("DEPRECATION")
                 LinearProgressIndicator(
@@ -642,9 +600,9 @@ private fun ProStatusCard(
                     color = Color.White,
                     trackColor = Color.White.copy(alpha = 0.3f)
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 // Usage text (credits)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -652,23 +610,22 @@ private fun ProStatusCard(
                 ) {
                     Text(
                         text = "${usageState.proCreditsUsed} / ${usageState.proCreditsLimit} credits",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge,
                         color = Color.White
                     )
                     Text(
                         text = "${usageState.proCreditsRemaining} left",
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.8f)
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Divider(color = Color.White.copy(alpha = 0.2f))
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Reset date countdown
                 if (usageState.proResetDateMs > 0) {
                     Row(
@@ -683,12 +640,12 @@ private fun ProStatusCard(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = getResetCountdown(usageState.proResetDateMs),
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.9f)
                         )
                     }
                 }
-                
+
                 // Member since
                 if (usageState.proSubscriptionStartDateMs > 0) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -704,14 +661,14 @@ private fun ProStatusCard(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Member since ${formatMemberSince(usageState.proSubscriptionStartDateMs)}",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.9f)
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Manage subscription button
                 OutlinedButton(
                     onClick = onManageSubscription,
@@ -732,7 +689,7 @@ private fun ProStatusCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Manage Subscription",
-                        fontSize = 14.sp
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
             }
@@ -761,11 +718,3 @@ private fun formatMemberSince(timestampMs: Long): String {
     return formatter.format(Date(timestampMs))
 }
 
-/**
- * Format seconds to M:SS format (e.g., 167 seconds -> "2:47")
- */
-private fun formatSecondsToMinutes(totalSeconds: Int): String {
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format("%d:%02d", minutes, seconds)
-}

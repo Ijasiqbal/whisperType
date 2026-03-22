@@ -17,16 +17,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.whispertype.app.Constants
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.ui.components.PlanScreenSkeleton
+import com.whispertype.app.ui.theme.*
 import java.text.NumberFormat
 
 /**
@@ -113,11 +111,7 @@ fun PlanScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFFEEF2FF), Color(0xFFF8FAFC)),
-                        center = Offset(0.5f, 0f),
-                        radius = 1500f
-                    )
+                    ScreenBackground
                 )
         ) {
             PlanScreenSkeleton(modifier = Modifier.fillMaxSize())
@@ -129,11 +123,7 @@ fun PlanScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.radialGradient(
-                    colors = listOf(Color(0xFFEEF2FF), Color(0xFFF8FAFC)),
-                    center = Offset(0.5f, 0f),
-                    radius = 1500f
-                )
+                ScreenBackground
             )
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
@@ -159,15 +149,14 @@ fun PlanScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = if (usageState.isProUser) "Manage Your Plan" else "Choose Your Plan",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B)
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = Slate800
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "Unlock premium transcription. AUTO mode is always free.",
-                    fontSize = 14.sp,
-                    color = Color(0xFF64748B),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Slate500,
                     textAlign = TextAlign.Center
                 )
             }
@@ -203,8 +192,8 @@ fun PlanScreen(
             TextButton(onClick = onContactSupport) {
                 Text(
                     text = "Need help? Contact Support",
-                    fontSize = 14.sp,
-                    color = Color(0xFFC45D3E)
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Rust
                 )
             }
         }
@@ -222,7 +211,7 @@ private fun CurrentStatusCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isExpired) Color(0xFFFEF2F2) else Color(0xFFF0FDF4)
+            containerColor = if (isExpired) RedLightTint else GreenTint
         )
     ) {
         Row(
@@ -235,30 +224,28 @@ private fun CurrentStatusCard(
             Column {
                 Text(
                     text = "Free Trial",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isExpired) Color(0xFFDC2626) else Color(0xFF16A34A)
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (isExpired) ErrorDark else SuccessDark
                 )
                 Text(
                     text = if (isExpired) "Expired" else "${usageState.freeCreditsRemaining} credits left",
-                    fontSize = 14.sp,
-                    color = if (isExpired) Color(0xFFDC2626).copy(alpha = 0.8f) else Color(0xFF64748B)
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isExpired) ErrorDark.copy(alpha = 0.8f) else Slate500
                 )
             }
             Box(
                 modifier = Modifier
                     .background(
-                        color = if (isExpired) Color(0xFFDC2626).copy(alpha = 0.1f)
-                               else Color(0xFF16A34A).copy(alpha = 0.1f),
+                        color = if (isExpired) ErrorDark.copy(alpha = 0.1f)
+                               else SuccessDark.copy(alpha = 0.1f),
                         shape = RoundedCornerShape(8.dp)
                     )
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = if (isExpired) "Upgrade Now" else "Active",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isExpired) Color(0xFFDC2626) else Color(0xFF16A34A)
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isExpired) ErrorDark else SuccessDark
                 )
             }
         }
@@ -272,9 +259,9 @@ private fun PlanCard(
     onSelect: () -> Unit
 ) {
     val borderColor = when {
-        isCurrentPlan -> Color(0xFF16A34A)
-        plan.isPopular -> Color(0xFFC45D3E)
-        else -> Color(0xFFE2E8F0)
+        isCurrentPlan -> SuccessDark
+        plan.isPopular -> Rust
+        else -> Slate200
     }
 
     Card(
@@ -296,9 +283,7 @@ private fun PlanCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(Color(0xFFC45D3E), Color(0xFFD4845A))
-                            )
+                            brush = RustGradientHorizontal
                         )
                         .padding(vertical = 6.dp),
                     contentAlignment = Alignment.Center
@@ -313,8 +298,7 @@ private fun PlanCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "MOST POPULAR",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
                             letterSpacing = 1.sp
                         )
@@ -327,14 +311,13 @@ private fun PlanCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF16A34A))
+                        .background(SuccessDark)
                         .padding(vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "YOUR CURRENT PLAN",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelSmall,
                         color = Color.White,
                         letterSpacing = 1.sp
                     )
@@ -353,29 +336,27 @@ private fun PlanCard(
                     Column {
                         Text(
                             text = plan.name,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Slate800
                         )
                         if (plan.tagline.isNotEmpty()) {
                             Text(
                                 text = plan.tagline,
-                                fontSize = 12.sp,
-                                color = Color(0xFF94A3B8)
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Slate400
                             )
                         }
                     }
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             text = plan.price,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFF1E293B)
+                            style = MaterialTheme.typography.displaySmall,
+                            color = if (plan.isPopular) Rust else Slate800
                         )
                         Text(
                             text = "/mo",
-                            fontSize = 12.sp,
-                            color = Color(0xFF94A3B8),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate400,
                             modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
                         )
                     }
@@ -385,7 +366,7 @@ private fun PlanCard(
 
                 // Divider between header and features
                 Divider(
-                    color = Color(0xFFF1F5F9),
+                    color = Slate100,
                     thickness = 1.dp
                 )
 
@@ -395,7 +376,7 @@ private fun PlanCard(
                 plan.features.forEach { feature ->
                     FeatureRow(
                         text = feature,
-                        accentColor = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFF22C55E)
+                        accentColor = if (plan.isPopular) Rust else Success
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                 }
@@ -410,8 +391,8 @@ private fun PlanCard(
                         .height(44.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFF1E293B),
-                        disabledContainerColor = Color(0xFFE2E8F0)
+                        containerColor = if (plan.isPopular) Rust else Slate800,
+                        disabledContainerColor = Slate200
                     ),
                     enabled = !isCurrentPlan,
                     elevation = ButtonDefaults.buttonElevation(
@@ -423,8 +404,7 @@ private fun PlanCard(
                             isCurrentPlan -> "Current Plan"
                             else -> "Get ${plan.name}"
                         },
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.titleSmall
                     )
                 }
             }
@@ -433,7 +413,7 @@ private fun PlanCard(
 }
 
 @Composable
-private fun FeatureRow(text: String, accentColor: Color = Color(0xFF22C55E)) {
+private fun FeatureRow(text: String, accentColor: Color = Success) {
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -456,8 +436,8 @@ private fun FeatureRow(text: String, accentColor: Color = Color(0xFF22C55E)) {
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = text,
-            fontSize = 13.sp,
-            color = Color(0xFF475569)
+            style = MaterialTheme.typography.bodyMedium,
+            color = Slate600
         )
     }
 }

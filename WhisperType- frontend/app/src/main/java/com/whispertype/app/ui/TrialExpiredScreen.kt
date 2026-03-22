@@ -17,11 +17,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,6 +26,7 @@ import com.whispertype.app.Constants
 import com.whispertype.app.R
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.ui.components.TrialExpiredScreenSkeleton
+import com.whispertype.app.ui.theme.*
 
 /**
  * TrialExpiredScreen - Upgrade flow when trial has ended
@@ -103,11 +101,7 @@ fun TrialExpiredScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0xFFEEF2FF), Color(0xFFF8FAFC)),
-                        center = Offset(0.5f, 0f),
-                        radius = 1500f
-                    )
+                    ScreenBackground
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -120,11 +114,7 @@ fun TrialExpiredScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.radialGradient(
-                    colors = listOf(Color(0xFFEEF2FF), Color(0xFFF8FAFC)),
-                    center = Offset(0.5f, 0f),
-                    radius = 1500f
-                )
+                ScreenBackground
             )
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
@@ -141,7 +131,7 @@ fun TrialExpiredScreen(
                 modifier = Modifier
                     .size(72.dp)
                     .background(
-                        color = Color(0xFFEDE9FE),
+                        color = IndigoLight,
                         shape = RoundedCornerShape(50)
                     ),
                 contentAlignment = Alignment.Center
@@ -149,7 +139,7 @@ fun TrialExpiredScreen(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_microphone),
                     contentDescription = null,
-                    tint = Color(0xFFC45D3E),
+                    tint = Rust,
                     modifier = Modifier.size(36.dp)
                 )
             }
@@ -165,9 +155,8 @@ fun TrialExpiredScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "Ready to Continue?",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B),
+                    style = MaterialTheme.typography.displaySmall,
+                    color = Slate800,
                     textAlign = TextAlign.Center
                 )
 
@@ -175,8 +164,8 @@ fun TrialExpiredScreen(
 
                 Text(
                     text = reasonText,
-                    fontSize = 15.sp,
-                    color = Color(0xFF64748B),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Slate500,
                     textAlign = TextAlign.Center
                 )
 
@@ -184,8 +173,8 @@ fun TrialExpiredScreen(
 
                 Text(
                     text = "Choose a plan to keep using Vozcribe",
-                    fontSize = 14.sp,
-                    color = Color(0xFF94A3B8),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Slate400,
                     textAlign = TextAlign.Center
                 )
             }
@@ -218,7 +207,7 @@ fun TrialExpiredScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4))
+                colors = CardDefaults.cardColors(containerColor = GreenTint)
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
@@ -227,14 +216,14 @@ fun TrialExpiredScreen(
                     Icon(
                         imageVector = Icons.Filled.Check,
                         contentDescription = null,
-                        tint = Color(0xFF16A34A),
+                        tint = SuccessDark,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "AUTO model remains free & unlimited on all plans",
-                        fontSize = 13.sp,
-                        color = Color(0xFF16A34A)
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SuccessDark
                     )
                 }
             }
@@ -250,8 +239,8 @@ fun TrialExpiredScreen(
             TextButton(onClick = onContactSupport) {
                 Text(
                     text = "Need help? Contact Support",
-                    fontSize = 14.sp,
-                    color = Color(0xFFC45D3E)
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Rust
                 )
             }
         }
@@ -265,7 +254,7 @@ private fun CompactPlanCard(
     plan: PlanTier,
     onSelect: () -> Unit
 ) {
-    val borderColor = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFFE2E8F0)
+    val borderColor = if (plan.isPopular) Rust else Slate200
     val backgroundColor = if (plan.isPopular) Color(0xFFFAFAFF) else Color.White
 
     Card(
@@ -292,9 +281,8 @@ private fun CompactPlanCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = plan.name,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Slate800
                     )
 
                     if (plan.isPopular) {
@@ -302,9 +290,7 @@ private fun CompactPlanCard(
                         Box(
                             modifier = Modifier
                                 .background(
-                                    brush = Brush.horizontalGradient(
-                                        colors = listOf(Color(0xFFC45D3E), Color(0xFFD4845A))
-                                    ),
+                                    brush = RustGradientHorizontal,
                                     shape = RoundedCornerShape(10.dp)
                                 )
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
@@ -319,8 +305,7 @@ private fun CompactPlanCard(
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text(
                                     text = "Popular",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                                     color = Color.White
                                 )
                             }
@@ -332,14 +317,13 @@ private fun CompactPlanCard(
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         text = plan.price,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Slate800
                     )
                     Text(
                         text = "/mo",
-                        fontSize = 12.sp,
-                        color = Color(0xFF94A3B8),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Slate400,
                         modifier = Modifier.padding(bottom = 3.dp)
                     )
                 }
@@ -357,14 +341,14 @@ private fun CompactPlanCard(
                         Icon(
                             imageVector = Icons.Filled.Check,
                             contentDescription = null,
-                            tint = Color(0xFF22C55E),
+                            tint = Success,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = feature,
-                            fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
                     }
                 }
@@ -378,14 +362,13 @@ private fun CompactPlanCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFF1E293B)
+                    containerColor = if (plan.isPopular) Rust else Slate800
                 ),
                 contentPadding = PaddingValues(vertical = 10.dp)
             ) {
                 Text(
                     text = "Select ${plan.name}",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
+                    style = MaterialTheme.typography.titleSmall
                 )
             }
         }

@@ -11,27 +11,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.whispertype.app.ui.theme.*
 
 /**
  * AccessibilityDisclosureDialog - Prominent disclosure for Google Play compliance
- * 
- * This dialog explains to users:
- * 1. Why Vozcribe needs accessibility service access
- * 2. How the accessibility service is used
- * 3. What data is (not) collected
- * 
- * Required for Google Play's AccessibilityServices API policy compliance.
- * 
- * @param guideVideoId Optional YouTube video ID - if provided, shows "Guide Me" button
- * @param onContinue Callback when user wants to proceed to settings
- * @param onDismiss Callback when dialog is dismissed
- * @param onShowGuide Callback when user wants to watch the guide video
  */
 @Composable
 fun AccessibilityDisclosureDialog(
@@ -86,7 +74,7 @@ private fun MainDialogContent(
             modifier = Modifier
                 .size(64.dp)
                 .background(
-                    color = Color(0xFFEEF2FF), // Indigo-50
+                    color = IndigoTint,
                     shape = RoundedCornerShape(32.dp)
                 ),
             contentAlignment = Alignment.Center
@@ -94,7 +82,7 @@ private fun MainDialogContent(
             Icon(
                 imageVector = Icons.Filled.Mic,
                 contentDescription = "Voice Input",
-                tint = Color(0xFFC45D3E), // Indigo-500
+                tint = Rust,
                 modifier = Modifier.size(36.dp)
             )
         }
@@ -104,9 +92,8 @@ private fun MainDialogContent(
         // Title
         Text(
             text = "Enable Voice Input",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF1E293B),
+            style = MaterialTheme.typography.headlineSmall,
+            color = Slate800,
             textAlign = TextAlign.Center
         )
 
@@ -115,9 +102,8 @@ private fun MainDialogContent(
         // Description
         Text(
             text = "To type using your voice in any app, Vozcribe uses Android's Accessibility Service to:",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color(0xFF1E293B),
+            style = MaterialTheme.typography.titleSmall,
+            color = Slate800,
             modifier = Modifier.fillMaxWidth(),
             lineHeight = 20.sp
         )
@@ -125,21 +111,21 @@ private fun MainDialogContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "• Place transcribed text into text fields",
-            fontSize = 13.sp,
-            color = Color(0xFF64748B),
+            text = "\u2022 Place transcribed text into text fields",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Slate500,
             modifier = Modifier.fillMaxWidth()
         )
         Text(
-            text = "• Enable quick activation via volume buttons",
-            fontSize = 13.sp,
-            color = Color(0xFF64748B),
+            text = "\u2022 Enable quick activation via volume buttons",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Slate500,
             modifier = Modifier.fillMaxWidth()
         )
         Text(
-            text = "• Work seamlessly across your favorite apps",
-            fontSize = 13.sp,
-            color = Color(0xFF64748B),
+            text = "\u2022 Work seamlessly across your favorite apps",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Slate500,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -150,7 +136,7 @@ private fun MainDialogContent(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFF8FAFC) // Slate-50
+                containerColor = Slate50
             )
         ) {
             Row(
@@ -158,22 +144,21 @@ private fun MainDialogContent(
                 verticalAlignment = Alignment.Top
             ) {
                 Text(
-                    text = "ℹ️",
-                    fontSize = 16.sp
+                    text = "\u2139\uFE0F",
+                    style = MaterialTheme.typography.bodyLarge
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text(
                         text = "How it works",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF334155) // Slate-700
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Slate700
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Vozcribe only interacts with text fields when you activate voice input. Your transcribed speech is inserted directly where you're typing.",
-                        fontSize = 12.sp,
-                        color = Color(0xFF64748B), // Slate-500
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Slate500,
                         lineHeight = 18.sp
                     )
                 }
@@ -190,13 +175,12 @@ private fun MainDialogContent(
                 .height(50.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFC45D3E) // Indigo-500
+                containerColor = Rust
             )
         ) {
             Text(
                 text = "Open Settings",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.labelLarge
             )
         }
 
@@ -211,7 +195,7 @@ private fun MainDialogContent(
                     .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFC45D3E) // Indigo-500
+                    contentColor = Rust
                 )
             ) {
                 Icon(
@@ -222,8 +206,7 @@ private fun MainDialogContent(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Guide Me",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
+                    style = MaterialTheme.typography.labelLarge
                 )
             }
         }
@@ -237,8 +220,8 @@ private fun MainDialogContent(
         ) {
             Text(
                 text = "Cancel",
-                fontSize = 14.sp,
-                color = Color(0xFF64748B)
+                style = MaterialTheme.typography.labelMedium,
+                color = Slate500
             )
         }
     }
