@@ -3,111 +3,185 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Waveform Tighter Entry/Exit</title>
+<title>7-Point vs 11-Point Comparison</title>
 <style>
-  body { background: #0a0c10; color: #faf7f2; font-family: system-ui; padding: 40px; }
-  h2 { font-size: 1rem; font-weight: 400; color: #667080; margin-bottom: 12px; }
-  .row { display: flex; gap: 40px; flex-wrap: wrap; margin-bottom: 60px; }
-  .card { text-align: center; }
-  .card p { font-size: 0.85rem; color: #faf7f2; margin-top: 8px; }
-  .label { font-size: 0.75rem; color: #667080; margin-top: 4px; }
-  .highlight { color: #c45d3e; }
+  body { background: #090b10; color: #faf7f2; font-family: 'Outfit', system-ui, sans-serif; margin: 0; }
+
+  .section { padding: 40px; }
+  h2 { font-size: 0.9rem; font-weight: 400; color: #667080; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .compare { display: flex; gap: 80px; flex-wrap: wrap; margin-bottom: 60px; }
+  .col { text-align: center; }
+  .col p { font-size: 0.9rem; color: #faf7f2; margin-top: 10px; }
+  .col .sub { font-size: 0.75rem; color: #667080; margin-top: 4px; }
+
+  /* Fake nav bar */
+  .fake-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2.5rem;
+    background: rgba(9,11,16,0.92);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    margin-bottom: 20px;
+    border-radius: 8px;
+  }
+  .nav-logo { display: flex; align-items: center; gap: 0.6rem; }
+  .nav-logo-text { font-size: 1.35rem; font-weight: 700; color: #dce4ed; letter-spacing: -0.5px; }
+  .nav-logo-voz { color: #c45d3e; }
+  .nav-links { display: flex; gap: 2rem; }
+  .nav-links span { color: #667080; font-size: 0.88rem; }
+  .nav-cta { padding: 0.45rem 1.3rem; background: linear-gradient(135deg, #5ba4cf, #94b8d4); border-radius: 100px; color: #090b10; font-weight: 500; font-size: 0.88rem; }
+
+  .label-tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+  .tag-7 { background: #1a2a3a; color: #5ba4cf; }
+  .tag-11 { background: #2a1a15; color: #c45d3e; }
 </style>
 </head>
 <body>
 
-<h1 style="margin-bottom: 8px;">Tighter Entry &amp; Exit Angles</h1>
-<p style="color: #667080; margin-bottom: 40px;">First and last points pulled inward horizontally — same Y heights, shorter run = steeper angle.</p>
+<div class="section">
+  <h1 style="margin-bottom: 8px;">7-Point vs 11-Point — Side by Side</h1>
+  <p style="color: #667080; margin-bottom: 50px;">Same contexts, same sizes. Which reads better?</p>
 
-<h2>Naked Mark — Large</h2>
-<div class="row">
-  <div class="card">
-    <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
-      <line x1="0" y1="38" x2="80" y2="38" stroke="#222" stroke-width="0.5" stroke-dasharray="2"/>
-      <path d="M16 32 L28 44 L34 34 L40 58 L46 28 L52 40 L64 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>
-    <p>Current</p>
-    <div class="label">Start x=<span class="highlight">16</span>, End x=<span class="highlight">64</span></div>
+  <!-- Large standalone -->
+  <h2>Standalone Mark — Large</h2>
+  <div class="compare">
+    <div class="col">
+      <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
+        <path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <p>7-Point</p>
+      <div class="sub">Fewer peaks, simplified</div>
+    </div>
+    <div class="col">
+      <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
+        <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <p>11-Point</p>
+      <div class="sub">Double spike, more detail</div>
+    </div>
   </div>
-  <div class="card">
-    <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
-      <line x1="0" y1="38" x2="80" y2="38" stroke="#222" stroke-width="0.5" stroke-dasharray="2"/>
-      <path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>
-    <p>A — Slightly tighter</p>
-    <div class="label">Start x=<span class="highlight">20</span>, End x=<span class="highlight">60</span></div>
-  </div>
-  <div class="card">
-    <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
-      <line x1="0" y1="38" x2="80" y2="38" stroke="#222" stroke-width="0.5" stroke-dasharray="2"/>
-      <path d="M22 32 L28 44 L34 34 L40 58 L46 28 L52 40 L58 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>
-    <p>B — Moderate</p>
-    <div class="label">Start x=<span class="highlight">22</span>, End x=<span class="highlight">58</span></div>
-  </div>
-  <div class="card">
-    <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
-      <line x1="0" y1="38" x2="80" y2="38" stroke="#222" stroke-width="0.5" stroke-dasharray="2"/>
-      <path d="M24 32 L28 44 L34 34 L40 58 L46 28 L52 40 L56 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>
-    <p>C — Tight</p>
-    <div class="label">Start x=<span class="highlight">24</span>, End x=<span class="highlight">56</span></div>
-  </div>
-</div>
 
-<h2>S1 Contained Mark — App Icon</h2>
-<div class="row">
-  <div class="card">
-    <svg width="140" height="140" viewBox="0 0 80 80" fill="none">
-      <rect width="80" height="80" rx="18" fill="#c45d3e"/>
-      <path d="M10 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L70 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>
-    <p>Current</p>
-    <div class="label">Start x=<span class="highlight">10</span>, End x=<span class="highlight">70</span></div>
+  <!-- In nav context -->
+  <h2>In Website Nav</h2>
+  <div style="margin-bottom: 20px;">
+    <span class="label-tag tag-7">7-POINT</span>
   </div>
-  <div class="card">
-    <svg width="140" height="140" viewBox="0 0 80 80" fill="none">
-      <rect width="80" height="80" rx="18" fill="#c45d3e"/>
-      <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>
-    <p>A — Slightly tighter</p>
-    <div class="label">Start x=<span class="highlight">14</span>, End x=<span class="highlight">66</span></div>
+  <div class="fake-nav">
+    <div class="nav-logo">
+      <svg width="32" height="32" viewBox="0 0 80 80" fill="none">
+        <path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span class="nav-logo-text"><span class="nav-logo-voz">Voz</span>cribe</span>
+    </div>
+    <div class="nav-links">
+      <span>How it works</span>
+      <span>Features</span>
+      <span>Pricing</span>
+      <span class="nav-cta">Get Started</span>
+    </div>
   </div>
-  <div class="card">
-    <svg width="140" height="140" viewBox="0 0 80 80" fill="none">
-      <rect width="80" height="80" rx="18" fill="#c45d3e"/>
-      <path d="M16 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L64 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>
-    <p>B — Moderate</p>
-    <div class="label">Start x=<span class="highlight">16</span>, End x=<span class="highlight">64</span></div>
-  </div>
-  <div class="card">
-    <svg width="140" height="140" viewBox="0 0 80 80" fill="none">
-      <rect width="80" height="80" rx="18" fill="#c45d3e"/>
-      <path d="M18 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L62 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>
-    <p>C — Tight</p>
-    <div class="label">Start x=<span class="highlight">18</span>, End x=<span class="highlight">62</span></div>
-  </div>
-</div>
 
-<h2>At actual 32px nav size</h2>
-<div class="row" style="align-items: center; gap: 60px;">
-  <div class="card">
-    <svg width="32" height="32" viewBox="0 0 80 80" fill="none"><path d="M16 32 L28 44 L34 34 L40 58 L46 28 L52 40 L64 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-    <p>Current</p>
+  <div style="margin-bottom: 20px; margin-top: 30px;">
+    <span class="label-tag tag-11">11-POINT</span>
   </div>
-  <div class="card">
-    <svg width="32" height="32" viewBox="0 0 80 80" fill="none"><path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-    <p>A</p>
+  <div class="fake-nav">
+    <div class="nav-logo">
+      <svg width="32" height="32" viewBox="0 0 80 80" fill="none">
+        <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span class="nav-logo-text"><span class="nav-logo-voz">Voz</span>cribe</span>
+    </div>
+    <div class="nav-links">
+      <span>How it works</span>
+      <span>Features</span>
+      <span>Pricing</span>
+      <span class="nav-cta">Get Started</span>
+    </div>
   </div>
-  <div class="card">
-    <svg width="32" height="32" viewBox="0 0 80 80" fill="none"><path d="M22 32 L28 44 L34 34 L40 58 L46 28 L52 40 L58 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-    <p>B</p>
+
+  <!-- App icon context -->
+  <h2 style="margin-top: 50px;">App Icon (Contained)</h2>
+  <div class="compare">
+    <div class="col">
+      <svg width="120" height="120" viewBox="0 0 80 80" fill="none">
+        <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+        <path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <p>7-Point</p>
+    </div>
+    <div class="col">
+      <svg width="120" height="120" viewBox="0 0 80 80" fill="none">
+        <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+        <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <p>11-Point</p>
+    </div>
   </div>
-  <div class="card">
-    <svg width="32" height="32" viewBox="0 0 80 80" fill="none"><path d="M24 32 L28 44 L34 34 L40 58 L46 28 L52 40 L56 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-    <p>C</p>
+
+  <!-- Small sizes -->
+  <h2>Small Sizes</h2>
+  <div class="compare" style="align-items: end;">
+    <div class="col">
+      <div style="display: flex; gap: 30px; align-items: end;">
+        <div>
+          <svg width="48" height="48" viewBox="0 0 80 80" fill="none">
+            <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+            <path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <div class="sub">48px</div>
+        </div>
+        <div>
+          <svg width="32" height="32" viewBox="0 0 80 80" fill="none">
+            <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+            <path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <div class="sub">32px</div>
+        </div>
+        <div>
+          <svg width="16" height="16" viewBox="0 0 80 80" fill="none">
+            <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+            <path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <div class="sub">16px</div>
+        </div>
+      </div>
+      <p>7-Point</p>
+    </div>
+    <div class="col">
+      <div style="display: flex; gap: 30px; align-items: end;">
+        <div>
+          <svg width="48" height="48" viewBox="0 0 80 80" fill="none">
+            <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+            <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <div class="sub">48px</div>
+        </div>
+        <div>
+          <svg width="32" height="32" viewBox="0 0 80 80" fill="none">
+            <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+            <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <div class="sub">32px</div>
+        </div>
+        <div>
+          <svg width="16" height="16" viewBox="0 0 80 80" fill="none">
+            <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+            <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <div class="sub">16px</div>
+        </div>
+      </div>
+      <p>11-Point</p>
+    </div>
   </div>
 </div>
 
