@@ -1,10 +1,9 @@
 package com.whispertype.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -15,20 +14,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.whispertype.app.R
 import com.whispertype.app.auth.AuthResult
 import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.config.RemoteConfigManager
 import com.whispertype.app.ui.theme.*
 import kotlinx.coroutines.launch
+import kotlin.math.sin
 
 /**
- * LoginScreen - Authentication screen with Google Sign-In and Guest access
+ * LoginScreen - Authentication screen with animated waveform and warm premium aesthetic
  */
 @Composable
 fun LoginScreen(
@@ -48,7 +52,6 @@ fun LoginScreen(
     // Animation states
     var isVisible by remember { mutableStateOf(false) }
 
-    // Trigger entrance animation on composition
     LaunchedEffect(Unit) {
         isVisible = true
     }
@@ -84,197 +87,249 @@ fun LoginScreen(
         }
     }
 
-    // Gradient background
+    // Full-bleed warm gradient background
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                ScreenBackground
-            )
+            .background(LoginBackground)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(horizontal = 32.dp)
+                .systemBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Animated App icon
+            Spacer(modifier = Modifier.weight(1f))
+
+            // ── Animated waveform in circle ──────────────────────
             AnimatedVisibility(
                 visible = isVisible,
-                enter = fadeIn(animationSpec = tween(600)) + slideInVertically(
-                    animationSpec = tween(600),
-                    initialOffsetY = { -50 }
-                )
+                enter = fadeIn(animationSpec = tween(800))
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .shadow(
-                            elevation = 16.dp,
-                            shape = CircleShape,
-                            ambientColor = Rust.copy(alpha = 0.3f),
-                            spotColor = Rust.copy(alpha = 0.3f)
-                        )
-                        .clip(CircleShape)
-                        .background(
-                            RustGradient
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_microphone),
-                        contentDescription = "Vozcribe Icon",
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    )
-                }
+                WaveformOrb()
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
-            // Animated Title
+            // ── Title block ──────────────────────────────────────
             AnimatedVisibility(
                 visible = isVisible,
-                enter = fadeIn(animationSpec = tween(600, delayMillis = 150)) + slideInVertically(
-                    animationSpec = tween(600, delayMillis = 150),
-                    initialOffsetY = { -30 }
-                )
+                enter = fadeIn(animationSpec = tween(700, delayMillis = 300)) +
+                    slideInVertically(
+                        animationSpec = tween(700, delayMillis = 300),
+                        initialOffsetY = { 40 }
+                    )
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Vozcribe",
-                        style = MaterialTheme.typography.displayMedium,
+                        style = MaterialTheme.typography.displayLarge,
                         color = Slate800
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Sign in to continue",
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = "Your voice, perfectly typed",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = PlusJakartaSans,
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 0.3.sp
+                        ),
                         color = Slate500
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.weight(1.4f))
 
-            // Animated Login Card
+            // ── Sign-in area (no card) ───────────────────────────
             AnimatedVisibility(
                 visible = isVisible,
-                enter = fadeIn(animationSpec = tween(600, delayMillis = 300)) + slideInVertically(
-                    animationSpec = tween(600, delayMillis = 300),
-                    initialOffsetY = { 80 }
-                )
+                enter = fadeIn(animationSpec = tween(600, delayMillis = 600)) +
+                    slideInVertically(
+                        animationSpec = tween(600, delayMillis = 600),
+                        initialOffsetY = { 60 }
+                    )
             ) {
-                Card(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Slate200)
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp)
-                    ) {
-                        // Error message
-                        if (errorMessage != null) {
+                    // Error message
+                    if (errorMessage != null) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = RedLightTint,
+                            tonalElevation = 0.dp
+                        ) {
                             Text(
                                 text = errorMessage!!,
                                 color = ErrorDark,
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.padding(12.dp)
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
                         }
+                        Spacer(modifier = Modifier.height(20.dp))
+                    }
 
-                        // Google Sign-In button with icon
-                        Button(
-                            onClick = { handleGoogleSignIn() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .shadow(
-                                    elevation = 8.dp,
-                                    shape = RoundedCornerShape(12.dp),
-                                    ambientColor = Rust.copy(alpha = 0.4f),
-                                    spotColor = Rust.copy(alpha = 0.4f)
-                                ),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Rust
+                    // Google Sign-In button — warm gradient fill
+                    Button(
+                        onClick = { handleGoogleSignIn() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .shadow(
+                                elevation = 12.dp,
+                                shape = RoundedCornerShape(16.dp),
+                                ambientColor = Rust.copy(alpha = 0.25f),
+                                spotColor = Rust.copy(alpha = 0.35f)
                             ),
-                            enabled = !isLoading
-                        ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_google),
-                                        contentDescription = "Google",
-                                        modifier = Modifier.size(20.dp),
-                                        tint = Color.Unspecified // Preserve original colors
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Continue with Google",
-                                        style = MaterialTheme.typography.labelLarge
-                                    )
-                                }
-                            }
-                        }
-
-
-                        // Guest login - controlled by Firebase Remote Config
-                        if (guestLoginEnabled) {
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Divider
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Rust
+                        ),
+                        enabled = !isLoading
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
                             ) {
-                                Divider(modifier = Modifier.weight(1f))
-                                Text(
-                                    text = "  or  ",
-                                    color = Slate400,
-                                    style = MaterialTheme.typography.bodyMedium
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_google),
+                                    contentDescription = "Google",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = Color.Unspecified
                                 )
-                                Divider(modifier = Modifier.weight(1f))
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Anonymous Sign-In button
-                            OutlinedButton(
-                                onClick = { handleAnonymousSignIn() },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Slate500
-                                ),
-                                enabled = !isLoading
-                            ) {
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Text(
-                                    text = "Continue as Guest",
+                                    text = "Continue with Google",
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             }
                         }
                     }
+
+                    // Guest login
+                    if (guestLoginEnabled) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        TextButton(
+                            onClick = { handleAnonymousSignIn() },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            enabled = !isLoading
+                        ) {
+                            Text(
+                                text = "Continue as Guest",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Slate500
+                            )
+                        }
+                    }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(48.dp))
+        }
+    }
+}
+
+/**
+ * Animated waveform orb — voice visualization motif inside a soft circle.
+ * Uses sine-based animation with phase offsets per bar for organic movement.
+ */
+@Composable
+private fun WaveformOrb() {
+    val infiniteTransition = rememberInfiniteTransition(label = "waveform")
+
+    // Single animated phase that drives all bars
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase"
+    )
+
+    // Bar configuration: (height fraction at rest, phase offset, width)
+    val bars = listOf(
+        Triple(0.25f, 0.0f, 4.dp),
+        Triple(0.40f, 0.7f, 4.dp),
+        Triple(0.55f, 1.4f, 4.dp),
+        Triple(0.80f, 2.1f, 5.dp),
+        Triple(1.00f, 2.8f, 5.dp),
+        Triple(0.80f, 3.5f, 5.dp),
+        Triple(0.55f, 4.2f, 4.dp),
+        Triple(0.40f, 4.9f, 4.dp),
+        Triple(0.25f, 5.6f, 4.dp),
+    )
+
+    val maxBarHeight = 44.dp
+    val orbSize = 120.dp
+
+    Box(
+        modifier = Modifier
+            .size(orbSize)
+            .shadow(
+                elevation = 24.dp,
+                shape = CircleShape,
+                ambientColor = Rust.copy(alpha = 0.2f),
+                spotColor = Rust.copy(alpha = 0.3f)
+            )
+            .clip(CircleShape)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(Rust, RustLight, RustAmber)
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            bars.forEach { (restFraction, offset, width) ->
+                WaveformBar(
+                    phase = phase,
+                    phaseOffset = offset,
+                    restFraction = restFraction,
+                    maxHeight = maxBarHeight,
+                    width = width
+                )
             }
         }
     }
+}
+
+@Composable
+private fun WaveformBar(
+    phase: Float,
+    phaseOffset: Float,
+    restFraction: Float,
+    maxHeight: Dp,
+    width: Dp
+) {
+    // Oscillate between 30% and 100% of the bar's rest height
+    val animatedFraction = restFraction * (0.3f + 0.7f * ((sin(phase + phaseOffset) + 1f) / 2f))
+    val height = maxHeight * animatedFraction
+
+    Box(
+        modifier = Modifier
+            .width(width)
+            .height(height)
+            .clip(RoundedCornerShape(50))
+            .background(Color.White.copy(alpha = 0.9f))
+    )
 }

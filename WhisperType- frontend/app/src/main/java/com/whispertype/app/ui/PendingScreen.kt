@@ -63,10 +63,12 @@ fun PendingScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Slate50)
+            .background(ScreenBackground)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
         ) {
             // Header
             Text(
@@ -87,19 +89,19 @@ fun PendingScreen(
                             painter = painterResource(id = R.drawable.ic_check),
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
-                            tint = Slate400
+                            tint = Slate300
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                         Text(
                             text = "No pending transcriptions",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Slate400
+                            color = Slate500
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Failed recordings will appear here",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Slate300
+                            color = Slate400
                         )
                     }
                 }
@@ -121,12 +123,12 @@ fun PendingScreen(
                                 }
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Rust
-                        ),
+                        colors = ButtonDefaults.buttonColors(containerColor = Rust),
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 8.dp)
+                            .height(44.dp)
+                            .padding(horizontal = 20.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -139,6 +141,7 @@ fun PendingScreen(
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 LazyColumn(
@@ -188,10 +191,8 @@ private fun PendingTranscriptionCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = WarmWhite),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -240,10 +241,10 @@ private fun PendingTranscriptionCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             if (isCompleted && entry.transcribedText != null) {
-                // Show transcribed text
+                // Transcribed text
                 Text(
                     text = entry.transcribedText!!,
                     style = MaterialTheme.typography.bodyMedium,
@@ -252,24 +253,22 @@ private fun PendingTranscriptionCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Slate50)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Slate100)
                         .padding(12.dp)
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Copy and Delete buttons
+                // Copy and Delete
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Button(
                         onClick = { onCopy(entry.transcribedText!!) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Rust
-                        ),
-                        shape = RoundedCornerShape(10.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = Rust),
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_content_copy),
@@ -289,7 +288,7 @@ private fun PendingTranscriptionCard(
                     }
                 }
             } else {
-                // Show error message
+                // Error message
                 Text(
                     text = entry.errorMessage,
                     style = MaterialTheme.typography.bodySmall,
@@ -300,7 +299,7 @@ private fun PendingTranscriptionCard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Three pill buttons: Retry, Model, Delete
+                // Three pill buttons
                 if (isRetrying) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
@@ -315,15 +314,13 @@ private fun PendingTranscriptionCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Retry pill (filled)
+                        // Retry pill
                         Button(
                             onClick = { onRetry(null) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Rust
-                            ),
+                            colors = ButtonDefaults.buttonColors(containerColor = Rust),
                             shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                            modifier = Modifier.height(32.dp)
+                            modifier = Modifier.height(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
@@ -334,7 +331,7 @@ private fun PendingTranscriptionCard(
                             Text("Retry", style = MaterialTheme.typography.labelSmall)
                         }
 
-                        // Model picker pill (outlined)
+                        // Model picker pill
                         Box {
                             OutlinedButton(
                                 onClick = { showModelMenu = true },
@@ -344,7 +341,7 @@ private fun PendingTranscriptionCard(
                                 ),
                                 border = BorderStroke(1.dp, Rust),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                                modifier = Modifier.height(32.dp)
+                                modifier = Modifier.height(34.dp)
                             ) {
                                 Text(
                                     text = try {
@@ -383,12 +380,12 @@ private fun PendingTranscriptionCard(
 
                         Spacer(modifier = Modifier.weight(1f))
 
-                        // Delete pill (ghost)
+                        // Delete pill
                         TextButton(
                             onClick = onDelete,
                             shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                            modifier = Modifier.height(32.dp)
+                            modifier = Modifier.height(34.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
@@ -430,7 +427,6 @@ private suspend fun retryTranscription(
         return
     }
 
-    // Determine which tier to use
     val selectedTier = tier ?: try {
         ShortcutPreferences.ModelTier.valueOf(entry.failedModelTier)
     } catch (_: Exception) {
@@ -475,7 +471,6 @@ private suspend fun retryTranscription(
             }
         }
 
-        // Route to appropriate API based on flow (must match SpeechRecognitionHelper.transcribeWithFlow)
         when (flow) {
             TranscriptionFlow.FLOW_3 -> {
                 apiClient.transcribeWithGroq(audioBytes, token, entry.audioFormat, entry.durationMs, "whisper-large-v3-turbo", callback)

@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,8 +18,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,7 +35,6 @@ import com.whispertype.app.ui.theme.*
 
 /**
  * TrialExpiredScreen - Upgrade flow when trial has ended
- * Shows 3-tier pricing options
  */
 @Composable
 fun TrialExpiredScreen(
@@ -49,13 +53,11 @@ fun TrialExpiredScreen(
             "Your free trial has ended."
     }
 
-    // Animation state
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isVisible = true }
 
     val numberFormat = remember { java.text.NumberFormat.getNumberInstance() }
 
-    // Plan tiers — Google Play handles regional pricing automatically
     val plans = remember {
         listOf(
             PlanTier(
@@ -95,14 +97,12 @@ fun TrialExpiredScreen(
         )
     }
 
-    // Show skeleton while loading
+    // Skeleton while loading
     if (isLoading) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    ScreenBackground
-                ),
+                .background(ScreenBackground),
             contentAlignment = Alignment.Center
         ) {
             TrialExpiredScreenSkeleton(modifier = Modifier.fillMaxSize())
@@ -113,26 +113,33 @@ fun TrialExpiredScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                ScreenBackground
-            )
+            .background(ScreenBackground)
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+            .padding(horizontal = 20.dp)
+            .systemBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Header Icon
+        // Header icon
         AnimatedVisibility(
             visible = isVisible,
-            enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -20 }
+            enter = fadeIn(tween(500)) + slideInVertically(tween(500)) { -30 }
         ) {
             Box(
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(80.dp)
+                    .shadow(
+                        elevation = 12.dp,
+                        shape = CircleShape,
+                        ambientColor = Rust.copy(alpha = 0.15f),
+                        spotColor = Rust.copy(alpha = 0.2f)
+                    )
+                    .clip(CircleShape)
                     .background(
-                        color = IndigoLight,
-                        shape = RoundedCornerShape(50)
+                        Brush.linearGradient(
+                            listOf(IndigoLight, IndigoTint)
+                        )
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -145,12 +152,12 @@ fun TrialExpiredScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Title and reason
         AnimatedVisibility(
             visible = isVisible,
-            enter = fadeIn(tween(200, delayMillis = 50))
+            enter = fadeIn(tween(500, delayMillis = 100))
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -160,7 +167,7 @@ fun TrialExpiredScreen(
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text = reasonText,
@@ -182,44 +189,52 @@ fun TrialExpiredScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Plan Cards
+        // Plan cards
         plans.forEachIndexed { index, plan ->
             AnimatedVisibility(
                 visible = isVisible,
-                enter = fadeIn(tween(200, delayMillis = 100 + (index * 50))) +
-                        slideInVertically(tween(200, delayMillis = 100 + (index * 50))) { 30 }
+                enter = fadeIn(tween(500, delayMillis = 200 + (index * 80))) +
+                    slideInVertically(tween(500, delayMillis = 200 + (index * 80))) { 40 }
             ) {
                 CompactPlanCard(
                     plan = plan.copy(price = getFormattedPrice(plan.id) ?: plan.price),
                     onSelect = { onSelectPlan(plan.id) }
                 )
             }
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Free tier reminder
         AnimatedVisibility(
             visible = isVisible,
-            enter = fadeIn(tween(200, delayMillis = 280))
+            enter = fadeIn(tween(400, delayMillis = 450))
         ) {
-            Card(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = GreenTint)
+                shape = RoundedCornerShape(14.dp),
+                color = GreenTint
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = SuccessDark,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        modifier = Modifier.size(22.dp),
+                        shape = RoundedCornerShape(6.dp),
+                        color = SuccessDark.copy(alpha = 0.15f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = null,
+                                tint = SuccessDark,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "AUTO model remains free & unlimited on all plans",
                         style = MaterialTheme.typography.bodyMedium,
@@ -229,12 +244,12 @@ fun TrialExpiredScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Contact support
         AnimatedVisibility(
             visible = isVisible,
-            enter = fadeIn(tween(200, delayMillis = 320))
+            enter = fadeIn(tween(400, delayMillis = 500))
         ) {
             TextButton(onClick = onContactSupport) {
                 Text(
@@ -245,7 +260,7 @@ fun TrialExpiredScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(28.dp))
     }
 }
 
@@ -254,19 +269,32 @@ private fun CompactPlanCard(
     plan: PlanTier,
     onSelect: () -> Unit
 ) {
-    val borderColor = if (plan.isPopular) Rust else Slate200
-    val backgroundColor = if (plan.isPopular) Color(0xFFFAFAFF) else Color.White
+    val isHero = plan.isPopular
+    val borderColor = if (isHero) Rust else Slate200
+
+    val cardModifier = if (isHero) {
+        Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 12.dp,
+                shape = RoundedCornerShape(20.dp),
+                ambientColor = Rust.copy(alpha = 0.12f),
+                spotColor = Rust.copy(alpha = 0.18f)
+            )
+    } else {
+        Modifier.fillMaxWidth()
+    }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        modifier = cardModifier,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = WarmWhite),
         border = BorderStroke(
-            width = if (plan.isPopular) 2.dp else 1.dp,
+            width = if (isHero) 2.dp else 1.dp,
             color = borderColor
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (plan.isPopular) 3.dp else 1.dp
+            defaultElevation = if (isHero) 0.dp else 1.dp
         )
     ) {
         Column(
@@ -285,21 +313,27 @@ private fun CompactPlanCard(
                         color = Slate800
                     )
 
-                    if (plan.isPopular) {
+                    if (isHero) {
                         Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    brush = RustGradientHorizontal,
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color.Transparent
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(RustDark, Rust)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
                                 Icon(
                                     imageVector = Icons.Filled.Star,
                                     contentDescription = null,
-                                    tint = Color.White,
+                                    tint = Gold,
                                     modifier = Modifier.size(10.dp)
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
@@ -313,12 +347,11 @@ private fun CompactPlanCard(
                     }
                 }
 
-                // Price
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         text = plan.price,
                         style = MaterialTheme.typography.headlineMedium,
-                        color = Slate800
+                        color = if (isHero) Rust else Slate800
                     )
                     Text(
                         text = "/mo",
@@ -329,9 +362,9 @@ private fun CompactPlanCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Features in a row
+            // Features row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -341,7 +374,7 @@ private fun CompactPlanCard(
                         Icon(
                             imageVector = Icons.Filled.Check,
                             contentDescription = null,
-                            tint = Success,
+                            tint = if (isHero) Rust else Emerald,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
@@ -354,17 +387,27 @@ private fun CompactPlanCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // CTA Button
+            // CTA
             Button(
                 onClick = onSelect,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .then(
+                        if (isHero) Modifier.shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(14.dp),
+                            ambientColor = Rust.copy(alpha = 0.15f),
+                            spotColor = Rust.copy(alpha = 0.2f)
+                        ) else Modifier
+                    ),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (plan.isPopular) Rust else Slate800
+                    containerColor = if (isHero) Rust else Slate800
                 ),
-                contentPadding = PaddingValues(vertical = 10.dp)
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Text(
                     text = "Select ${plan.name}",

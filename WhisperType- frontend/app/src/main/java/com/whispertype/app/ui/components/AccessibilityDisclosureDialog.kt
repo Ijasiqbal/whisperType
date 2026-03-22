@@ -42,7 +42,7 @@ fun AccessibilityDisclosureDialog(
                 .padding(24.dp),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.White
+                containerColor = WarmWhite
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {

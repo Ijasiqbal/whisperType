@@ -69,7 +69,7 @@ fun ForceUpdateDialog(
                 .padding(24.dp),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.White
+                containerColor = WarmWhite
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
@@ -212,7 +212,7 @@ fun SoftUpdateDialog(
                 Text("Later", color = Slate500)
             }
         },
-        containerColor = Color.White,
+        containerColor = WarmWhite,
         shape = RoundedCornerShape(20.dp)
     )
 }

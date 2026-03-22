@@ -24,7 +24,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -49,11 +49,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import com.whispertype.app.ui.theme.VozcribeTheme
+import com.whispertype.app.ui.theme.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -220,7 +219,7 @@ class MainActivity : ComponentActivity() {
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
-                        color = Color(0xFFC45D3E)
+                        color = Rust
                     )
                 }
             }
@@ -458,25 +457,16 @@ fun MainScreen(
         isVisible = true
     }
     
-    // Radial gradient background matching app theme
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFEEF2FF),  // Light indigo center
-                        Color(0xFFF8FAFC)   // Fade to white
-                    ),
-                    center = Offset(0.5f, 0f),  // Top center
-                    radius = 1500f
-                )
-            )
+            .background(ScreenBackground)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .systemBarsPadding()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -485,9 +475,9 @@ fun MainScreen(
         // Animated App icon
         AnimatedVisibility(
             visible = isVisible,
-            enter = fadeIn(animationSpec = tween(150)) + slideInHorizontally(
-                animationSpec = tween(150),
-                initialOffsetX = { -30 }
+            enter = fadeIn(animationSpec = tween(500)) + slideInVertically(
+                animationSpec = tween(500),
+                initialOffsetY = { -30 }
             )
         ) {
             Box(
@@ -496,18 +486,11 @@ fun MainScreen(
                     .shadow(
                         elevation = 16.dp,
                         shape = CircleShape,
-                        ambientColor = Color(0xFFC45D3E).copy(alpha = 0.3f),
-                        spotColor = Color(0xFFC45D3E).copy(alpha = 0.3f)
+                        ambientColor = Rust.copy(alpha = 0.25f),
+                        spotColor = Rust.copy(alpha = 0.3f)
                     )
                     .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFFC45D3E),
-                                Color(0xFFD4845A)
-                            )
-                        )
-                    ),
+                    .background(RustGradient),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -518,31 +501,27 @@ fun MainScreen(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Animated Title
         AnimatedVisibility(
             visible = isVisible,
-            enter = fadeIn(animationSpec = tween(150, delayMillis = 30)) + slideInHorizontally(
-                animationSpec = tween(150, delayMillis = 30),
-                initialOffsetX = { -25 }
-            )
+            enter = fadeIn(animationSpec = tween(500, delayMillis = 100))
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "Vozcribe",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B)
+                    style = MaterialTheme.typography.displaySmall,
+                    color = Slate800
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Text(
                     text = "Voice input for any text field",
-                    fontSize = 16.sp,
-                    color = Color(0xFF64748B)
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Slate500
                 )
             }
         }
@@ -552,9 +531,9 @@ fun MainScreen(
         // Animated content section
         AnimatedVisibility(
             visible = isVisible,
-            enter = fadeIn(animationSpec = tween(150, delayMillis = 60)) + slideInHorizontally(
-                animationSpec = tween(150, delayMillis = 60),
-                initialOffsetX = { -35 }
+            enter = fadeIn(animationSpec = tween(500, delayMillis = 200)) + slideInVertically(
+                animationSpec = tween(500, delayMillis = 200),
+                initialOffsetY = { 40 }
             )
         ) {
             Column(
@@ -574,9 +553,9 @@ fun MainScreen(
                 if (userEmail != null) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF2FF)),
-                border = BorderStroke(1.dp, Color(0xFFE0E7FF))
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = IndigoTint),
+                border = BorderStroke(1.dp, IndigoLight)
             ) {
                 Row(
                     modifier = Modifier
@@ -588,20 +567,19 @@ fun MainScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Signed in as",
-                            fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
                         Text(
                             text = userEmail,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1E293B)
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Slate800
                         )
                     }
                     TextButton(
                         onClick = onSignOut,
                         colors = ButtonDefaults.textButtonColors(
-                            contentColor = Color(0xFFDC2626)
+                            contentColor = ErrorDark
                         )
                     ) {
                         Text("Sign Out")
@@ -615,18 +593,17 @@ fun MainScreen(
         // Setup section
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = WarmWhite),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
             ) {
                 Text(
                     text = "Setup Required",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Slate800
                 )
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -679,18 +656,17 @@ fun MainScreen(
             
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = WarmWhite),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp)
                 ) {
                     Text(
                         text = "MIUI Setup Required",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1E293B)
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Slate800
                     )
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -719,9 +695,9 @@ fun MainScreen(
         
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = WarmWhite),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -740,20 +716,19 @@ fun MainScreen(
                         ) {
                             Text(
                                 text = "Troubleshooting",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF1E293B)
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Slate800
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFF1F5F9) // Slate-100
+                                color = Slate100
                             ) {
                                 Text(
                                     text = "OPTIONAL",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF64748B), // Slate-500
+                                    color = Slate500,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
@@ -761,15 +736,15 @@ fun MainScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Only if the shortcut stops responding",
-                            fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
                     }
-                    
+
                     Icon(
                         imageVector = if (isAdvancedSettingsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                         contentDescription = if (isAdvancedSettingsExpanded) "Collapse" else "Expand",
-                        tint = Color(0xFF64748B),
+                        tint = Slate400,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -782,11 +757,11 @@ fun MainScreen(
                 ) {
                     Column {
                         Spacer(modifier = Modifier.height(12.dp))
-                        
-                        Divider(color = Color(0xFFE2E8F0))
-                        
+
+                        Divider(color = Slate200)
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         // Foreground Service Toggle
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -796,25 +771,22 @@ fun MainScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Keep Service Alive",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF1E293B)
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = Slate800
                                 )
                                 Text(
                                     text = "Shows a persistent notification",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF64748B)
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Slate500
                                 )
                             }
-                            
+
                             Switch(
                                 checked = isForegroundServiceEnabled,
                                 onCheckedChange = { newValue ->
                                     if (newValue) {
-                                        // Show explanation dialog before enabling
                                         showForegroundServiceDialog = true
                                     } else {
-                                        // Disable immediately
                                         isForegroundServiceEnabled = false
                                         context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
                                             .edit()
@@ -825,21 +797,21 @@ fun MainScreen(
                                     }
                                 },
                                 colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color(0xFFC45D3E),
-                                    checkedTrackColor = Color(0xFFE0E7FF)
+                                    checkedThumbColor = Rust,
+                                    checkedTrackColor = IndigoLight
                                 )
                             )
                         }
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         // Battery Optimization Exemption
                         OutlinedButton(
                             onClick = { showBatteryOptimizationDialog = true },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF64748B)
+                                contentColor = Slate600
                             )
                         ) {
                             Row(
@@ -849,7 +821,7 @@ fun MainScreen(
                                 Icon(
                                     imageVector = Icons.Filled.Info,
                                     contentDescription = "Battery Optimization",
-                                    tint = Color(0xFF64748B),
+                                    tint = Slate500,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -859,14 +831,13 @@ fun MainScreen(
                                 ) {
                                     Text(
                                         text = "Disable Battery Optimization",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
+                                        style = MaterialTheme.typography.titleSmall
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = "Prevents Android from putting the service to sleep",
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF64748B)
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Slate500
                                     )
                                 }
                             }
@@ -881,26 +852,25 @@ fun MainScreen(
         // Shortcut setup
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = WarmWhite),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
             ) {
                 Text(
                     text = "Activation Shortcut",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Slate800
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Text(
                     text = "Choose how to activate Vozcribe:",
-                    fontSize = 14.sp,
-                    color = Color(0xFF64748B)
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Slate500
                 )
                 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -915,9 +885,9 @@ fun MainScreen(
                     OutlinedButton(
                         onClick = { expanded = true },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF1E293B)
+                            contentColor = Slate800
                         )
                     ) {
                         Text(
@@ -957,24 +927,26 @@ fun MainScreen(
                         ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS -> 
                             "Press both volume buttons together"
                     },
-                    fontSize = 12.sp,
-                    color = Color(0xFF94A3B8)
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Slate400
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Test overlay button
         Button(
             onClick = onTestOverlay,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF10B981)
+                containerColor = Emerald
             )
         ) {
-            Text("Test Overlay", fontSize = 16.sp)
+            Text("Test Overlay", style = MaterialTheme.typography.labelLarge)
         }
         
         // Accessibility Disclosure Dialog (Google Play compliance)
@@ -1033,57 +1005,57 @@ fun MainScreen(
                     Column {
                         Text(
                             text = "This feature prevents Android from stopping Vozcribe when the device is idle, ensuring your volume shortcut always works.",
-                            fontSize = 14.sp,
-                            color = Color(0xFF475569)
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Slate600
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
                             text = "What you'll see:",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
+                            style = MaterialTheme.typography.titleSmall
                         )
                         Text(
                             text = "• A small notification indicating Vozcribe is ready",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
                             text = "Battery impact:",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = Color(0xFF10B981)
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Emerald
                         )
                         Text(
                             text = "• Minimal - the service remains idle until you activate it",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
                         Text(
                             text = "• No continuous processing or network usage",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
                         Text(
                             text = "• Only active when you press the volume shortcut",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
                             text = "Recommended if volume shortcut stops responding after your device has been idle.",
-                            fontSize = 12.sp,
-                            color = Color(0xFFD97706),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Warning,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 },
+                containerColor = WarmWhite,
+                shape = RoundedCornerShape(20.dp),
                 confirmButton = {
                     Button(
                         onClick = {
@@ -1117,7 +1089,7 @@ fun MainScreen(
                             ).show()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFC45D3E)
+                            containerColor = Rust
                         )
                     ) {
                         Text("Enable")
@@ -1125,7 +1097,7 @@ fun MainScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showForegroundServiceDialog = false }) {
-                        Text("Cancel", color = Color(0xFF64748B))
+                        Text("Cancel", color = Slate500)
                     }
                 }
             )
@@ -1145,62 +1117,62 @@ fun MainScreen(
                     Column {
                         Text(
                             text = "Android may stop Vozcribe to save battery, which can cause the volume shortcut to stop responding.",
-                            fontSize = 14.sp,
-                            color = Color(0xFF475569)
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Slate600
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
                             text = "What this does:",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
+                            style = MaterialTheme.typography.titleSmall
                         )
                         Text(
                             text = "• Prevents Android from stopping Vozcribe when idle",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
                         Text(
                             text = "• Ensures volume shortcut remains responsive",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
                             text = "Battery impact:",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = Color(0xFF10B981)
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Emerald
                         )
                         Text(
                             text = "• Minimal - Vozcribe stays idle until you activate it",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
                         Text(
                             text = "• No continuous processing or network activity",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
                         Text(
                             text = "• Only uses resources when you press the shortcut",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
                             text = "Recommended if volume shortcut stops responding after your device has been idle.",
-                            fontSize = 12.sp,
-                            color = Color(0xFFD97706),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Warning,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 },
+                containerColor = WarmWhite,
+                shape = RoundedCornerShape(20.dp),
                 confirmButton = {
                     Button(
                         onClick = {
@@ -1208,7 +1180,7 @@ fun MainScreen(
                             onIgnoreBatteryOptimizations()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFC45D3E)
+                            containerColor = Rust
                         )
                     ) {
                         Text("Open Settings")
@@ -1216,7 +1188,7 @@ fun MainScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showBatteryOptimizationDialog = false }) {
-                        Text("Cancel", color = Color(0xFF64748B))
+                        Text("Cancel", color = Slate500)
                     }
                 }
             )
@@ -1227,18 +1199,17 @@ fun MainScreen(
         // Usage instructions
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Slate50),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
             ) {
                 Text(
                     text = "How to Use",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Slate800
                 )
                 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -1380,61 +1351,75 @@ fun AppWithBottomNav(
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                containerColor = Color.White,
-                tonalElevation = 8.dp,
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .height(72.dp)
+            Surface(
+                color = WarmWhite,
+                shadowElevation = 0.dp,
+                modifier = Modifier.navigationBarsPadding()
             ) {
-                BottomNavTab.values().forEach { tab ->
-                    NavigationBarItem(
-                        selected = selectedTab == tab,
-                        onClick = { selectedTab = tab },
-                        icon = {
-                            if (tab == BottomNavTab.PENDING && pendingCount > 0) {
-                                BadgedBox(
-                                    badge = {
-                                        Badge(
-                                            containerColor = Color(0xFFEF4444)
-                                        ) {
-                                            Text(
-                                                text = pendingCount.toString(),
-                                                fontSize = 10.sp,
-                                                color = Color.White
-                                            )
+                Column {
+                    // Subtle warm divider at top of bar
+                    Divider(color = Slate200, thickness = 0.5.dp)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BottomNavTab.values().forEach { tab ->
+                            val isSelected = selectedTab == tab
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { selectedTab = tab }
+                                    .padding(vertical = 6.dp)
+                            ) {
+                                if (tab == BottomNavTab.PENDING && pendingCount > 0) {
+                                    BadgedBox(
+                                        badge = {
+                                            Badge(containerColor = Error) {
+                                                Text(
+                                                    text = pendingCount.toString(),
+                                                    fontSize = 9.sp,
+                                                    color = Color.White
+                                                )
+                                            }
                                         }
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = tab.iconRes),
+                                            contentDescription = tab.label,
+                                            modifier = Modifier.size(22.dp),
+                                            tint = if (isSelected) Rust else Slate400
+                                        )
                                     }
-                                ) {
+                                } else {
                                     Icon(
                                         painter = painterResource(id = tab.iconRes),
                                         contentDescription = tab.label,
-                                        modifier = Modifier.size(24.dp)
+                                        modifier = Modifier.size(22.dp),
+                                        tint = if (isSelected) Rust else Slate400
                                     )
                                 }
-                            } else {
-                                Icon(
-                                    painter = painterResource(id = tab.iconRes),
-                                    contentDescription = tab.label,
-                                    modifier = Modifier.size(24.dp)
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(
+                                    text = tab.label,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 11.sp
+                                    ),
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) Rust else Slate400
                                 )
                             }
-                        },
-                        label = {
-                            Text(
-                                text = tab.label,
-                                fontSize = 12.sp,
-                                fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color(0xFFC45D3E),
-                            selectedTextColor = Color(0xFFC45D3E),
-                            unselectedIconColor = Color(0xFF94A3B8),
-                            unselectedTextColor = Color(0xFF94A3B8),
-                            indicatorColor = Color(0xFFEEF2FF)
-                        )
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -1565,51 +1550,50 @@ fun PermissionStep(
                 .size(32.dp)
                 .clip(CircleShape)
                 .background(
-                    if (isGranted) Color(0xFF10B981) else Color(0xFFE2E8F0)
+                    if (isGranted) Emerald else Slate200
                 ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = if (isGranted) "✓" else stepNumber.toString(),
-                color = if (isGranted) Color.White else Color(0xFF64748B),
+                color = if (isGranted) Color.White else Slate500,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
         }
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.titleSmall,
                 lineHeight = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF1E293B)
+                color = Slate800
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 lineHeight = 16.sp,
-                color = Color(0xFF94A3B8)
+                color = Slate400
             )
         }
-        
+
         Button(
             onClick = onClick,
             enabled = enabled,
             modifier = Modifier.height(36.dp).padding(start = 8.dp),
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(10.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isGranted) Color(0xFF10B981) else Color(0xFFC45D3E),
-                disabledContainerColor = Color(0xFF10B981)
+                containerColor = if (isGranted) Emerald else Rust,
+                disabledContainerColor = Emerald
             ),
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
             Text(
                 text = buttonText,
-                fontSize = 12.sp
+                style = MaterialTheme.typography.labelSmall
             )
         }
     }
@@ -1622,15 +1606,15 @@ fun ServiceZombieWarning(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)) // Red-50
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = RedTint)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .size(32.dp)
-                        .background(Color(0xFFEF4444), CircleShape), // Red-500
+                        .background(Error, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("!", color = Color.White, fontWeight = FontWeight.Bold)
@@ -1639,37 +1623,39 @@ fun ServiceZombieWarning(
                 Column {
                     Text(
                         text = "Service Needs Restart",
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF991B1B) // Red-800
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color(0xFF991B1B)
                     )
                     Text(
                         text = "System put the service to sleep.",
-                        fontSize = 12.sp,
-                        color = Color(0xFFB91C1C) // Red-700
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFB91C1C)
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Row(
-                modifier = Modifier.fillMaxWidth(), 
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
                     onClick = onFixService,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)) // Red-600
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorDark)
                 ) {
                     Text("Fix Service")
                 }
-                
+
                 OutlinedButton(
                     onClick = onIgnoreBatteryOptimizations,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB91C1C))
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorDark)
                 ) {
-                    Text("Permanent Fix", fontSize = 11.sp)
+                    Text("Permanent Fix", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -1681,15 +1667,14 @@ fun UsageStep(number: String, text: String) {
     Row(verticalAlignment = Alignment.Top) {
         Text(
             text = "$number.",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color(0xFFC45D3E),
+            style = MaterialTheme.typography.titleSmall,
+            color = Rust,
             modifier = Modifier.width(24.dp)
         )
         Text(
             text = text,
-            fontSize = 14.sp,
-            color = Color(0xFF475569)
+            style = MaterialTheme.typography.bodyMedium,
+            color = Slate600
         )
     }
 }

@@ -46,7 +46,7 @@ fun ReportIssueBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White,
+        containerColor = WarmWhite,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -86,7 +86,7 @@ fun ReportIssueBottomSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { categoryExpanded = true },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     border = CardDefaults.outlinedCardBorder()
                 ) {
                     Row(
@@ -155,7 +155,7 @@ fun ReportIssueBottomSheet(
                         color = Slate400
                     )
                 },
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Rust,
                     unfocusedBorderColor = Slate200,
@@ -213,9 +213,9 @@ fun ReportIssueBottomSheet(
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 enabled = !isSubmitting && description.isNotBlank(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Rust,
                     disabledContainerColor = Rust.copy(alpha = 0.5f)
@@ -231,8 +231,7 @@ fun ReportIssueBottomSheet(
                 }
                 Text(
                     text = if (isSubmitting) "Submitting..." else "Submit",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    style = MaterialTheme.typography.labelLarge
                 )
             }
         }

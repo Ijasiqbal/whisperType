@@ -14,6 +14,14 @@ private val fontProvider = GoogleFont.Provider(
     certificates = com.whispertype.app.R.array.com_google_android_gms_fonts_certs
 )
 
+// ── Display / Headline serif ───────────────────────────────────
+private val dmSerifDisplay = GoogleFont("DM Serif Display")
+
+val DMSerifDisplay = FontFamily(
+    Font(googleFont = dmSerifDisplay, fontProvider = fontProvider, weight = FontWeight.Normal),
+)
+
+// ── Body / Label sans-serif ────────────────────────────────────
 private val plusJakartaSans = GoogleFont("Plus Jakarta Sans")
 
 val PlusJakartaSans = FontFamily(
@@ -25,49 +33,50 @@ val PlusJakartaSans = FontFamily(
 )
 
 val VozcribeTypography = Typography(
-    // Display — hero numbers (e.g., "48" usage count)
+    // Display — hero numbers, big statements (DM Serif Display)
     displayLarge = TextStyle(
-        fontFamily = PlusJakartaSans,
-        fontWeight = FontWeight.Bold,
-        fontSize = 48.sp,
-        lineHeight = 56.sp,
-        letterSpacing = (-0.5).sp
+        fontFamily = DMSerifDisplay,
+        fontWeight = FontWeight.Normal,
+        fontSize = 52.sp,
+        lineHeight = 60.sp,
+        letterSpacing = (-1).sp
     ),
     displayMedium = TextStyle(
-        fontFamily = PlusJakartaSans,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-0.25).sp
+        fontFamily = DMSerifDisplay,
+        fontWeight = FontWeight.Normal,
+        fontSize = 36.sp,
+        lineHeight = 44.sp,
+        letterSpacing = (-0.5).sp
     ),
     displaySmall = TextStyle(
-        fontFamily = PlusJakartaSans,
-        fontWeight = FontWeight.Bold,
-        fontSize = 26.sp,
-        lineHeight = 34.sp
+        fontFamily = DMSerifDisplay,
+        fontWeight = FontWeight.Normal,
+        fontSize = 28.sp,
+        lineHeight = 36.sp,
+        letterSpacing = (-0.25).sp
     ),
 
-    // Headline — screen titles
+    // Headline — screen titles (DM Serif Display)
     headlineLarge = TextStyle(
-        fontFamily = PlusJakartaSans,
-        fontWeight = FontWeight.Bold,
+        fontFamily = DMSerifDisplay,
+        fontWeight = FontWeight.Normal,
         fontSize = 24.sp,
         lineHeight = 32.sp
     ),
     headlineMedium = TextStyle(
-        fontFamily = PlusJakartaSans,
-        fontWeight = FontWeight.Bold,
+        fontFamily = DMSerifDisplay,
+        fontWeight = FontWeight.Normal,
         fontSize = 22.sp,
         lineHeight = 28.sp
     ),
     headlineSmall = TextStyle(
-        fontFamily = PlusJakartaSans,
-        fontWeight = FontWeight.Bold,
+        fontFamily = DMSerifDisplay,
+        fontWeight = FontWeight.Normal,
         fontSize = 20.sp,
         lineHeight = 26.sp
     ),
 
-    // Title — card headers, section labels
+    // Title — card headers, section labels (Plus Jakarta Sans)
     titleLarge = TextStyle(
         fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.SemiBold,
@@ -87,7 +96,7 @@ val VozcribeTypography = Typography(
         lineHeight = 20.sp
     ),
 
-    // Body — primary reading text
+    // Body — primary reading text (Plus Jakarta Sans)
     bodyLarge = TextStyle(
         fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Normal,
@@ -107,7 +116,7 @@ val VozcribeTypography = Typography(
         lineHeight = 18.sp
     ),
 
-    // Label — buttons, badges, captions
+    // Label — buttons, badges, captions (Plus Jakarta Sans)
     labelLarge = TextStyle(
         fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.SemiBold,
