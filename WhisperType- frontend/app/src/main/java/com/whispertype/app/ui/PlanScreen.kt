@@ -204,7 +204,7 @@ fun PlanScreen(
                 Text(
                     text = "Need help? Contact Support",
                     fontSize = 14.sp,
-                    color = Color(0xFF6366F1)
+                    color = Color(0xFFC45D3E)
                 )
             }
         }
@@ -273,7 +273,7 @@ private fun PlanCard(
 ) {
     val borderColor = when {
         isCurrentPlan -> Color(0xFF16A34A)
-        plan.isPopular -> Color(0xFF6366F1)
+        plan.isPopular -> Color(0xFFC45D3E)
         else -> Color(0xFFE2E8F0)
     }
 
@@ -297,7 +297,7 @@ private fun PlanCard(
                         .fillMaxWidth()
                         .background(
                             brush = Brush.horizontalGradient(
-                                colors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
+                                colors = listOf(Color(0xFFC45D3E), Color(0xFFD4845A))
                             )
                         )
                         .padding(vertical = 6.dp),
@@ -370,7 +370,7 @@ private fun PlanCard(
                             text = plan.price,
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFF1E293B)
+                            color = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFF1E293B)
                         )
                         Text(
                             text = "/mo",
@@ -395,7 +395,7 @@ private fun PlanCard(
                 plan.features.forEach { feature ->
                     FeatureRow(
                         text = feature,
-                        accentColor = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFF22C55E)
+                        accentColor = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFF22C55E)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                 }
@@ -410,7 +410,7 @@ private fun PlanCard(
                         .height(44.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFF1E293B),
+                        containerColor = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFF1E293B),
                         disabledContainerColor = Color(0xFFE2E8F0)
                     ),
                     enabled = !isCurrentPlan,

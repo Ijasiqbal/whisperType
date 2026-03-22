@@ -31,7 +31,7 @@ class CircularWaveformView @JvmOverloads constructor(
     }
 
     private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xBB6366F1.toInt() // Purple color matching the theme
+        color = 0xBBC45D3E.toInt() // Purple color matching the theme
         style = Paint.Style.FILL
         strokeCap = Paint.Cap.ROUND
     }

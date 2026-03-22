@@ -161,9 +161,9 @@ fun ReportIssueBottomSheet(
                 },
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF6366F1),
+                    focusedBorderColor = Color(0xFFC45D3E),
                     unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = Color(0xFF6366F1)
+                    cursorColor = Color(0xFFC45D3E)
                 )
             )
 
@@ -221,8 +221,8 @@ fun ReportIssueBottomSheet(
                 enabled = !isSubmitting && description.isNotBlank(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6366F1),
-                    disabledContainerColor = Color(0xFF6366F1).copy(alpha = 0.5f)
+                    containerColor = Color(0xFFC45D3E),
+                    disabledContainerColor = Color(0xFFC45D3E).copy(alpha = 0.5f)
                 )
             ) {
                 if (isSubmitting) {

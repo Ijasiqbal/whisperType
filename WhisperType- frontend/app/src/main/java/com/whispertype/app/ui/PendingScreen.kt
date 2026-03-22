@@ -1,6 +1,7 @@
 package com.whispertype.app.ui
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -122,7 +123,7 @@ fun PendingScreen(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6366F1)
+                            containerColor = Color(0xFFC45D3E)
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -207,7 +208,7 @@ private fun PendingTranscriptionCard(
                         ),
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = if (isCompleted) Color(0xFF10B981) else Color(0xFF6366F1)
+                        tint = if (isCompleted) Color(0xFF10B981) else Color(0xFFC45D3E)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -232,7 +233,7 @@ private fun PendingTranscriptionCard(
                     Text(
                         text = entry.failedModelTier,
                         fontSize = 11.sp,
-                        color = Color(0xFF6366F1),
+                        color = Color(0xFFC45D3E),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
                 }
@@ -265,7 +266,7 @@ private fun PendingTranscriptionCard(
                     Button(
                         onClick = { onCopy(entry.transcribedText!!) },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6366F1)
+                            containerColor = Color(0xFFC45D3E)
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -303,7 +304,7 @@ private fun PendingTranscriptionCard(
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp,
-                        color = Color(0xFF6366F1)
+                        color = Color(0xFFC45D3E)
                     )
                 } else {
                     var showModelMenu by remember { mutableStateOf(false) }
@@ -317,7 +318,7 @@ private fun PendingTranscriptionCard(
                         Button(
                             onClick = { onRetry(null) },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF6366F1)
+                                containerColor = Color(0xFFC45D3E)
                             ),
                             shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
@@ -338,9 +339,9 @@ private fun PendingTranscriptionCard(
                                 onClick = { showModelMenu = true },
                                 shape = PillShape,
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF6366F1)
+                                    contentColor = Color(0xFFC45D3E)
                                 ),
-                                border = ButtonDefaults.outlinedButtonBorder(enabled = true),
+                                border = BorderStroke(1.dp, Color(0xFFC45D3E)),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                                 modifier = Modifier.height(32.dp)
                             ) {

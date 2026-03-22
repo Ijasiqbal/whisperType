@@ -11,7 +11,7 @@ Brighter, more vibrant gradient indicating active recording
         android:left="-4dp"
         android:right="-4dp">
         <shape android:shape="oval">
-            <solid android:color="#306366F1" />
+            <solid android:color="#30c45d3e" />
         </shape>
     </item>
     <!-- Base gradient - brighter for active state -->
@@ -20,8 +20,8 @@ Brighter, more vibrant gradient indicating active recording
             <gradient
                 android:type="radial"
                 android:gradientRadius="40dp"
-                android:startColor="#8B5CF6"
-                android:endColor="#6366F1" />
+                android:startColor="#d4845a"
+                android:endColor="#c45d3e" />
         </shape>
     </item>
     <!-- Inner highlight -->

@@ -149,7 +149,7 @@ fun TrialExpiredScreen(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_microphone),
                     contentDescription = null,
-                    tint = Color(0xFF7C3AED),
+                    tint = Color(0xFFC45D3E),
                     modifier = Modifier.size(36.dp)
                 )
             }
@@ -251,7 +251,7 @@ fun TrialExpiredScreen(
                 Text(
                     text = "Need help? Contact Support",
                     fontSize = 14.sp,
-                    color = Color(0xFF6366F1)
+                    color = Color(0xFFC45D3E)
                 )
             }
         }
@@ -265,7 +265,7 @@ private fun CompactPlanCard(
     plan: PlanTier,
     onSelect: () -> Unit
 ) {
-    val borderColor = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFFE2E8F0)
+    val borderColor = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFFE2E8F0)
     val backgroundColor = if (plan.isPopular) Color(0xFFFAFAFF) else Color.White
 
     Card(
@@ -303,7 +303,7 @@ private fun CompactPlanCard(
                             modifier = Modifier
                                 .background(
                                     brush = Brush.horizontalGradient(
-                                        colors = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
+                                        colors = listOf(Color(0xFFC45D3E), Color(0xFFD4845A))
                                     ),
                                     shape = RoundedCornerShape(10.dp)
                                 )
@@ -378,7 +378,7 @@ private fun CompactPlanCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (plan.isPopular) Color(0xFF6366F1) else Color(0xFF1E293B)
+                    containerColor = if (plan.isPopular) Color(0xFFC45D3E) else Color(0xFF1E293B)
                 ),
                 contentPadding = PaddingValues(vertical = 10.dp)
             ) {

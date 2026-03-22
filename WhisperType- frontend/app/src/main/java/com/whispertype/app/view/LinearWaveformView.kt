@@ -52,7 +52,7 @@ class LinearWaveformView @JvmOverloads constructor(
     private val barRect = RectF()
     
     // Gradient colors (violet theme)
-    private val gradientColorStart = 0xFF8B5CF6.toInt() // Violet
+    private val gradientColorStart = 0xFFD4845A.toInt() // Violet
     private val gradientColorEnd = 0xFFA78BFA.toInt() // Light violet
 
     /**

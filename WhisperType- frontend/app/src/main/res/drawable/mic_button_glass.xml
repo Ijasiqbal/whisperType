@@ -10,8 +10,8 @@ Subtle gradient with inner glow effect
             <gradient
                 android:type="radial"
                 android:gradientRadius="40dp"
-                android:startColor="#7C3AED"
-                android:endColor="#6366F1" />
+                android:startColor="#c45d3e"
+                android:endColor="#c45d3e" />
         </shape>
     </item>
     <!-- Inner highlight for 3D effect -->

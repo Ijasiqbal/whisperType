@@ -16,7 +16,7 @@ Multi-layer translucent glass effect with:
         android:left="-3dp"
         android:right="-3dp">
         <shape android:shape="rectangle">
-            <solid android:color="#1F8B5CF6" />
+            <solid android:color="#1Fd4845a" />
             <corners android:radius="29dp" />
         </shape>
     </item>

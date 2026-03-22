@@ -135,7 +135,7 @@ fun ForceUpdateDialog(
                         .height(50.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6366F1) // Indigo-500
+                        containerColor = Color(0xFFC45D3E) // Indigo-500
                     )
                 ) {
                     Text(
@@ -192,7 +192,7 @@ fun SoftUpdateDialog(
             Icon(
                 imageVector = Icons.Filled.Warning,
                 contentDescription = "Update Available",
-                tint = Color(0xFF6366F1),
+                tint = Color(0xFFC45D3E),
                 modifier = Modifier.size(32.dp)
             )
         },
@@ -216,7 +216,7 @@ fun SoftUpdateDialog(
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF6366F1)
+                    containerColor = Color(0xFFC45D3E)
                 )
             ) {
                 Text("Update")

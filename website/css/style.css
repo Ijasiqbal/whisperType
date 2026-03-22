@@ -7,6 +7,7 @@
   --bg-card-hover: #141820;
   --text: #dce4ed;
   --text-dim: #667080;
+  --brand: #c45d3e;
   --accent: #5ba4cf;
   --accent2: #94b8d4;
   --gradient: linear-gradient(135deg, #5ba4cf, #94b8d4);
@@ -68,13 +69,23 @@ nav {
 nav.scrolled { background: rgba(9,11,16,0.92); }
 
 .nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+}
+.nav-logo-mark {
+  flex-shrink: 0;
+  color: var(--brand);
+}
+.nav-logo-text {
   font-size: 1.35rem;
   font-weight: 700;
-  background: var(--gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text);
   letter-spacing: -0.5px;
+}
+.nav-logo-voz {
+  color: var(--brand);
 }
 
 .nav-links { display: flex; gap: 2rem; align-items: center; }

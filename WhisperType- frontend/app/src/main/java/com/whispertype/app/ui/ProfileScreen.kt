@@ -93,15 +93,15 @@ fun ProfileScreen(
                     .shadow(
                         elevation = 16.dp,
                         shape = CircleShape,
-                        ambientColor = Color(0xFF6366F1).copy(alpha = 0.3f),
-                        spotColor = Color(0xFF6366F1).copy(alpha = 0.3f)
+                        ambientColor = Color(0xFFC45D3E).copy(alpha = 0.3f),
+                        spotColor = Color(0xFFC45D3E).copy(alpha = 0.3f)
                     )
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF6366F1),
-                                Color(0xFF8B5CF6)
+                                Color(0xFFC45D3E),
+                                Color(0xFFD4845A)
                             )
                         )
                     ),
@@ -145,8 +145,8 @@ fun ProfileScreen(
                             .background(
                                 Brush.linearGradient(
                                     colors = listOf(
-                                        Color(0xFF6366F1),
-                                        Color(0xFF8B5CF6)
+                                        Color(0xFFC45D3E),
+                                        Color(0xFFD4845A)
                                     )
                                 ),
                                 shape = RoundedCornerShape(16.dp)
@@ -274,7 +274,7 @@ fun ProfileScreen(
                     Icon(
                         imageVector = Icons.Filled.Edit,
                         contentDescription = "Transcription",
-                        tint = Color(0xFF6366F1),
+                        tint = Color(0xFFC45D3E),
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -303,7 +303,7 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = Color(0xFF6366F1)
+                contentColor = Color(0xFFC45D3E)
             )
         ) {
             Icon(
@@ -591,8 +591,8 @@ private fun ProStatusCard(
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF6366F1),
-                            Color(0xFF8B5CF6)
+                            Color(0xFFC45D3E),
+                            Color(0xFFD4845A)
                         )
                     )
                 )

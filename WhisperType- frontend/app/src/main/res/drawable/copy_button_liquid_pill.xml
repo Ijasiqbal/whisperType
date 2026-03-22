@@ -8,7 +8,7 @@ Compact pill-shaped button for the copy action
     <!-- Pressed state -->
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
-            <solid android:color="#E08B5CF6" />
+            <solid android:color="#E0d4845a" />
             <corners android:radius="14dp" />
         </shape>
     </item>
@@ -21,8 +21,8 @@ Compact pill-shaped button for the copy action
                 <shape android:shape="rectangle">
                     <gradient
                         android:type="linear"
-                        android:startColor="#608B5CF6"
-                        android:endColor="#408B5CF6"
+                        android:startColor="#60d4845a"
+                        android:endColor="#40d4845a"
                         android:angle="135" />
                     <corners android:radius="14dp" />
                 </shape>
@@ -34,7 +34,7 @@ Compact pill-shaped button for the copy action
                 android:left="1dp"
                 android:right="1dp">
                 <shape android:shape="rectangle">
-                    <solid android:color="#D08B5CF6" />
+                    <solid android:color="#D0d4845a" />
                     <corners android:radius="13dp" />
                 </shape>
             </item>

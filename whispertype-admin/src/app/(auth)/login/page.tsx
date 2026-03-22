@@ -11,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Mic } from "lucide-react";
 
 export default function LoginPage() {
   const { signIn, loading, user, isAdmin } = useAuth();
@@ -52,8 +51,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Mic className="h-6 w-6 text-primary" />
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand/10">
+            <svg width="24" height="24" viewBox="0 0 80 80" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" className="text-brand"/>
+            </svg>
           </div>
           <CardTitle className="text-2xl">Vozcribe Admin</CardTitle>
           <CardDescription>

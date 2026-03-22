@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waveform Tighter Entry/Exit</title>
+<style>
+  body { background: #0a0c10; color: #faf7f2; font-family: system-ui; padding: 40px; }
+  h2 { font-size: 1rem; font-weight: 400; color: #667080; margin-bottom: 12px; }
+  .row { display: flex; gap: 40px; flex-wrap: wrap; margin-bottom: 60px; }
+  .card { text-align: center; }
+  .card p { font-size: 0.85rem; color: #faf7f2; margin-top: 8px; }
+  .label { font-size: 0.75rem; color: #667080; margin-top: 4px; }
+  .highlight { color: #c45d3e; }
+</style>
+</head>
+<body>
+
+<h1 style="margin-bottom: 8px;">Tighter Entry &amp; Exit Angles</h1>
+<p style="color: #667080; margin-bottom: 40px;">First and last points pulled inward horizontally — same Y heights, shorter run = steeper angle.</p>
+
+<h2>Naked Mark — Large</h2>
+<div class="row">
+  <div class="card">
+    <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
+      <line x1="0" y1="38" x2="80" y2="38" stroke="#222" stroke-width="0.5" stroke-dasharray="2"/>
+      <path d="M16 32 L28 44 L34 34 L40 58 L46 28 L52 40 L64 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p>Current</p>
+    <div class="label">Start x=<span class="highlight">16</span>, End x=<span class="highlight">64</span></div>
+  </div>
+  <div class="card">
+    <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
+      <line x1="0" y1="38" x2="80" y2="38" stroke="#222" stroke-width="0.5" stroke-dasharray="2"/>
+      <path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p>A — Slightly tighter</p>
+    <div class="label">Start x=<span class="highlight">20</span>, End x=<span class="highlight">60</span></div>
+  </div>
+  <div class="card">
+    <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
+      <line x1="0" y1="38" x2="80" y2="38" stroke="#222" stroke-width="0.5" stroke-dasharray="2"/>
+      <path d="M22 32 L28 44 L34 34 L40 58 L46 28 L52 40 L58 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p>B — Moderate</p>
+    <div class="label">Start x=<span class="highlight">22</span>, End x=<span class="highlight">58</span></div>
+  </div>
+  <div class="card">
+    <svg width="200" height="140" viewBox="0 0 80 80" fill="none">
+      <line x1="0" y1="38" x2="80" y2="38" stroke="#222" stroke-width="0.5" stroke-dasharray="2"/>
+      <path d="M24 32 L28 44 L34 34 L40 58 L46 28 L52 40 L56 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p>C — Tight</p>
+    <div class="label">Start x=<span class="highlight">24</span>, End x=<span class="highlight">56</span></div>
+  </div>
+</div>
+
+<h2>S1 Contained Mark — App Icon</h2>
+<div class="row">
+  <div class="card">
+    <svg width="140" height="140" viewBox="0 0 80 80" fill="none">
+      <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+      <path d="M10 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L70 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p>Current</p>
+    <div class="label">Start x=<span class="highlight">10</span>, End x=<span class="highlight">70</span></div>
+  </div>
+  <div class="card">
+    <svg width="140" height="140" viewBox="0 0 80 80" fill="none">
+      <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+      <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p>A — Slightly tighter</p>
+    <div class="label">Start x=<span class="highlight">14</span>, End x=<span class="highlight">66</span></div>
+  </div>
+  <div class="card">
+    <svg width="140" height="140" viewBox="0 0 80 80" fill="none">
+      <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+      <path d="M16 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L64 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p>B — Moderate</p>
+    <div class="label">Start x=<span class="highlight">16</span>, End x=<span class="highlight">64</span></div>
+  </div>
+  <div class="card">
+    <svg width="140" height="140" viewBox="0 0 80 80" fill="none">
+      <rect width="80" height="80" rx="18" fill="#c45d3e"/>
+      <path d="M18 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L62 18" stroke="#faf7f2" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p>C — Tight</p>
+    <div class="label">Start x=<span class="highlight">18</span>, End x=<span class="highlight">62</span></div>
+  </div>
+</div>
+
+<h2>At actual 32px nav size</h2>
+<div class="row" style="align-items: center; gap: 60px;">
+  <div class="card">
+    <svg width="32" height="32" viewBox="0 0 80 80" fill="none"><path d="M16 32 L28 44 L34 34 L40 58 L46 28 L52 40 L64 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <p>Current</p>
+  </div>
+  <div class="card">
+    <svg width="32" height="32" viewBox="0 0 80 80" fill="none"><path d="M20 32 L28 44 L34 34 L40 58 L46 28 L52 40 L60 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <p>A</p>
+  </div>
+  <div class="card">
+    <svg width="32" height="32" viewBox="0 0 80 80" fill="none"><path d="M22 32 L28 44 L34 34 L40 58 L46 28 L52 40 L58 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <p>B</p>
+  </div>
+  <div class="card">
+    <svg width="32" height="32" viewBox="0 0 80 80" fill="none"><path d="M24 32 L28 44 L34 34 L40 58 L46 28 L52 40 L56 18" stroke="#c45d3e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    <p>C</p>
+  </div>
+</div>
+
+</body>
+</html>

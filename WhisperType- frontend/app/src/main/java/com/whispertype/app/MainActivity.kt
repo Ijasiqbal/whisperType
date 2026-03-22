@@ -219,7 +219,7 @@ class MainActivity : ComponentActivity() {
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
-                        color = Color(0xFF6366F1)
+                        color = Color(0xFFC45D3E)
                     )
                 }
             }
@@ -495,15 +495,15 @@ fun MainScreen(
                     .shadow(
                         elevation = 16.dp,
                         shape = CircleShape,
-                        ambientColor = Color(0xFF6366F1).copy(alpha = 0.3f),
-                        spotColor = Color(0xFF6366F1).copy(alpha = 0.3f)
+                        ambientColor = Color(0xFFC45D3E).copy(alpha = 0.3f),
+                        spotColor = Color(0xFFC45D3E).copy(alpha = 0.3f)
                     )
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF6366F1),
-                                Color(0xFF8B5CF6)
+                                Color(0xFFC45D3E),
+                                Color(0xFFD4845A)
                             )
                         )
                     ),
@@ -513,7 +513,7 @@ fun MainScreen(
                     painter = painterResource(id = R.drawable.ic_microphone),
                     contentDescription = "Vozcribe Icon",
                     tint = Color.White,
-                    modifier = Modifier.size(50.dp)
+                    modifier = Modifier.size(70.dp)
                 )
             }
         }
@@ -824,7 +824,7 @@ fun MainScreen(
                                     }
                                 },
                                 colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color(0xFF6366F1),
+                                    checkedThumbColor = Color(0xFFC45D3E),
                                     checkedTrackColor = Color(0xFFE0E7FF)
                                 )
                             )
@@ -1116,7 +1116,7 @@ fun MainScreen(
                             ).show()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6366F1)
+                            containerColor = Color(0xFFC45D3E)
                         )
                     ) {
                         Text("Enable")
@@ -1207,7 +1207,7 @@ fun MainScreen(
                             onIgnoreBatteryOptimizations()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6366F1)
+                            containerColor = Color(0xFFC45D3E)
                         )
                     ) {
                         Text("Open Settings")
@@ -1427,8 +1427,8 @@ fun AppWithBottomNav(
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color(0xFF6366F1),
-                            selectedTextColor = Color(0xFF6366F1),
+                            selectedIconColor = Color(0xFFC45D3E),
+                            selectedTextColor = Color(0xFFC45D3E),
                             unselectedIconColor = Color(0xFF94A3B8),
                             unselectedTextColor = Color(0xFF94A3B8),
                             indicatorColor = Color(0xFFEEF2FF)
@@ -1601,7 +1601,7 @@ fun PermissionStep(
             modifier = Modifier.height(36.dp).padding(start = 8.dp),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isGranted) Color(0xFF10B981) else Color(0xFF6366F1),
+                containerColor = if (isGranted) Color(0xFF10B981) else Color(0xFFC45D3E),
                 disabledContainerColor = Color(0xFF10B981)
             ),
             contentPadding = PaddingValues(horizontal = 16.dp)
@@ -1682,7 +1682,7 @@ fun UsageStep(number: String, text: String) {
             text = "$number.",
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF6366F1),
+            color = Color(0xFFC45D3E),
             modifier = Modifier.width(24.dp)
         )
         Text(
@@ -1723,7 +1723,7 @@ fun checkAccessibilityEnabled(context: Context): Boolean {
 fun WhisperTypeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = lightColorScheme(
-            primary = Color(0xFF6366F1),
+            primary = Color(0xFFC45D3E),
             onPrimary = Color.White,
             secondary = Color(0xFF10B981),
             background = Color(0xFFF8FAFC),

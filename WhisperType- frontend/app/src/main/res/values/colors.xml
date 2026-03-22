@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Primary brand colors -->
-    <color name="primary">#6366F1</color>
-    <color name="primary_variant">#4F46E5</color>
+    <color name="primary">#c45d3e</color>
+    <color name="primary_variant">#a84832</color>
     <color name="on_primary">#FFFFFF</color>
     
     <!-- Secondary colors -->
@@ -23,7 +23,7 @@
     
     <!-- Overlay specific colors -->
     <color name="overlay_background">#1E293B</color>
-    <color name="overlay_background_listening">#4F46E5</color>
+    <color name="overlay_background_listening">#a84832</color>
     <color name="overlay_mic_icon">#FFFFFF</color>
     <color name="overlay_text">#F1F5F9</color>
     

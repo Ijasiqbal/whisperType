@@ -123,15 +123,15 @@ fun LoginScreen(
                         .shadow(
                             elevation = 16.dp,
                             shape = CircleShape,
-                            ambientColor = Color(0xFF6366F1).copy(alpha = 0.3f),
-                            spotColor = Color(0xFF6366F1).copy(alpha = 0.3f)
+                            ambientColor = Color(0xFFC45D3E).copy(alpha = 0.3f),
+                            spotColor = Color(0xFFC45D3E).copy(alpha = 0.3f)
                         )
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
                                 colors = listOf(
-                                    Color(0xFF6366F1),
-                                    Color(0xFF8B5CF6)
+                                    Color(0xFFC45D3E),
+                                    Color(0xFFD4845A)
                                 )
                             )
                         ),
@@ -214,12 +214,12 @@ fun LoginScreen(
                                 .shadow(
                                     elevation = 8.dp,
                                     shape = RoundedCornerShape(12.dp),
-                                    ambientColor = Color(0xFF6366F1).copy(alpha = 0.4f),
-                                    spotColor = Color(0xFF6366F1).copy(alpha = 0.4f)
+                                    ambientColor = Color(0xFFC45D3E).copy(alpha = 0.4f),
+                                    spotColor = Color(0xFFC45D3E).copy(alpha = 0.4f)
                                 ),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF6366F1)
+                                containerColor = Color(0xFFC45D3E)
                             ),
                             enabled = !isLoading
                         ) {

@@ -94,7 +94,7 @@ private fun MainDialogContent(
             Icon(
                 imageVector = Icons.Filled.Mic,
                 contentDescription = "Voice Input",
-                tint = Color(0xFF6366F1), // Indigo-500
+                tint = Color(0xFFC45D3E), // Indigo-500
                 modifier = Modifier.size(36.dp)
             )
         }
@@ -190,7 +190,7 @@ private fun MainDialogContent(
                 .height(50.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF6366F1) // Indigo-500
+                containerColor = Color(0xFFC45D3E) // Indigo-500
             )
         ) {
             Text(
@@ -211,7 +211,7 @@ private fun MainDialogContent(
                     .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF6366F1) // Indigo-500
+                    contentColor = Color(0xFFC45D3E) // Indigo-500
                 )
             ) {
                 Icon(
