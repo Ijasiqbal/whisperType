@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -35,6 +36,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
+
+private val PillShape = RoundedCornerShape(50)
 
 @Composable
 fun PendingScreen(
@@ -295,43 +298,108 @@ private fun PendingTranscriptionCard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Retry and Delete buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (isRetrying) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp,
-                            color = Color(0xFF6366F1)
-                        )
-                    } else {
-                        // Retry button
+                // Three pill buttons: Retry, Model, Delete
+                if (isRetrying) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = Color(0xFF6366F1)
+                    )
+                } else {
+                    var showModelMenu by remember { mutableStateOf(false) }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Retry pill (filled)
                         Button(
                             onClick = { onRetry(null) },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF6366F1)
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = PillShape,
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(32.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Retry", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Retry", fontSize = 12.sp)
                         }
-                    }
 
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = Color(0xFF94A3B8)
-                        )
+                        // Model picker pill (outlined)
+                        Box {
+                            OutlinedButton(
+                                onClick = { showModelMenu = true },
+                                shape = PillShape,
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF6366F1)
+                                ),
+                                border = ButtonDefaults.outlinedButtonBorder(enabled = true),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text(
+                                    text = try {
+                                        ShortcutPreferences.ModelTier.valueOf(entry.failedModelTier).displayName
+                                    } catch (_: Exception) { entry.failedModelTier },
+                                    fontSize = 12.sp
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showModelMenu,
+                                onDismissRequest = { showModelMenu = false }
+                            ) {
+                                ShortcutPreferences.ModelTier.entries.forEach { tier ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "${tier.displayName} (${tier.creditCost})" +
+                                                    if (tier.name == entry.failedModelTier) " - failed" else ""
+                                            )
+                                        },
+                                        onClick = {
+                                            showModelMenu = false
+                                            onRetry(tier)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // Delete pill (ghost)
+                        TextButton(
+                            onClick = onDelete,
+                            shape = PillShape,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                modifier = Modifier.size(14.dp),
+                                tint = Color(0xFF94A3B8)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "Delete",
+                                fontSize = 12.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
                     }
                 }
             }

@@ -204,6 +204,9 @@ class OverlayService : Service() {
     private var retryButtonRef: WeakReference<Button>? = null
     private val retryButton: Button? get() = retryButtonRef?.get()
 
+    private var modelPickerButtonRef: WeakReference<Button>? = null
+    private val modelPickerButton: Button? get() = modelPickerButtonRef?.get()
+
     private var saveForLaterButtonRef: WeakReference<Button>? = null
     private val saveForLaterButton: Button? get() = saveForLaterButtonRef?.get()
 
@@ -301,8 +304,11 @@ class OverlayService : Service() {
 
                 // Check if we have audio data (retryable error) vs permission/recording error
                 if (lastFailedAudioBytes != null && lastFailedAudioBytes!!.isNotEmpty()) {
-                    // Show retry + save buttons, do NOT auto-dismiss
+                    // Show retry + model + save pills, do NOT auto-dismiss
                     errorActionsRow?.visibility = View.VISIBLE
+                    // Update model picker label to show failed tier
+                    val tierName = lastFailedModelTier?.displayName ?: "Model"
+                    modelPickerButton?.text = tierName
                     Log.d(TAG, "Error with audio data available - showing retry options")
                 } else {
                     // No audio data (permission error, no audio recorded, etc.) - auto-dismiss
@@ -416,9 +422,10 @@ class OverlayService : Service() {
         // Linear waveform visualizer (inline in pill)
         linearWaveformRef = WeakReference(view.findViewById(R.id.linear_waveform))
 
-        // Error action row (retry + save for later)
+        // Error action row (retry + model picker + save)
         errorActionsRowRef = WeakReference(view.findViewById(R.id.error_actions_row))
         retryButtonRef = WeakReference(view.findViewById(R.id.btn_retry))
+        modelPickerButtonRef = WeakReference(view.findViewById(R.id.btn_model_picker))
         saveForLaterButtonRef = WeakReference(view.findViewById(R.id.btn_save_for_later))
         
         // Enable smooth layout transitions for state changes
@@ -749,8 +756,14 @@ class OverlayService : Service() {
             toggleOptionsMenu()
         }
 
-        // Retry button - tap retries with same model, shows popup for model selection
-        retryButton?.setOnClickListener { view ->
+        // Retry button - direct retry with same model
+        retryButton?.setOnClickListener {
+            val tier = lastFailedModelTier ?: ShortcutPreferences.getModelTier(this)
+            retryTranscription(tier)
+        }
+
+        // Model picker button - shows popup for model selection
+        modelPickerButton?.setOnClickListener { view ->
             showRetryModelPopup(view)
         }
 

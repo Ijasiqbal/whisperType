@@ -270,7 +270,7 @@ Layout (left to right):
 
         </LinearLayout>
 
-        <!-- Row 2: Error action buttons (hidden by default, shown on error) -->
+        <!-- Row 2: Error action pills (hidden by default, shown on error) -->
         <LinearLayout
             android:id="@+id/error_actions_row"
             android:layout_width="match_parent"
@@ -283,43 +283,64 @@ Layout (left to right):
             android:visibility="gone"
             tools:visibility="visible">
 
-            <!-- Retry button with dropdown arrow -->
+            <!-- Retry pill -->
             <Button
                 android:id="@+id/btn_retry"
                 android:layout_width="0dp"
-                android:layout_height="34dp"
+                android:layout_height="32dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="4dp"
                 android:text="Retry"
                 android:textColor="#FFFFFFFF"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 android:textAllCaps="false"
                 android:drawableStart="@drawable/ic_retry"
-                android:drawableEnd="@drawable/ic_arrow_drop_down"
-                android:drawablePadding="4dp"
+                android:drawablePadding="3dp"
                 android:drawableTint="#FFFFFFFF"
                 android:background="@drawable/retry_button_primary"
-                android:paddingStart="10dp"
-                android:paddingEnd="6dp" />
+                android:paddingStart="8dp"
+                android:paddingEnd="10dp" />
 
-            <!-- Save for later button -->
+            <!-- Model picker pill (outlined) -->
+            <Button
+                android:id="@+id/btn_model_picker"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:minWidth="0dp"
+                android:maxWidth="110dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:text="Model"
+                android:textColor="#CCFFFFFF"
+                android:textSize="11sp"
+                android:textAllCaps="false"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:drawableEnd="@drawable/ic_arrow_drop_down"
+                android:drawablePadding="2dp"
+                android:drawableTint="#CCFFFFFF"
+                android:background="@drawable/retry_button_model"
+                android:paddingStart="8dp"
+                android:paddingEnd="4dp" />
+
+            <!-- Save for later pill -->
             <Button
                 android:id="@+id/btn_save_for_later"
                 android:layout_width="0dp"
-                android:layout_height="34dp"
+                android:layout_height="32dp"
                 android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:text="Save for later"
+                android:layout_marginStart="4dp"
+                android:text="Save"
                 android:textColor="#CCFFFFFF"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textAllCaps="false"
                 android:drawableStart="@drawable/ic_save"
-                android:drawablePadding="4dp"
+                android:drawablePadding="3dp"
                 android:drawableTint="#CCFFFFFF"
                 android:background="@drawable/retry_button_secondary"
-                android:paddingStart="10dp"
-                android:paddingEnd="12dp" />
+                android:paddingStart="8dp"
+                android:paddingEnd="10dp" />
 
         </LinearLayout>
 

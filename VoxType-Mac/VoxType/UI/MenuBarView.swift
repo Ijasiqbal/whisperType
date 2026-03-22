@@ -382,15 +382,17 @@ struct PendingEntryRow: View {
 
                 Spacer()
 
-                // Delete button
-                Button {
-                    manager.delete(id: entry.id)
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+                // Delete button (only for completed entries; pending entries have delete in pill row)
+                if entry.status == .completed {
+                    Button {
+                        manager.delete(id: entry.id)
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             if entry.status == .completed, let text = entry.transcribedText {
@@ -419,7 +421,7 @@ struct PendingEntryRow: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                // Show error and retry button
+                // Show error and action pills
                 Text(entry.errorMessage)
                     .font(.system(size: 10))
                     .foregroundColor(.red)
@@ -430,25 +432,79 @@ struct PendingEntryRow: View {
                     ProgressView()
                         .controlSize(.mini)
                 } else {
-                    Button {
-                        isRetrying = true
-                        Task {
-                            await manager.retry(entry: entry)
-                            isRetrying = false
+                    HStack(spacing: 4) {
+                        // Retry pill (filled)
+                        Button {
+                            isRetrying = true
+                            Task {
+                                await manager.retry(entry: entry)
+                                isRetrying = false
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 9))
+                                Text("Retry")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.accentColor))
                         }
-                    } label: {
-                        HStack(spacing: 3) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 9))
-                            Text("Retry")
-                                .font(.system(size: 10, weight: .medium))
+                        .buttonStyle(.plain)
+
+                        // Model picker pill (outlined)
+                        Menu {
+                            ForEach(TranscriptionModel.allCases) { model in
+                                Button {
+                                    isRetrying = true
+                                    Task {
+                                        await manager.retry(entry: entry, withModel: model)
+                                        isRetrying = false
+                                    }
+                                } label: {
+                                    Text("\(model.shortName) (\(model.creditLabel))")
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 2) {
+                                Text(entry.failedModel)
+                                    .font(.system(size: 10, weight: .medium))
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 6, weight: .bold))
+                            }
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .strokeBorder(Color.secondary.opacity(0.4), lineWidth: 0.5)
+                            )
                         }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.accentColor))
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+
+                        // Delete pill (ghost)
+                        Button {
+                            manager.delete(id: entry.id)
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 9))
+                                Text("Delete")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundColor(.secondary.opacity(0.7))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.primary.opacity(0.05))
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }

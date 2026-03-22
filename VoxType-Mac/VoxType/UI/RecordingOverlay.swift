@@ -218,8 +218,28 @@ struct RecordingOverlayView: View {
                     .background(Color.white.opacity(0.15))
                     .padding(.horizontal, 12)
 
-                HStack(spacing: 8) {
-                    // Retry button with dropdown for model selection
+                HStack(spacing: 6) {
+                    // Retry pill (filled) — nil triggers retry with lastFailedModel internally
+                    Button(action: {
+                        service.retryWithModel(nil)
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Retry")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(.white.opacity(0.2))
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    // Model picker pill (outlined)
                     Menu {
                         ForEach(TranscriptionModel.allCases) { model in
                             Button {
@@ -235,41 +255,39 @@ struct RecordingOverlayView: View {
                             }
                         }
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text("Retry")
-                                .font(.system(size: 12, weight: .semibold))
+                        HStack(spacing: 3) {
+                            Text(service.lastFailedModel?.shortName ?? "Model")
+                                .font(.system(size: 11, weight: .medium))
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.system(size: 7, weight: .bold))
                         }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 10)
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(.horizontal, 8)
                         .padding(.vertical, 6)
                         .background(
                             Capsule()
-                                .fill(.white.opacity(0.2))
+                                .strokeBorder(.white.opacity(0.3), lineWidth: 1)
                         )
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
 
-                    // Save for later button
+                    // Save for later pill (ghost)
                     Button(action: {
                         service.saveForLater()
                     }) {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.down")
                                 .font(.system(size: 11, weight: .semibold))
-                            Text("Save for later")
+                            Text("Save")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(.white.opacity(0.6))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
                             Capsule()
-                                .fill(.white.opacity(0.1))
+                                .fill(.white.opacity(0.08))
                         )
                     }
                     .buttonStyle(.plain)
