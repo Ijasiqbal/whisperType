@@ -108,7 +108,30 @@ fun LoginScreen(
                 visible = isVisible,
                 enter = fadeIn(animationSpec = tween(800))
             ) {
-                WaveformOrb()
+                Box(
+                    modifier = Modifier
+                        .size(120.dp)
+                        .shadow(
+                            elevation = 24.dp,
+                            shape = CircleShape,
+                            ambientColor = Rust.copy(alpha = 0.2f),
+                            spotColor = Rust.copy(alpha = 0.3f)
+                        )
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(Rust, RustLight, RustAmber)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_microphone),
+                        contentDescription = "Vozcribe",
+                        tint = Color.White,
+                        modifier = Modifier.size(84.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(40.dp))
@@ -254,92 +277,3 @@ fun LoginScreen(
     }
 }
 
-/**
- * Animated waveform orb — voice visualization motif inside a soft circle.
- * Uses sine-based animation with phase offsets per bar for organic movement.
- */
-@Composable
-private fun WaveformOrb() {
-    val infiniteTransition = rememberInfiniteTransition(label = "waveform")
-
-    // Single animated phase that drives all bars
-    val phase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "phase"
-    )
-
-    // Bar configuration: (height fraction at rest, phase offset, width)
-    val bars = listOf(
-        Triple(0.25f, 0.0f, 4.dp),
-        Triple(0.40f, 0.7f, 4.dp),
-        Triple(0.55f, 1.4f, 4.dp),
-        Triple(0.80f, 2.1f, 5.dp),
-        Triple(1.00f, 2.8f, 5.dp),
-        Triple(0.80f, 3.5f, 5.dp),
-        Triple(0.55f, 4.2f, 4.dp),
-        Triple(0.40f, 4.9f, 4.dp),
-        Triple(0.25f, 5.6f, 4.dp),
-    )
-
-    val maxBarHeight = 44.dp
-    val orbSize = 120.dp
-
-    Box(
-        modifier = Modifier
-            .size(orbSize)
-            .shadow(
-                elevation = 24.dp,
-                shape = CircleShape,
-                ambientColor = Rust.copy(alpha = 0.2f),
-                spotColor = Rust.copy(alpha = 0.3f)
-            )
-            .clip(CircleShape)
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(Rust, RustLight, RustAmber)
-                )
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            bars.forEach { (restFraction, offset, width) ->
-                WaveformBar(
-                    phase = phase,
-                    phaseOffset = offset,
-                    restFraction = restFraction,
-                    maxHeight = maxBarHeight,
-                    width = width
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WaveformBar(
-    phase: Float,
-    phaseOffset: Float,
-    restFraction: Float,
-    maxHeight: Dp,
-    width: Dp
-) {
-    // Oscillate between 30% and 100% of the bar's rest height
-    val animatedFraction = restFraction * (0.3f + 0.7f * ((sin(phase + phaseOffset) + 1f) / 2f))
-    val height = maxHeight * animatedFraction
-
-    Box(
-        modifier = Modifier
-            .width(width)
-            .height(height)
-            .clip(RoundedCornerShape(50))
-            .background(Color.White.copy(alpha = 0.9f))
-    )
-}

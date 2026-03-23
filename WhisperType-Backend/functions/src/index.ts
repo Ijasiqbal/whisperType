@@ -194,6 +194,8 @@ const DEFAULT_TRIAL_DURATION_MONTHS = 3;
 const DEFAULT_PRO_PRODUCT_ID = "whispertype_pro_monthly";
 const ADMIN_GRANTED_TOKEN = "admin_granted";
 const DEFAULT_GUEST_LOGIN_ENABLED = false;
+// ~10MB audio limit (base64 is ~33% larger, so 13.5MB string ≈ 10MB audio)
+const MAX_AUDIO_BASE64_LENGTH = 13.5 * 1024 * 1024;
 
 /**
  * Get credit limit for a specific product ID.
@@ -1576,6 +1578,12 @@ export const transcribeAudio = onRequest(
         return;
       }
 
+      if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
+        response.status(413).json({error: "Audio file too large"});
+        return;
+      }
+
       // Validate audio format - use validated format or default to m4a
       const validFormats = [
         "wav", "m4a", "mp3", "webm", "mp4", "mpeg", "mpga", "ogg",
@@ -1773,6 +1781,12 @@ export const transcribeAudioGroq = onRequest(
         response.status(400).json({
           error: "Missing or invalid audioBase64 field in request body",
         });
+        return;
+      }
+
+      if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
+        response.status(413).json({error: "Audio file too large"});
         return;
       }
 
@@ -1981,6 +1995,12 @@ export const transcribeAudioTwoStage = onRequest(
         response.status(400).json({
           error: "Missing or invalid audioBase64 field in request body",
         });
+        return;
+      }
+
+      if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
+        await logTranscriptionRequest(uid, false, Date.now() - startTime);
+        response.status(413).json({error: "Audio file too large"});
         return;
       }
 

@@ -369,9 +369,9 @@ private fun PlanCard(
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             text = plan.price,
-                            style = if (plan.isPopular) MaterialTheme.typography.displayMedium
-                                    else MaterialTheme.typography.displaySmall,
-                            color = if (plan.isPopular) Rust else Slate800
+                            style = MaterialTheme.typography.displaySmall,
+                            color = if (plan.isPopular) Rust else Slate800,
+                            maxLines = 1
                         )
                         Text(
                             text = "/mo",

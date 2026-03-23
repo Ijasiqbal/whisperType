@@ -67,6 +67,7 @@ import com.whispertype.app.auth.AuthState
 import com.whispertype.app.auth.FirebaseAuthManager
 import com.whispertype.app.service.OverlayService
 import com.whispertype.app.ui.LoginScreen
+import com.whispertype.app.ui.SplashScreen
 import com.whispertype.app.ui.ProfileScreen
 import com.whispertype.app.ui.PlanScreen
 import com.whispertype.app.ui.ReportIssueBottomSheet
@@ -147,61 +148,87 @@ class MainActivity : ComponentActivity() {
                     // Use MainViewModel instead of direct manager access
                     val mainViewModel: MainViewModel = hiltViewModel()
                     val lifecycleOwner = LocalLifecycleOwner.current
-                    
+
                     // Observe auth state from ViewModel
                     val authState by mainViewModel.authState.collectAsStateWithLifecycle()
-                    
-                    // Proactive refresh on app resume - fixes "data not updating" issue
-                    LaunchedEffect(lifecycleOwner, authState) {
-                        // Only refresh when authenticated
-                        if (authState is AuthState.Authenticated) {
-                            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                                mainViewModel.refreshUserStatus()
+
+                    // Splash: entrance (2s) → exit animation → done
+                    var splashMinTimePassed by remember { mutableStateOf(false) }
+                    var startSplashExit by remember { mutableStateOf(false) }
+                    var splashDone by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(Unit) {
+                        delay(2200) // hold splash for entrance + breathing room
+                        splashMinTimePassed = true
+                    }
+
+                    // Trigger exit once min time passed and auth resolved
+                    LaunchedEffect(splashMinTimePassed, authState) {
+                        if (splashMinTimePassed && authState !is AuthState.Loading) {
+                            startSplashExit = true
+                        }
+                    }
+
+                    if (!splashDone) {
+                        SplashScreen(
+                            startExit = startSplashExit,
+                            onExitComplete = { splashDone = true }
+                        )
+                    }
+
+                    if (splashDone) {
+                        // Proactive refresh on app resume - fixes "data not updating" issue
+                        LaunchedEffect(lifecycleOwner, authState) {
+                            // Only refresh when authenticated
+                            if (authState is AuthState.Authenticated) {
+                                lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                                    mainViewModel.refreshUserStatus()
+                                }
                             }
                         }
-                    }
-                    
-                    // Observe update config from Remote Config
-                    val updateConfig by RemoteConfigManager.updateConfig.collectAsStateWithLifecycle()
-                    
-                    // Check if force update is required
-                    val updateStatus = ForceUpdateChecker.checkUpdateStatus(
-                        currentVersionCode = BuildConfig.VERSION_CODE,
-                        config = updateConfig
-                    )
-                    
-                    // State for showing soft update dialog
-                    var showSoftUpdateDialog by remember { mutableStateOf(false) }
-                    
-                    // Show soft update dialog once per session if needed
-                    LaunchedEffect(updateStatus) {
-                        if (updateStatus == ForceUpdateChecker.UpdateStatus.SOFT_UPDATE && !showSoftUpdateDialog) {
-                            showSoftUpdateDialog = true
+
+                        // Observe update config from Remote Config
+                        val updateConfig by RemoteConfigManager.updateConfig.collectAsStateWithLifecycle()
+
+                        // Check if force update is required
+                        val updateStatus = ForceUpdateChecker.checkUpdateStatus(
+                            currentVersionCode = BuildConfig.VERSION_CODE,
+                            config = updateConfig
+                        )
+
+                        // State for showing soft update dialog
+                        var showSoftUpdateDialog by remember { mutableStateOf(false) }
+
+                        // Show soft update dialog once per session if needed
+                        LaunchedEffect(updateStatus) {
+                            if (updateStatus == ForceUpdateChecker.UpdateStatus.SOFT_UPDATE && !showSoftUpdateDialog) {
+                                showSoftUpdateDialog = true
+                            }
                         }
-                    }
-                    
-                    // Handle update status
-                    when (updateStatus) {
-                        ForceUpdateChecker.UpdateStatus.FORCE_UPDATE -> {
-                            // Show blocking force update dialog
-                            ForceUpdateDialog(
-                                title = updateConfig.forceUpdateTitle,
-                                message = updateConfig.forceUpdateMessage
-                            )
-                        }
-                        ForceUpdateChecker.UpdateStatus.SOFT_UPDATE -> {
-                            // Show soft update dialog (dismissible)
-                            if (showSoftUpdateDialog) {
-                                SoftUpdateDialog(
-                                    onDismiss = { showSoftUpdateDialog = false }
+
+                        // Handle update status
+                        when (updateStatus) {
+                            ForceUpdateChecker.UpdateStatus.FORCE_UPDATE -> {
+                                // Show blocking force update dialog
+                                ForceUpdateDialog(
+                                    title = updateConfig.forceUpdateTitle,
+                                    message = updateConfig.forceUpdateMessage
                                 )
                             }
-                            // Continue showing normal app content
-                            AppContent(authState)
-                        }
-                        ForceUpdateChecker.UpdateStatus.UP_TO_DATE -> {
-                            // Show normal app content
-                            AppContent(authState)
+                            ForceUpdateChecker.UpdateStatus.SOFT_UPDATE -> {
+                                // Show soft update dialog (dismissible)
+                                if (showSoftUpdateDialog) {
+                                    SoftUpdateDialog(
+                                        onDismiss = { showSoftUpdateDialog = false }
+                                    )
+                                }
+                                // Continue showing normal app content
+                                AppContent(authState)
+                            }
+                            ForceUpdateChecker.UpdateStatus.UP_TO_DATE -> {
+                                // Show normal app content
+                                AppContent(authState)
+                            }
                         }
                     }
                 }
@@ -213,15 +240,8 @@ class MainActivity : ComponentActivity() {
     private fun AppContent(authState: AuthState) {
         when (authState) {
             is AuthState.Loading -> {
-                // Show loading while checking auth state
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = Rust
-                    )
-                }
+                // Animated splash screen while checking auth state
+                SplashScreen()
             }
             is AuthState.Unauthenticated -> {
                 // Show login screen
