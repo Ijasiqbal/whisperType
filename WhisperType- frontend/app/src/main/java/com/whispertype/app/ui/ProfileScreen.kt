@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -181,57 +180,41 @@ fun ProfileScreen(
             ) {
                 Column {
                     if (usageState.isProUser) {
-                        ProStatusCard(usageState, onManageSubscription)
+                        UnifiedProCard(usageState, onManageSubscription)
                     } else {
-                        TrialStatusCard(usageState)
+                        UnifiedTrialCard(usageState)
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                    // ── Usage arc card ────────────────────────
-                    UsageArcCard(usageState)
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // ── Info row: last transcription + extra info ─
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Last transcription mini card
-                        if (usageState.lastCreditsUsed > 0) {
-                            MiniStatCard(
-                                label = "Last session",
-                                value = "${usageState.lastCreditsUsed}",
-                                sublabel = "credits used",
-                                icon = {
-                                    Icon(
-                                        imageVector = Icons.Filled.Edit,
-                                        contentDescription = null,
-                                        tint = Rust,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        // Last updated mini card
-                        if (usageState.lastUpdated > 0) {
-                            MiniStatCard(
-                                label = "Updated",
-                                value = formatTimestamp(usageState.lastUpdated),
-                                sublabel = "",
-                                icon = {
-                                    Icon(
-                                        imageVector = Icons.Filled.DateRange,
-                                        contentDescription = null,
-                                        tint = Rust,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
+                    // ── Inline footer stats ─────────────────────
+                    if (usageState.lastCreditsUsed > 0 || usageState.lastUpdated > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (usageState.lastCreditsUsed > 0) {
+                                Text(
+                                    text = "Last session: ${usageState.lastCreditsUsed} credits",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Slate400
+                                )
+                            }
+                            if (usageState.lastCreditsUsed > 0 && usageState.lastUpdated > 0) {
+                                Text(
+                                    text = "  ·  ",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Slate300
+                                )
+                            }
+                            if (usageState.lastUpdated > 0) {
+                                Text(
+                                    text = "Updated ${formatTimestamp(usageState.lastUpdated)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Slate400
+                                )
+                            }
                         }
                     }
 
@@ -286,182 +269,59 @@ fun ProfileScreen(
     }
 }
 
-// ── Usage Arc Card ──────────────────────────────────────────────────
+// ── Shared Usage Arc Gauge ──────────────────────────────────────────
 
 @Composable
-private fun UsageArcCard(usageState: UsageDataManager.UsageState) {
-    val usedCount: Int
-    val totalCount: Int
-    val label: String
-
-    if (usageState.isProUser) {
-        usedCount = usageState.proCreditsUsed
-        totalCount = usageState.proCreditsLimit
-        label = "credits used this cycle"
-    } else {
-        usedCount = usageState.freeCreditsUsed
-        totalCount = usageState.freeTierCredits
-        label = "free credits used"
-    }
-
-    val targetProgress = if (totalCount > 0) {
-        (usedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
-    } else 0f
-
-    // Animate the arc sweep
-    val animatedProgress by animateFloatAsState(
-        targetValue = if (usageState.isLoading) 0f else targetProgress,
-        animationSpec = tween(1200, easing = FastOutSlowInEasing),
-        label = "arc_progress"
-    )
-
-    val arcColor = when (usageState.warningLevel) {
-        UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> ErrorDark
-        UsageDataManager.WarningLevel.EIGHTY_PERCENT -> WarningOrange
-        UsageDataManager.WarningLevel.FIFTY_PERCENT -> WarningYellow
-        else -> Rust
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = WarmWhite),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Usage This Month",
-                style = MaterialTheme.typography.titleSmall,
-                color = Slate500
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Arc chart
-            Box(
-                modifier = Modifier.size(160.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                val trackColor = Slate200
-                val strokeWidth = with(LocalDensity.current) { 10.dp.toPx() }
-
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val diameter = size.minDimension
-                    val arcSize = Size(diameter, diameter)
-                    val topLeft = Offset(
-                        (size.width - diameter) / 2f,
-                        (size.height - diameter) / 2f
-                    )
-
-                    // Track (full arc — 240 degrees, centered at bottom)
-                    drawArc(
-                        color = trackColor,
-                        startAngle = 150f,
-                        sweepAngle = 240f,
-                        useCenter = false,
-                        topLeft = topLeft,
-                        size = arcSize,
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-
-                    // Progress arc
-                    if (animatedProgress > 0f) {
-                        drawArc(
-                            color = arcColor,
-                            startAngle = 150f,
-                            sweepAngle = 240f * animatedProgress,
-                            useCenter = false,
-                            topLeft = topLeft,
-                            size = arcSize,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                        )
-                    }
-                }
-
-                // Center text
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (usageState.isLoading) {
-                        SkeletonText(width = 60.dp, height = 36.dp)
-                    } else {
-                        Text(
-                            text = "$usedCount",
-                            style = MaterialTheme.typography.displayMedium,
-                            color = Slate800
-                        )
-                    }
-                    Text(
-                        text = "of $totalCount",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Slate400
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Slate500
-            )
-        }
-    }
-}
-
-// ── Mini stat card ──────────────────────────────────────────────────
-
-@Composable
-private fun MiniStatCard(
-    label: String,
-    value: String,
-    sublabel: String,
-    icon: @Composable () -> Unit,
+private fun UsageArcGauge(
+    animatedProgress: Float,
+    trackColor: Color,
+    arcColor: Color,
+    centerContent: @Composable () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = WarmWhite),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    Box(
+        modifier = modifier.size(120.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                icon()
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Slate400
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge,
-                color = Slate800
+        val strokeWidth = with(LocalDensity.current) { 8.dp.toPx() }
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val diameter = size.minDimension
+            val arcSize = Size(diameter, diameter)
+            val topLeft = Offset(
+                (size.width - diameter) / 2f,
+                (size.height - diameter) / 2f
             )
-            if (sublabel.isNotEmpty()) {
-                Text(
-                    text = sublabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Slate400
+            drawArc(
+                color = trackColor,
+                startAngle = 150f,
+                sweepAngle = 240f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+            )
+            if (animatedProgress > 0f) {
+                drawArc(
+                    color = arcColor,
+                    startAngle = 150f,
+                    sweepAngle = 240f * animatedProgress,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                 )
             }
         }
+
+        centerContent()
     }
 }
 
-// ── Trial Status Card ───────────────────────────────────────────────
+// ── Unified Trial Card (arc + stats in one) ────────────────────────
 
 @Composable
-private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
+private fun UnifiedTrialCard(usageState: UsageDataManager.UsageState) {
     val progressColor = when (usageState.warningLevel) {
         UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT -> ErrorDark
         UsageDataManager.WarningLevel.EIGHTY_PERCENT -> WarningOrange
@@ -471,20 +331,25 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
 
     val warningMessage = when (usageState.warningLevel) {
         UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT ->
-            "You're almost out of free credits!"
+            "Almost out of free credits!"
         UsageDataManager.WarningLevel.EIGHTY_PERCENT ->
-            "80% of your free credits used"
+            "80% of free credits used"
         UsageDataManager.WarningLevel.FIFTY_PERCENT ->
-            "50% of your free credits used"
+            "50% of free credits used"
         else -> null
     }
 
-    val warningIcon = when (usageState.warningLevel) {
-        UsageDataManager.WarningLevel.NINETY_FIVE_PERCENT,
-        UsageDataManager.WarningLevel.EIGHTY_PERCENT -> Icons.Filled.Warning
-        UsageDataManager.WarningLevel.FIFTY_PERCENT -> Icons.Filled.Info
-        else -> null
-    }
+    val usedCount = usageState.freeCreditsUsed
+    val totalCount = usageState.freeTierCredits
+    val targetProgress = if (totalCount > 0) {
+        (usedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
+    } else 0f
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = if (usageState.isLoading) 0f else targetProgress,
+        animationSpec = tween(1200, delayMillis = 400, easing = FastOutSlowInEasing),
+        label = "arc_progress"
+    )
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -494,9 +359,8 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Header row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -507,13 +371,11 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                     style = MaterialTheme.typography.titleMedium,
                     color = Slate700
                 )
-
                 val (badgeColor, badgeText) = if (usageState.isTrialValid) {
                     Success to "Active"
                 } else {
                     ErrorDark to "Expired"
                 }
-
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = badgeColor.copy(alpha = 0.1f)
@@ -529,86 +391,86 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Progress bar
-            val progress = (usageState.usagePercentage / 100f).coerceIn(0f, 1f)
-            @Suppress("DEPRECATION")
-            LinearProgressIndicator(
-                progress = progress,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = progressColor,
-                trackColor = Slate200
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Credits display
+            // Arc + stats row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    if (usageState.isLoading) {
-                        SkeletonText(width = 70.dp, height = 36.dp)
-                    } else {
-                        Text(
-                            text = "${usageState.freeCreditsRemaining}",
-                            style = MaterialTheme.typography.displaySmall,
-                            color = Slate800
-                        )
+                UsageArcGauge(
+                    animatedProgress = animatedProgress,
+                    trackColor = Slate200,
+                    arcColor = progressColor,
+                    centerContent = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (usageState.isLoading) {
+                                SkeletonText(width = 40.dp, height = 24.dp)
+                            } else {
+                                Text(
+                                    text = "${usageState.freeCreditsRemaining}",
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    color = Slate800
+                                )
+                            }
+                            Text(
+                                text = "left",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Slate400
+                            )
+                        }
                     }
-                    Text(
-                        text = "credits remaining",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Slate500
-                    )
-                }
+                )
 
-                Column(horizontalAlignment = Alignment.End) {
-                    if (usageState.isLoading) {
-                        SkeletonText(width = 50.dp, height = 24.dp)
-                    } else {
-                        Text(
-                            text = "${usageState.freeCreditsUsed}",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Slate400
-                        )
-                    }
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Stats on the right
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "of ${usageState.freeTierCredits} used",
+                        text = "$usedCount of $totalCount",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Slate700
+                    )
+                    Text(
+                        text = "credits used",
                         style = MaterialTheme.typography.bodySmall,
                         color = Slate400
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    @Suppress("DEPRECATION")
+                    LinearProgressIndicator(
+                        progress = targetProgress,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = progressColor,
+                        trackColor = Slate200
+                    )
+
+                    // Expiry date
+                    if (usageState.trialExpiryDateMs > 0) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.DateRange,
+                                contentDescription = null,
+                                tint = Slate400,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Expires ${formatTrialExpiry(usageState.trialExpiryDateMs)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Slate500
+                            )
+                        }
+                    }
                 }
             }
 
-            // Trial expiry
-            if (usageState.trialExpiryDateMs > 0) {
-                Spacer(modifier = Modifier.height(14.dp))
-                Divider(color = Slate200)
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Filled.DateRange,
-                        contentDescription = null,
-                        tint = Slate400,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Expires ${formatTrialExpiry(usageState.trialExpiryDateMs)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Slate500
-                    )
-                }
-            }
-
-            // Warning
-            if (warningMessage != null && warningIcon != null && usageState.isTrialValid) {
+            // Warning banner
+            if (warningMessage != null && usageState.isTrialValid) {
                 Spacer(modifier = Modifier.height(14.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -620,15 +482,16 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = warningIcon,
+                            imageVector = if (usageState.warningLevel == UsageDataManager.WarningLevel.FIFTY_PERCENT)
+                                Icons.Filled.Info else Icons.Filled.Warning,
                             contentDescription = null,
                             tint = progressColor,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = warningMessage,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = progressColor
                         )
                     }
@@ -638,16 +501,24 @@ private fun TrialStatusCard(usageState: UsageDataManager.UsageState) {
     }
 }
 
-// ── PRO Status Card ─────────────────────────────────────────────────
+// ── Unified PRO Card (arc + stats in one) ──────────────────────────
 
 @Composable
-private fun ProStatusCard(
+private fun UnifiedProCard(
     usageState: UsageDataManager.UsageState,
     onManageSubscription: () -> Unit
 ) {
-    val usagePercentage = if (usageState.proCreditsLimit > 0) {
-        (usageState.proCreditsUsed.toFloat() / usageState.proCreditsLimit.toFloat())
+    val usedCount = usageState.proCreditsUsed
+    val totalCount = usageState.proCreditsLimit
+    val targetProgress = if (totalCount > 0) {
+        (usedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
     } else 0f
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = if (usageState.isLoading) 0f else targetProgress,
+        animationSpec = tween(1200, delayMillis = 400, easing = FastOutSlowInEasing),
+        label = "arc_progress"
+    )
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -666,6 +537,7 @@ private fun ProStatusCard(
                 .padding(20.dp)
         ) {
             Column {
+                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -676,7 +548,6 @@ private fun ProStatusCard(
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White.copy(alpha = 0.9f)
                     )
-
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = Color.White.copy(alpha = 0.15f)
@@ -692,105 +563,128 @@ private fun ProStatusCard(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                @Suppress("DEPRECATION")
-                LinearProgressIndicator(
-                    progress = usagePercentage.coerceIn(0f, 1f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp)),
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.25f)
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
+                // Arc + stats row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "${usageState.proCreditsUsed} / ${usageState.proCreditsLimit}",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White
+                    UsageArcGauge(
+                        animatedProgress = animatedProgress,
+                        trackColor = Color.White.copy(alpha = 0.2f),
+                        arcColor = Color.White,
+                        centerContent = {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                if (usageState.isLoading) {
+                                    SkeletonText(width = 40.dp, height = 24.dp)
+                                } else {
+                                    Text(
+                                        text = "${usageState.proCreditsRemaining}",
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        color = Color.White
+                                    )
+                                }
+                                Text(
+                                    text = "left",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
                     )
-                    Text(
-                        text = "${usageState.proCreditsRemaining} left",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    // Stats on the right
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "$usedCount / $totalCount",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "credits used this cycle",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        @Suppress("DEPRECATION")
+                        LinearProgressIndicator(
+                            progress = targetProgress.coerceIn(0f, 1f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = Color.White,
+                            trackColor = Color.White.copy(alpha = 0.25f)
+                        )
+
+                        // Reset date
+                        if (usageState.proResetDateMs > 0) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.DateRange,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = getResetCountdown(usageState.proResetDateMs),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                            }
+                        }
+                    }
                 }
 
+                // Member since + manage
                 Spacer(modifier = Modifier.height(16.dp))
                 Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Reset date
-                if (usageState.proResetDateMs > 0) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.DateRange,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = getResetCountdown(usageState.proResetDateMs),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                    }
-                }
-
-                // Member since
-                if (usageState.proSubscriptionStartDateMs > 0) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.Star,
-                            contentDescription = null,
-                            tint = Gold.copy(alpha = 0.8f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Member since ${formatMemberSince(usageState.proSubscriptionStartDateMs)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Manage subscription
-                OutlinedButton(
-                    onClick = onManageSubscription,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
-                    ),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        brush = Brush.linearGradient(
-                            listOf(
-                                Color.White.copy(alpha = 0.4f),
-                                Color.White.copy(alpha = 0.4f)
-                            )
-                        )
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Settings,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Manage Subscription",
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    if (usageState.proSubscriptionStartDateMs > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = Gold.copy(alpha = 0.8f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Since ${formatMemberSince(usageState.proSubscriptionStartDateMs)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                        }
+                    }
+
+                    TextButton(
+                        onClick = onManageSubscription,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Manage",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 }
             }
         }

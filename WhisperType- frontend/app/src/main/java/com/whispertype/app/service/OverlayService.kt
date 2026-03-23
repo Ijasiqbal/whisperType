@@ -246,6 +246,9 @@ class OverlayService : Service() {
     
     // Recording animation (subtle pulse to indicate recording is active)
     private var recordingPulseAnimator: ObjectAnimator? = null
+
+    // Pill border pulse during recording (opacity 0.6 → 1.0)
+    private var pillBorderPulseAnimator: ObjectAnimator? = null
     
     @Volatile
     private var isSpeaking = false
@@ -610,6 +613,7 @@ class OverlayService : Service() {
         // Clean up animators
         stopRingAnimations()
         stopSuccessAnimation()
+        stopPillBorderPulse()
     }
     
     /**
@@ -1120,7 +1124,34 @@ class OverlayService : Service() {
             setLayerType(View.LAYER_TYPE_NONE, null)
         }
     }
-    
+
+    /**
+     * Pulse only the pill background drawable alpha during recording.
+     * Targets the background drawable rather than View.ALPHA to avoid
+     * fading the entire overlay content (text, icons, waveform).
+     */
+    private fun startPillBorderPulse() {
+        stopPillBorderPulse()
+        pillContainer?.background?.mutate()?.let { bg ->
+            pillBorderPulseAnimator = ObjectAnimator.ofInt(bg, "alpha", 255, 153).apply {
+                duration = 1200L
+                repeatCount = ObjectAnimator.INFINITE
+                repeatMode = ObjectAnimator.REVERSE
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        }
+    }
+
+    /**
+     * Stop pill border pulse and reset background alpha
+     */
+    private fun stopPillBorderPulse() {
+        pillBorderPulseAnimator?.cancel()
+        pillBorderPulseAnimator = null
+        pillContainer?.background?.alpha = 255
+    }
+
     /**
      * Play success checkmark animation
      * Scales the checkmark from 0 to 1 with a satisfying overshoot bounce
@@ -1285,11 +1316,13 @@ class OverlayService : Service() {
                 // Reset animations
                 stopRingAnimations()
                 stopSuccessAnimation()
+                stopPillBorderPulse()
                 resetAmplitudeBars()
             }
             State.RECORDING -> {
                 statusText?.text = getString(R.string.overlay_recording)
                 pillContainer?.setBackgroundResource(R.drawable.pill_border_recording)
+                startPillBorderPulse()
                 micButton?.setBackgroundResource(R.drawable.mic_button_liquid_glass)
                 progressIndicator?.visibility = View.GONE
                 // Show stop icon instead of mic icon during recording
@@ -1313,6 +1346,7 @@ class OverlayService : Service() {
                 stopPulseAnimation()
                 stopRecordingPulseAnimation()
                 stopRingAnimations()
+                stopPillBorderPulse()
                 stopSuccessAnimation()
                 resetAmplitudeBars()
             }

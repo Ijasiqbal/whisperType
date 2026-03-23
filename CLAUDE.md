@@ -72,22 +72,10 @@ firebase deploy --only functions # Deploy to production
 - Config: `firebase.json`
 
 ### Cloud Functions
-| Function | Endpoint | Purpose |
-|----------|----------|---------|
-| `health` | GET | Health check |
-| `transcribeAudio` | POST | OpenAI transcription |
-| `transcribeAudioGroq` | POST | Groq transcription |
-| `transcribeAudioTwoStage` | POST | Two-stage transcription pipeline |
-| `getTrialStatus` | GET | Check user credits |
-| `getSubscriptionStatus` | GET | Current subscription info |
-| `verifySubscription` | POST | Validate Play Store purchase |
-| `deleteAccount` | POST | User account deletion |
-| `adminListUsers` | GET | List users (admin) |
-| `adminGetUserDetails` | GET | User details (admin) |
-| `adminAdjustCredits` | POST | Adjust user credits (admin) |
-| `adminUpdateUserPlan` | POST | Change user plan (admin) |
-| `adminGetAnalytics` | GET | Analytics data (admin) |
-| `adminSetAdminClaim` | POST | Set admin role (admin) |
+All functions are defined in `functions/src/index.ts`. Key groups:
+- **Transcription**: `transcribeAudio`, `transcribeAudioGroq`, `transcribeAudioTwoStage`
+- **Billing**: `getTrialStatus`, `getSubscriptionStatus`, `verifySubscription`
+- **Admin**: `admin*` endpoints for user/analytics management
 
 ### Firestore Collections
 - `users/{uid}` - User profile, subscription status
@@ -165,9 +153,10 @@ npm test
 - **Opus requires API 29+** - fallback to AAC on older devices
 - **Firebase BOM 32.7.0** - newer versions require Kotlin 2.0+
 
-## Version Info
+## Environment Setup
 
-- Min SDK: 24 (Android 7.0)
-- Target SDK: 35
-- Kotlin: 1.9.20
-- For current versionCode/versionName, check `app/build.gradle.kts`
+- **Firebase project**: `whispertype-1de9f` — Android app needs `google-services.json` in `app/`
+- **Backend env**: Copy `functions/.env.example` to `functions/.env` and set `OPENAI_API_KEY`
+- **Admin env**: Copy `whispertype-admin/.env.example` to `.env.local` and fill in Firebase config
+- **Android signing**: Release builds require a keystore (not checked in)
+- **SDK versions**: Check `app/build.gradle.kts` for current minSdk, targetSdk, Kotlin version, and versionCode
