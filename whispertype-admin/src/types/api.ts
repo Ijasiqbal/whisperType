@@ -54,3 +54,20 @@ export interface SetAdminClaimRequest {
 export interface SetAdminClaimResponse {
   success: boolean;
 }
+
+export interface UnlimitedUserItem {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  proCreditsUsed: number;
+  subscriptionStatus: string;
+  currentPeriodEnd: number;
+  suspended: boolean;
+  suspendedReason: string | null;
+  warningCount: number;
+}
+
+export interface ListUnlimitedUsersResponse {
+  users: UnlimitedUserItem[];
+  total: number;
+}

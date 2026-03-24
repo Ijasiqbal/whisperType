@@ -205,7 +205,7 @@ const MAX_AUDIO_BASE64_LENGTH = 13.5 * 1024 * 1024;
  */
 function getCreditsForProduct(productId: string): number {
   if (productId.includes("starter")) return 2000;
-  if (productId.includes("unlimited")) return 15000;
+  if (productId.includes("unlimited")) return 999999;
   return 6000; // Pro tier + legacy fallback
 }
 
@@ -370,9 +370,26 @@ interface UserDocument {
   trialExpiryDate: admin.firestore.Timestamp;
   // Pro subscription fields (Iteration 3)
   proSubscription?: ProSubscription;
+  // Account moderation
+  suspended?: boolean;
+  suspendedReason?: string;
+  warningCount?: number;
+  warningMessage?: string;
   // Legacy fields (for migration - will be reset to 0)
   freeMinutesRemaining?: number;
   freeSecondsUsed?: number; // Old field, migrated to freeCreditsUsed
+}
+
+/**
+ * Get account moderation fields for API responses
+ */
+function getAccountModerationFields(user: UserDocument) {
+  return {
+    accountStatus: user.suspended ? "suspended" :
+      (user.warningCount ?? 0) > 0 ? "warned" : "active",
+    warningCount: user.warningCount ?? 0,
+    warningMessage: user.warningMessage ?? null,
+  };
 }
 
 /**
@@ -1162,6 +1179,17 @@ async function checkQuotaOrBlock(
   logPrefix = ""
 ): Promise<QuotaCheckResult | null> {
   const user = await getOrCreateUser(uid);
+
+  // Priority 0: Block suspended users
+  if (user.suspended) {
+    logger.warn(`${logPrefix}User ${uid} is suspended, blocking transcription`);
+    await logTranscriptionRequest(uid, false, Date.now() - startTime);
+    res.status(403).json({
+      error: "ACCOUNT_SUSPENDED",
+      message: "Your account has been suspended. Please contact support.",
+    });
+    return null;
+  }
 
   let canProceed = false;
   let usageSource: "free" | "pro" = "free";
@@ -2368,6 +2396,7 @@ export const getTrialStatus = onRequest(
               proStatus.proCreditsRemaining <
                 proStatus.proCreditsLimit * 0.1 ?
                 "ninety_percent" : "none",
+            ...getAccountModerationFields(user),
           });
           return;
         }
@@ -2411,6 +2440,7 @@ export const getTrialStatus = onRequest(
         trialExpiryDateMs: trialStatus.trialExpiryDateMs,
         warningLevel: trialStatus.warningLevel,
         totalCreditsThisMonth: totalCreditsThisMonth,
+        ...getAccountModerationFields(user),
       });
     } catch (error) {
       logger.error("Error getting trial status", error);
@@ -2506,6 +2536,7 @@ export const getSubscriptionStatus = onRequest(
             proStatus.proCreditsRemaining <
               proStatus.proCreditsLimit * 0.1 ?
               "ninety_percent" : "none",
+          ...getAccountModerationFields(user),
         });
       } else {
         // Free trial user response
@@ -2526,6 +2557,7 @@ export const getSubscriptionStatus = onRequest(
           warningLevel: trialStatus.warningLevel,
           // Pro plan info for upgrade UI
           proPlanEnabled: limits.proPlanEnabled,
+          ...getAccountModerationFields(user),
         });
       }
     } catch (error) {
@@ -2955,6 +2987,7 @@ export const adminListUsers = onRequest(
             new Date(userRecord.metadata.creationTime).getTime() : 0,
           lastSignInTime: userRecord.metadata.lastSignInTime || null,
           disabled: userRecord.disabled,
+          suspended: userData?.suspended || false,
         };
       };
 
@@ -3179,6 +3212,9 @@ export const adminGetUserDetails = onRequest(
         freeTierCredits: limits.freeTierCredits,
         trialExpiryDate: userData?.trialExpiryDate?.toMillis() || 0,
         freeTrialStart: userData?.freeTrialStart?.toMillis() || 0,
+        suspended: userData?.suspended || false,
+        suspendedReason: userData?.suspendedReason || null,
+        warningCount: userData?.warningCount ?? 0,
         proSubscription: userData?.proSubscription ? {
           status: userData.proSubscription.status,
           productId: userData.proSubscription.productId,
@@ -3605,6 +3641,279 @@ export const adminGetAnalytics = onRequest(
  * POST /adminSetAdminClaim
  * Body: { uid, isAdmin }
  */
+/**
+ * POST /adminWarnUser
+ * Body: { uid, message?: string }
+ * Sends a warning to a user (increments warningCount, sets warningMessage)
+ */
+export const adminWarnUser = onRequest(
+  {region: ["asia-south1"]},
+  async (request, response) => {
+    const origin = request.headers.origin;
+    setAdminCorsHeaders(response, origin);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method Not Allowed");
+      return;
+    }
+
+    try {
+      const decodedToken = await verifyAdminToken(
+        request.headers.authorization
+      );
+      if (!decodedToken) {
+        response.status(403).json({error: "Admin access required"});
+        return;
+      }
+
+      const {uid, message} = request.body;
+      if (!uid) {
+        response.status(400).json({error: "Missing required field: uid"});
+        return;
+      }
+
+      const userRef = db.collection("users").doc(uid);
+
+      const warningMessage = message ||
+        "Your usage has been flagged for review. " +
+        "Continued excessive usage may result in account suspension.";
+
+      // Use transaction to safely increment warningCount
+      const newWarningCount = await db.runTransaction(async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists) {
+          throw new Error("User not found");
+        }
+
+        const currentWarningCount =
+          (userDoc.data() as UserDocument).warningCount ?? 0;
+        const updatedCount = currentWarningCount + 1;
+
+        transaction.update(userRef, {
+          warningCount: updatedCount,
+          warningMessage,
+          lastWarnedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastWarnedBy: decodedToken.uid,
+        });
+
+        return updatedCount;
+      });
+
+      logger.info(
+        `[Admin] Warning user ${uid} (warning #${newWarningCount})`
+      );
+
+      await db.collection("admin_audit_logs").add({
+        action: "warn_user",
+        adminUid: decodedToken.uid,
+        targetUid: uid,
+        warningNumber: newWarningCount,
+        message: warningMessage,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      response.status(200).json({
+        success: true,
+        warningCount: newWarningCount,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "User not found") {
+        response.status(404).json({error: "User not found"});
+        return;
+      }
+      logger.error("[Admin] Error warning user", error);
+      response.status(500).json({error: "Failed to warn user"});
+    }
+  }
+);
+
+/**
+ * POST /adminSuspendUser
+ * Body: { uid, suspended: boolean, reason?: string }
+ * Suspends/unsuspends a user. User can still log in but sees suspended screen.
+ * On suspend: marks subscription as cancelled in Firestore.
+ * NOTE: This does NOT cancel the Google Play subscription. The actual
+ * Play Store subscription must be cancelled manually via Google Play Console
+ * or the Play Developer API to stop billing the user.
+ */
+export const adminSuspendUser = onRequest(
+  {region: ["asia-south1"]},
+  async (request, response) => {
+    const origin = request.headers.origin;
+    setAdminCorsHeaders(response, origin);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method Not Allowed");
+      return;
+    }
+
+    try {
+      const decodedToken = await verifyAdminToken(
+        request.headers.authorization
+      );
+      if (!decodedToken) {
+        response.status(403).json({error: "Admin access required"});
+        return;
+      }
+
+      const {uid, suspended, reason} = request.body;
+      if (!uid || typeof suspended !== "boolean") {
+        response.status(400).json({
+          error: "Missing required fields: uid, suspended (boolean)",
+        });
+        return;
+      }
+
+      if (uid === decodedToken.uid) {
+        response.status(400).json({
+          error: "Cannot suspend your own account",
+        });
+        return;
+      }
+
+      logger.info(
+        `[Admin] ${suspended ? "Suspending" : "Unsuspending"} user ${uid}` +
+        (reason ? `: ${reason}` : "")
+      );
+
+      const userRef = db.collection("users").doc(uid);
+      const firestoreUpdate = suspended ?
+        userRef.update({
+          "suspended": true,
+          "suspendedAt": admin.firestore.FieldValue.serverTimestamp(),
+          "suspendedReason": reason || "Suspicious usage",
+          "suspendedBy": decodedToken.uid,
+          "proSubscription.status": "cancelled",
+        }) :
+        userRef.update({
+          "suspended": false,
+          "suspendedReason": admin.firestore.FieldValue.delete(),
+          "suspendedAt": admin.firestore.FieldValue.delete(),
+          "suspendedBy": admin.firestore.FieldValue.delete(),
+          "warningCount": 0,
+          "warningMessage": admin.firestore.FieldValue.delete(),
+          "unsuspendedAt": admin.firestore.FieldValue.serverTimestamp(),
+          "unsuspendedBy": decodedToken.uid,
+        });
+
+      await Promise.all([
+        firestoreUpdate,
+        db.collection("admin_audit_logs").add({
+          action: suspended ? "suspend_user" : "unsuspend_user",
+          adminUid: decodedToken.uid,
+          targetUid: uid,
+          reason: reason || null,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        }),
+      ]);
+
+      response.status(200).json({success: true, suspended});
+    } catch (error) {
+      logger.error("[Admin] Error suspending user", error);
+      response.status(500).json({error: "Failed to suspend user"});
+    }
+  }
+);
+
+/**
+ * GET /adminListUnlimitedUsers?sortBy=creditsUsed&limit=50
+ * Lists all unlimited plan users with their usage, sorted by credits used
+ */
+export const adminListUnlimitedUsers = onRequest(
+  {region: ["asia-south1"]},
+  async (request, response) => {
+    const origin = request.headers.origin;
+    setAdminCorsHeaders(response, origin);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "GET") {
+      response.status(405).send("Method Not Allowed");
+      return;
+    }
+
+    try {
+      const decodedToken = await verifyAdminToken(
+        request.headers.authorization
+      );
+      if (!decodedToken) {
+        response.status(403).json({error: "Admin access required"});
+        return;
+      }
+
+      const resultLimit = Math.min(
+        parseInt(request.query.limit as string) || 50,
+        200
+      );
+
+      logger.info("[Admin] Listing unlimited plan users");
+
+      // Query users with unlimited plan subscription
+      const usersSnapshot = await db.collection("users")
+        .where("plan", "==", "pro")
+        .get();
+
+      const unlimitedDocs = usersSnapshot.docs.filter((doc) => {
+        const sub = (doc.data() as UserDocument).proSubscription;
+        return sub?.productId?.includes("unlimited");
+      });
+
+      const authResult = unlimitedDocs.length > 0
+        ? await admin.auth().getUsers(
+          unlimitedDocs.map((doc) => ({uid: doc.id}))
+        )
+        : {users: []};
+      const authMap = new Map(
+        authResult.users.map((u) => [u.uid, u])
+      );
+
+      const unlimitedUsers = unlimitedDocs
+        .map((doc) => {
+          const authRecord = authMap.get(doc.id);
+          if (!authRecord) return null;
+          const userData = doc.data() as UserDocument;
+          const sub = userData.proSubscription as ProSubscription;
+          return {
+            uid: doc.id,
+            email: authRecord.email || null,
+            displayName: authRecord.displayName || null,
+            proCreditsUsed: sub.proCreditsUsed || 0,
+            subscriptionStatus: sub.status,
+            currentPeriodEnd: sub.currentPeriodEnd?.toMillis() || 0,
+            suspended: userData.suspended || false,
+            suspendedReason: userData.suspendedReason || null,
+            warningCount: userData.warningCount ?? 0,
+          };
+        })
+        .filter((u): u is NonNullable<typeof u> => u !== null);
+
+      // Sort by credits used (highest first)
+      unlimitedUsers.sort((a, b) => b.proCreditsUsed - a.proCreditsUsed);
+
+      response.status(200).json({
+        users: unlimitedUsers.slice(0, resultLimit),
+        total: unlimitedUsers.length,
+      });
+    } catch (error) {
+      logger.error("[Admin] Error listing unlimited users", error);
+      response.status(500).json({error: "Failed to list unlimited users"});
+    }
+  }
+);
+
 export const adminSetAdminClaim = onRequest(
   {region: ["asia-south1"]},
   async (request, response) => {

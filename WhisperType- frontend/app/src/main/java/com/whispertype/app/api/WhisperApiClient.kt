@@ -320,7 +320,14 @@ class WhisperApiClient {
         @SerializedName("proCreditsLimit")
         val proCreditsLimit: Int?,
         @SerializedName("resetDateMs")
-        val resetDateMs: Long?
+        val resetDateMs: Long?,
+        // Account moderation
+        @SerializedName("accountStatus")
+        val accountStatus: String?,
+        @SerializedName("warningCount")
+        val warningCount: Int?,
+        @SerializedName("warningMessage")
+        val warningMessage: String?
     )
 
     /**
@@ -1069,6 +1076,13 @@ class WhisperApiClient {
                                     freeTierCredits = statusResponse.freeTierCredits ?: 500
                                 )
                             }
+
+                            // Update account moderation status
+                            UsageDataManager.updateAccountStatus(
+                                accountStatus = statusResponse.accountStatus ?: "active",
+                                warningCount = statusResponse.warningCount ?: 0,
+                                warningMessage = statusResponse.warningMessage
+                            )
 
                             onSuccess(
                                 statusResponse.status ?: "active",

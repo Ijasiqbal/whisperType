@@ -70,6 +70,7 @@ import com.whispertype.app.ui.LoginScreen
 import com.whispertype.app.ui.SplashScreen
 import com.whispertype.app.ui.ProfileScreen
 import com.whispertype.app.ui.PlanScreen
+import com.whispertype.app.ui.SuspendedScreen
 import com.whispertype.app.ui.ReportIssueBottomSheet
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.config.RemoteConfigManager
@@ -1369,6 +1370,12 @@ fun AppWithBottomNav(
         pendingCount = pendingManager.getPendingCount()
     }
 
+    // Show suspended screen if account is suspended
+    if (usageState.accountStatus == UsageDataManager.AccountStatus.SUSPENDED) {
+        SuspendedScreen(onSignOut = onSignOut)
+        return
+    }
+
     Scaffold(
         bottomBar = {
             Surface(
@@ -1444,11 +1451,27 @@ fun AppWithBottomNav(
             }
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // Warning banner for warned users
+            if (usageState.accountStatus == UsageDataManager.AccountStatus.WARNED) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFFFF3CD)
+                ) {
+                    Text(
+                        text = usageState.warningMessage ?: "Your usage has been flagged for review.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF856404),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
+                }
+            }
+
+            Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
                 BottomNavTab.HOME -> {
                     MainScreen(
@@ -1541,7 +1564,8 @@ fun AppWithBottomNav(
                     )
                 }
             }
-        }
+            } // Box
+        } // Column
     }
 
     // Report an Issue bottom sheet

@@ -97,9 +97,9 @@ fun PlanScreen(
                 credits = Constants.CREDITS_UNLIMITED,
                 tagline = "For professionals",
                 features = listOf(
-                    "${numberFormat.format(Constants.CREDITS_UNLIMITED)} credits/month",
-                    "~1,500 min standard quality",
-                    "~750 min premium quality",
+                    "Unlimited transcription",
+                    "Unlimited standard quality",
+                    "Unlimited premium quality",
                     "Unlimited AUTO mode"
                 )
             )

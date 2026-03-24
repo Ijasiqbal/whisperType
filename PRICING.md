@@ -16,7 +16,7 @@
 |------|-------|---------------|------------------------|--------|
 | **Starter** | ₹89/mo | 2,000 | ₹75.65 | ~60% |
 | **Pro** | ₹249/mo | 6,000 | ₹211.65 | ~57% |
-| **Unlimited** | ₹799/mo | 15,000 | ₹679.15 | ~67% |
+| **Unlimited** | ₹799/mo | Unlimited | ₹679.15 | Variable |
 
 ---
 
@@ -26,7 +26,7 @@
 |------|-------|---------------|------------------------|--------|
 | **Starter** | $1.99/mo | 2,000 | $1.69 | ~79% |
 | **Pro** | $6.99/mo | 6,000 | $5.94 | ~82% |
-| **Unlimited** | $16.99/mo | 15,000 | $14.44 | ~81% |
+| **Unlimited** | $16.99/mo | Unlimited | $14.44 | Variable |
 
 ---
 
@@ -36,7 +36,7 @@
 |---|------|---------|-----|-----------|
 | **India** | ₹0 | ₹89 | ₹249 | ₹799 |
 | **International** | $0 | $1.99 | $6.99 | $16.99 |
-| **Credits** | 500 (once) | 2,000/mo | 6,000/mo | 15,000/mo |
+| **Credits** | 500 (once) | 2,000/mo | 6,000/mo | Unlimited |
 
 ---
 
@@ -45,8 +45,8 @@
 | Model | Multiplier | Starter (2K) | Pro (6K) | Unlimited (15K) |
 |-------|------------|--------------|----------|-----------------|
 | AUTO (Groq Turbo) | 0x | Unlimited | Unlimited | Unlimited |
-| STANDARD (Groq Large) | 1x | ~200 min | ~600 min | ~1500 min |
-| PREMIUM (OpenAI) | 2x | ~100 min | ~300 min | ~750 min |
+| STANDARD (Groq Large) | 1x | ~200 min | ~600 min | Unlimited |
+| PREMIUM (OpenAI) | 2x | ~100 min | ~300 min | Unlimited |
 
 ---
 

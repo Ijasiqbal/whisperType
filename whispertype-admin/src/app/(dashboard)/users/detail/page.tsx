@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getUserDetails } from "@/lib/api/admin-api";
+import { useSuspendUser } from "@/hooks/use-suspend-user";
 import { GetUserDetailsResponse } from "@/types/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,13 +26,13 @@ import {
   Zap,
   Crown,
   RefreshCw,
+  ShieldBan,
+  ShieldCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Suspense } from "react";
 
-function UserDetailContent() {
-  const searchParams = useSearchParams();
-  const uid = searchParams.get("uid");
+function UserDetailContent({ uid }: { uid: string | null }) {
   const router = useRouter();
   const [data, setData] = useState<GetUserDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +54,8 @@ function UserDetailContent() {
       setLoading(false);
     }
   }, [uid]);
+
+  const handleSuspend = useSuspendUser(fetchUser);
 
   useEffect(() => {
     fetchUser();
@@ -117,8 +120,10 @@ function UserDetailContent() {
   }
 
   const { user, recentUsage, stats } = data;
-  const creditsRemaining =
-    user.plan === "pro"
+  const isUnlimitedPlan = user.proSubscription?.productId?.includes("unlimited") ?? false;
+  const creditsRemaining = isUnlimitedPlan
+    ? Infinity
+    : user.plan === "pro"
       ? (user.proSubscription?.proCreditsLimit ?? 10000) -
         (user.proSubscription?.proCreditsUsed ?? 0)
       : user.freeTierCredits - user.freeCreditsUsed;
@@ -158,8 +163,8 @@ function UserDetailContent() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>
-              {user.disabled ? (
-                <Badge variant="destructive">Disabled</Badge>
+              {user.suspended ? (
+                <Badge variant="destructive">Suspended</Badge>
               ) : (
                 <Badge variant="outline">Active</Badge>
               )}
@@ -216,15 +221,17 @@ function UserDetailContent() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Credits Remaining</span>
               <span className="font-medium text-green-600">
-                {creditsRemaining.toLocaleString()}
+                {isUnlimitedPlan ? "Unlimited" : creditsRemaining.toLocaleString()}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Credit Limit</span>
               <span>
-                {user.plan === "pro"
-                  ? (user.proSubscription?.proCreditsLimit ?? 10000).toLocaleString()
-                  : user.freeTierCredits.toLocaleString()}
+                {isUnlimitedPlan
+                  ? "Unlimited"
+                  : user.plan === "pro"
+                    ? (user.proSubscription?.proCreditsLimit ?? 10000).toLocaleString()
+                    : user.freeTierCredits.toLocaleString()}
               </span>
             </div>
             {user.plan === "free" && (
@@ -276,6 +283,25 @@ function UserDetailContent() {
               >
                 Change Plan
               </Button>
+              {user.suspended ? (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleSuspend(user.uid, false)}
+                >
+                  <ShieldCheck className="h-4 w-4 mr-1" />
+                  Unsuspend
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => handleSuspend(user.uid, true)}
+                >
+                  <ShieldBan className="h-4 w-4 mr-1" />
+                  Suspend
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -387,6 +413,12 @@ function UserDetailContent() {
   );
 }
 
+function UserDetailLoader() {
+  const searchParams = useSearchParams();
+  const uid = searchParams.get("uid");
+  return <UserDetailContent uid={uid} />;
+}
+
 export default function UserDetailPage() {
   return (
     <Suspense fallback={
@@ -398,7 +430,7 @@ export default function UserDetailPage() {
         </div>
       </div>
     }>
-      <UserDetailContent />
+      <UserDetailLoader />
     </Suspense>
   );
 }

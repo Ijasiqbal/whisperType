@@ -508,9 +508,10 @@ private fun UnifiedProCard(
     usageState: UsageDataManager.UsageState,
     onManageSubscription: () -> Unit
 ) {
+    val isUnlimited = usageState.isUnlimitedPlan
     val usedCount = usageState.proCreditsUsed
     val totalCount = usageState.proCreditsLimit
-    val targetProgress = if (totalCount > 0) {
+    val targetProgress = if (isUnlimited) 0f else if (totalCount > 0) {
         (usedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
     } else 0f
 
@@ -578,7 +579,7 @@ private fun UnifiedProCard(
                                     SkeletonText(width = 40.dp, height = 24.dp)
                                 } else {
                                     Text(
-                                        text = "${usageState.proCreditsRemaining}",
+                                        text = if (isUnlimited) "∞" else "${usageState.proCreditsRemaining}",
                                         style = MaterialTheme.typography.headlineLarge,
                                         color = Color.White
                                     )
@@ -597,12 +598,12 @@ private fun UnifiedProCard(
                     // Stats on the right
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "$usedCount / $totalCount",
+                            text = if (isUnlimited) "$usedCount" else "$usedCount / $totalCount",
                             style = MaterialTheme.typography.headlineSmall,
                             color = Color.White
                         )
                         Text(
-                            text = "credits used this cycle",
+                            text = if (isUnlimited) "credits used" else "credits used this cycle",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.7f)
                         )

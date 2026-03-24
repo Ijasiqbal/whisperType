@@ -76,7 +76,7 @@ object Constants {
     // Billing - Credits per plan
     const val CREDITS_STARTER = 2000
     const val CREDITS_PRO = 6000
-    const val CREDITS_UNLIMITED = 15000
+    const val CREDITS_UNLIMITED = 999999
 
     // Billing - Prices (fallback if Google Play price query fails)
     const val PRICE_STARTER_FALLBACK = "$1.99"

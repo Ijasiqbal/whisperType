@@ -38,8 +38,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-
       if (firebaseUser) {
         try {
           const idTokenResult = await firebaseUser.getIdTokenResult();
@@ -51,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAdmin(false);
       }
 
+      setUser(firebaseUser);
       setLoading(false);
     });
 

@@ -1,5 +1,6 @@
 package com.whispertype.app.data
 
+import com.whispertype.app.Constants
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -75,6 +76,25 @@ object UsageDataManager {
     }
 
     /**
+     * Account moderation status
+     */
+    enum class AccountStatus {
+        ACTIVE,
+        WARNED,
+        SUSPENDED;
+
+        companion object {
+            fun fromString(value: String): AccountStatus {
+                return when (value) {
+                    "warned" -> WARNED
+                    "suspended" -> SUSPENDED
+                    else -> ACTIVE
+                }
+            }
+        }
+    }
+
+    /**
      * Data class representing usage and credit state
      */
     data class UsageState(
@@ -98,7 +118,11 @@ object UsageDataManager {
         val proCreditsRemaining: Int = 10000,   // Default from Remote Config
         val proCreditsLimit: Int = 10000,
         val proResetDateMs: Long = 0,           // Next monthly reset date
-        val proSubscriptionStartDateMs: Long = 0 // When user first subscribed (for "Member since")
+        val proSubscriptionStartDateMs: Long = 0, // When user first subscribed (for "Member since")
+        // Account moderation
+        val accountStatus: AccountStatus = AccountStatus.ACTIVE,
+        val warningCount: Int = 0,
+        val warningMessage: String? = null
     ) {
         /**
          * Whether user is on Pro plan
@@ -119,10 +143,16 @@ object UsageDataManager {
             get() = if (isProUser) proCreditsLimit else freeTierCredits
 
         /**
+         * Whether user is on the unlimited plan (no credit cap)
+         */
+        val isUnlimitedPlan: Boolean
+            get() = isProUser && proCreditsLimit >= Constants.CREDITS_UNLIMITED
+
+        /**
          * Current quota is valid (has credits remaining)
          */
         val isQuotaValid: Boolean
-            get() = if (isProUser) proCreditsRemaining > 0 else isTrialValid
+            get() = if (isUnlimitedPlan) true else if (isProUser) proCreditsRemaining > 0 else isTrialValid
 
         /**
          * Formatted credits remaining (e.g., "990 credits")
@@ -301,6 +331,21 @@ object UsageDataManager {
             proResetDateMs = resetDateMs ?: _usageState.value.proResetDateMs,
             proSubscriptionStartDateMs = subscriptionStartDateMs ?: _usageState.value.proSubscriptionStartDateMs,
             lastUpdated = System.currentTimeMillis()
+        )
+    }
+
+    /**
+     * Update account moderation status (warnings, suspension)
+     */
+    fun updateAccountStatus(
+        accountStatus: String,
+        warningCount: Int,
+        warningMessage: String?
+    ) {
+        _usageState.value = _usageState.value.copy(
+            accountStatus = AccountStatus.fromString(accountStatus),
+            warningCount = warningCount,
+            warningMessage = warningMessage
         )
     }
 

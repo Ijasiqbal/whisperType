@@ -89,8 +89,9 @@ fun TrialExpiredScreen(
                 price = Constants.PRICE_UNLIMITED_FALLBACK,
                 credits = Constants.CREDITS_UNLIMITED,
                 features = listOf(
-                    "${numberFormat.format(Constants.CREDITS_UNLIMITED)} credits/month",
-                    "~1,500 min standard quality",
+                    "Unlimited transcription",
+                    "Unlimited standard quality",
+                    "Unlimited premium quality",
                     "Unlimited AUTO mode"
                 )
             )

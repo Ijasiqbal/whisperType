@@ -8,6 +8,7 @@ export interface UserListItem {
   createdAt: number;
   lastSignInTime: string | null;
   disabled: boolean;
+  suspended: boolean;
 }
 
 export interface ProSubscription {
@@ -26,6 +27,9 @@ export interface UserDetail {
   photoURL: string | null;
   emailVerified: boolean;
   disabled: boolean;
+  suspended: boolean;
+  suspendedReason: string | null;
+  warningCount: number;
   createdAt: number;
   lastSignInTime: string | null;
   plan: "free" | "pro";

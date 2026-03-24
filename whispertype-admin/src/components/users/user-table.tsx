@@ -122,8 +122,8 @@ export function UserTable({
                   {format(new Date(user.createdAt), "MMM d, yyyy")}
                 </TableCell>
                 <TableCell>
-                  {user.disabled ? (
-                    <Badge variant="destructive">Disabled</Badge>
+                  {user.suspended ? (
+                    <Badge variant="destructive">Suspended</Badge>
                   ) : (
                     <Badge variant="outline">Active</Badge>
                   )}
