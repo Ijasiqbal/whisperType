@@ -113,7 +113,7 @@ export function UserTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={user.plan === "pro" ? "default" : "secondary"}>
+                  <Badge variant={user.plan !== "free" ? "default" : "secondary"}>
                     {user.plan}
                   </Badge>
                 </TableCell>

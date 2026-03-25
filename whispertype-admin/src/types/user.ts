@@ -3,7 +3,7 @@ export interface UserListItem {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  plan: "free" | "pro";
+  plan: "free" | "starter" | "pro" | "unlimited";
   freeCreditsUsed: number;
   createdAt: number;
   lastSignInTime: string | null;
@@ -32,7 +32,7 @@ export interface UserDetail {
   warningCount: number;
   createdAt: number;
   lastSignInTime: string | null;
-  plan: "free" | "pro";
+  plan: "free" | "starter" | "pro" | "unlimited";
   freeCreditsUsed: number;
   freeTierCredits: number;
   trialExpiryDate: number;

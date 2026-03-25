@@ -120,10 +120,11 @@ function UserDetailContent({ uid }: { uid: string | null }) {
   }
 
   const { user, recentUsage, stats } = data;
-  const isUnlimitedPlan = user.proSubscription?.productId?.includes("unlimited") ?? false;
+  const isPaidPlan = user.plan !== "free";
+  const isUnlimitedPlan = user.plan === "unlimited";
   const creditsRemaining = isUnlimitedPlan
     ? Infinity
-    : user.plan === "pro"
+    : isPaidPlan
       ? (user.proSubscription?.proCreditsLimit ?? 10000) -
         (user.proSubscription?.proCreditsUsed ?? 0)
       : user.freeTierCredits - user.freeCreditsUsed;
@@ -171,8 +172,8 @@ function UserDetailContent({ uid }: { uid: string | null }) {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Plan</span>
-              <Badge variant={user.plan === "pro" ? "default" : "secondary"}>
-                {user.plan === "pro" && <Crown className="h-3 w-3 mr-1" />}
+              <Badge variant={isPaidPlan ? "default" : "secondary"}>
+                {isPaidPlan && <Crown className="h-3 w-3 mr-1" />}
                 {user.plan}
               </Badge>
             </div>
@@ -213,7 +214,7 @@ function UserDetailContent({ uid }: { uid: string | null }) {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Credits Used</span>
               <span className="font-medium">
-                {user.plan === "pro"
+                {isPaidPlan
                   ? user.proSubscription?.proCreditsUsed?.toLocaleString() ?? 0
                   : user.freeCreditsUsed.toLocaleString()}
               </span>
@@ -229,7 +230,7 @@ function UserDetailContent({ uid }: { uid: string | null }) {
               <span>
                 {isUnlimitedPlan
                   ? "Unlimited"
-                  : user.plan === "pro"
+                  : isPaidPlan
                     ? (user.proSubscription?.proCreditsLimit ?? 10000).toLocaleString()
                     : user.freeTierCredits.toLocaleString()}
               </span>
@@ -242,7 +243,7 @@ function UserDetailContent({ uid }: { uid: string | null }) {
                 </span>
               </div>
             )}
-            {user.plan === "pro" && user.proSubscription && (
+            {isPaidPlan && user.proSubscription && (
               <>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Subscription Status</span>
@@ -396,7 +397,7 @@ function UserDetailContent({ uid }: { uid: string | null }) {
         onOpenChange={setAdjustCreditsOpen}
         uid={user.uid}
         currentCreditsUsed={
-          user.plan === "pro"
+          isPaidPlan
             ? user.proSubscription?.proCreditsUsed ?? 0
             : user.freeCreditsUsed
         }

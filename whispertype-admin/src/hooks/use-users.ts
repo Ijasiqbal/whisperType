@@ -15,7 +15,8 @@ export function useUsers(options: UseUsersOptions = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [planFilter, setPlanFilter] = useState<"free" | "pro" | "all">("all");
+  const [planFilter, setPlanFilter] = useState<"free" | "starter" | "pro" | "unlimited" | "all">("all");
+  const [sortBy, setSortBy] = useState<"default" | "credits_used">("default");
   const [pageToken, setPageToken] = useState<string | null>(null);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [limit] = useState(initialLimit);
@@ -32,7 +33,11 @@ export function useUsers(options: UseUsersOptions = {}) {
           search: search || undefined,
           plan: planFilter,
         });
-        setUsers(result.users);
+        let usersList = result.users;
+        if (sortBy === "credits_used") {
+          usersList = [...usersList].sort((a, b) => b.freeCreditsUsed - a.freeCreditsUsed);
+        }
+        setUsers(usersList);
         setNextPageToken(result.nextPageToken);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch users");
@@ -41,7 +46,7 @@ export function useUsers(options: UseUsersOptions = {}) {
         setLoading(false);
       }
     },
-    [limit, search, planFilter]
+    [limit, search, planFilter, sortBy]
   );
 
   useEffect(() => {
@@ -75,6 +80,8 @@ export function useUsers(options: UseUsersOptions = {}) {
     setSearch,
     planFilter,
     setPlanFilter,
+    sortBy,
+    setSortBy,
     hasNextPage: !!nextPageToken,
     hasPreviousPage: !!pageToken,
     goToNextPage,

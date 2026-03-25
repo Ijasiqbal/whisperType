@@ -192,6 +192,8 @@ const DEFAULT_PRO_TIER_CREDITS = 10000;
 const DEFAULT_SECONDS_PER_CREDIT = 6;
 const DEFAULT_TRIAL_DURATION_MONTHS = 3;
 const DEFAULT_PRO_PRODUCT_ID = "whispertype_pro_monthly";
+const DEFAULT_STARTER_PRODUCT_ID = "voxtype_starter_monthly";
+const DEFAULT_UNLIMITED_PRODUCT_ID = "voxtype_unlimited_monthly";
 const ADMIN_GRANTED_TOKEN = "admin_granted";
 const DEFAULT_GUEST_LOGIN_ENABLED = false;
 // ~10MB audio limit (base64 is ~33% larger, so 13.5MB string ≈ 10MB audio)
@@ -362,7 +364,7 @@ interface ProSubscription {
 interface UserDocument {
   createdAt: admin.firestore.Timestamp;
   country?: string;
-  plan: "free" | "pro";
+  plan: "free" | "starter" | "pro" | "unlimited";
   // Trial fields
   freeTrialStart: admin.firestore.Timestamp;
   freeCreditsUsed: number; // Lifetime usage in credits
@@ -382,6 +384,8 @@ interface UserDocument {
 
 /**
  * Get account moderation fields for API responses
+ * @param {UserDocument} user - The user document
+ * @return {object} Account moderation fields
  */
 function getAccountModerationFields(user: UserDocument) {
   return {
@@ -3382,9 +3386,10 @@ export const adminUpdateUserPlan = onRequest(
 
       const {uid, plan, resetCredits, extendTrialDays, grantDurationMonths} =
         request.body;
-      if (!uid || !["free", "pro"].includes(plan)) {
+      if (!uid || !["free", "starter", "pro", "unlimited"].includes(plan)) {
         response.status(400).json({
-          error: "Missing required fields: uid, plan (free|pro)",
+          error: "Missing required fields: uid, " +
+            "plan (free|starter|pro|unlimited)",
         });
         return;
       }
@@ -3404,9 +3409,20 @@ export const adminUpdateUserPlan = onRequest(
       const updateData: Record<string, unknown> = {plan};
       let subscriptionAction: "created" | "cancelled" | "none" = "none";
 
-      if (plan === "pro" && currentPlan !== "pro") {
+      const paidPlans = ["starter", "pro", "unlimited"];
+      const isPaidPlan = paidPlans.includes(plan);
+      const wasOnPaidPlan = paidPlans.includes(currentPlan);
+
+      const productIdForPlan: Record<string, string> = {
+        starter: DEFAULT_STARTER_PRODUCT_ID,
+        pro: DEFAULT_PRO_PRODUCT_ID,
+        unlimited: DEFAULT_UNLIMITED_PRODUCT_ID,
+      };
+
+      if (isPaidPlan && plan !== currentPlan) {
         if (!userData.proSubscription ||
-            userData.proSubscription.status !== "active") {
+            userData.proSubscription.status !== "active" ||
+            wasOnPaidPlan) {
           const months =
             grantDurationMonths && grantDurationMonths > 0 ?
               grantDurationMonths : 1;
@@ -3416,7 +3432,7 @@ export const adminUpdateUserPlan = onRequest(
 
           updateData.proSubscription = {
             purchaseToken: ADMIN_GRANTED_TOKEN,
-            productId: DEFAULT_PRO_PRODUCT_ID,
+            productId: productIdForPlan[plan],
             status: "active",
             startDate: admin.firestore.Timestamp.fromDate(now),
             currentPeriodStart: admin.firestore.Timestamp.fromDate(now),
@@ -3426,13 +3442,13 @@ export const adminUpdateUserPlan = onRequest(
 
           subscriptionAction = "created";
           logger.info(
-            `[Admin] Granting pro to ${uid} for ${months} month(s), ` +
+            `[Admin] Granting ${plan} to ${uid} for ${months} month(s), ` +
             `expires ${periodEnd.toISOString()}`
           );
         }
       }
 
-      if (plan === "free" && currentPlan === "pro") {
+      if (plan === "free" && wasOnPaidPlan) {
         if (userData.proSubscription) {
           updateData["proSubscription.status"] = "cancelled";
           subscriptionAction = "cancelled";
@@ -3871,11 +3887,11 @@ export const adminListUnlimitedUsers = onRequest(
         return sub?.productId?.includes("unlimited");
       });
 
-      const authResult = unlimitedDocs.length > 0
-        ? await admin.auth().getUsers(
+      const authResult = unlimitedDocs.length > 0 ?
+        await admin.auth().getUsers(
           unlimitedDocs.map((doc) => ({uid: doc.id}))
-        )
-        : {users: []};
+        ) :
+        {users: []};
       const authMap = new Map(
         authResult.users.map((u) => [u.uid, u])
       );

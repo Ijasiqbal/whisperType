@@ -26,9 +26,11 @@ interface ChangePlanDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   uid: string;
-  currentPlan: "free" | "pro";
+  currentPlan: "free" | "starter" | "pro" | "unlimited";
   onSuccess: () => void;
 }
+
+type PlanType = "free" | "starter" | "pro" | "unlimited";
 
 export function ChangePlanDialog({
   open,
@@ -37,17 +39,18 @@ export function ChangePlanDialog({
   currentPlan,
   onSuccess,
 }: ChangePlanDialogProps) {
-  const [plan, setPlan] = useState<"free" | "pro">(currentPlan);
+  const [plan, setPlan] = useState<PlanType>(currentPlan);
   const [resetCredits, setResetCredits] = useState(false);
   const [extendTrialDays, setExtendTrialDays] = useState("");
   const [grantDuration, setGrantDuration] = useState("1");
   const [customMonths, setCustomMonths] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const isUpgradingToPro = plan === "pro" && currentPlan !== "pro";
+  const paidPlans: PlanType[] = ["starter", "pro", "unlimited"];
+  const isUpgradingToPaid = paidPlans.includes(plan) && plan !== currentPlan;
 
   const getGrantMonths = (): number | undefined => {
-    if (!isUpgradingToPro) return undefined;
+    if (!isUpgradingToPaid) return undefined;
     if (grantDuration === "custom") {
       const parsed = parseInt(customMonths, 10);
       return parsed > 0 ? parsed : undefined;
@@ -58,7 +61,7 @@ export function ChangePlanDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isUpgradingToPro) {
+    if (isUpgradingToPaid) {
       const months = getGrantMonths();
       if (!months || months <= 0) {
         toast.error("Please select a valid grant duration");
@@ -102,18 +105,20 @@ export function ChangePlanDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="plan">Plan</Label>
-            <Select value={plan} onValueChange={(v) => setPlan(v as "free" | "pro")}>
+            <Select value={plan} onValueChange={(v) => setPlan(v as PlanType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="free">Free</SelectItem>
+                <SelectItem value="starter">Starter</SelectItem>
                 <SelectItem value="pro">Pro</SelectItem>
+                <SelectItem value="unlimited">Unlimited</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {isUpgradingToPro && (
+          {isUpgradingToPaid && (
             <div className="space-y-2">
               <Label>Grant Duration</Label>
               <Select value={grantDuration} onValueChange={setGrantDuration}>
@@ -140,7 +145,7 @@ export function ChangePlanDialog({
               )}
               <p className="text-sm text-muted-foreground">
                 After this period, the user must subscribe via Google Play to
-                continue pro access.
+                continue access.
               </p>
             </div>
           )}

@@ -32,7 +32,7 @@ export interface AdjustCreditsResponse {
 
 export interface UpdateUserPlanRequest {
   uid: string;
-  plan: "free" | "pro";
+  plan: "free" | "starter" | "pro" | "unlimited";
   resetCredits?: boolean;
   extendTrialDays?: number;
   proCreditsLimit?: number;

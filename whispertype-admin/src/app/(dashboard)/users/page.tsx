@@ -15,6 +15,8 @@ export default function UsersPage() {
     setSearch,
     planFilter,
     setPlanFilter,
+    sortBy,
+    setSortBy,
     hasNextPage,
     hasPreviousPage,
     goToNextPage,
@@ -47,6 +49,8 @@ export default function UsersPage() {
         onSearchChange={setSearch}
         planFilter={planFilter}
         onPlanFilterChange={setPlanFilter}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
       />
 
       <UserTable

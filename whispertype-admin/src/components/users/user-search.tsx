@@ -11,11 +11,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Search, X } from "lucide-react";
 
+type PlanFilter = "free" | "starter" | "pro" | "unlimited" | "all";
+type SortBy = "default" | "credits_used";
+
 interface UserSearchProps {
   search: string;
   onSearchChange: (value: string) => void;
-  planFilter: "free" | "pro" | "all";
-  onPlanFilterChange: (value: "free" | "pro" | "all") => void;
+  planFilter: PlanFilter;
+  onPlanFilterChange: (value: PlanFilter) => void;
+  sortBy: SortBy;
+  onSortByChange: (value: SortBy) => void;
 }
 
 export function UserSearch({
@@ -23,6 +28,8 @@ export function UserSearch({
   onSearchChange,
   planFilter,
   onPlanFilterChange,
+  sortBy,
+  onSortByChange,
 }: UserSearchProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -46,13 +53,24 @@ export function UserSearch({
         )}
       </div>
       <Select value={planFilter} onValueChange={onPlanFilterChange}>
-        <SelectTrigger className="w-full sm:w-32">
+        <SelectTrigger className="w-full sm:w-36">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Plans</SelectItem>
           <SelectItem value="free">Free</SelectItem>
+          <SelectItem value="starter">Starter</SelectItem>
           <SelectItem value="pro">Pro</SelectItem>
+          <SelectItem value="unlimited">Unlimited</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={sortBy} onValueChange={onSortByChange}>
+        <SelectTrigger className="w-full sm:w-40">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="default">Default</SelectItem>
+          <SelectItem value="credits_used">Credits Used</SelectItem>
         </SelectContent>
       </Select>
     </div>
