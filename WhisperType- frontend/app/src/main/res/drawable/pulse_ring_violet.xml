@@ -7,9 +7,9 @@ Used for the recording pulse animation behind the mic button
     android:shape="oval">
     
     <stroke
-        android:width="2dp"
+        android:width="5dp"
         android:color="#d4845a" />
-    
+
     <solid android:color="#00000000" />
     
 </shape>

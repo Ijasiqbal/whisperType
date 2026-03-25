@@ -62,7 +62,7 @@ The layout consists of:
 
             <!-- Pulsing recording ring (behind button, animated) -->
             <View
-                android:id="@+id/recording_ring"
+                android:id="@+id/pulse_ring_inner"
                 android:layout_width="92dp"
                 android:layout_height="92dp"
                 android:layout_gravity="center"
@@ -72,7 +72,7 @@ The layout consists of:
 
             <!-- Second ring for layered pulse effect -->
             <View
-                android:id="@+id/recording_ring_outer"
+                android:id="@+id/pulse_ring_outer"
                 android:layout_width="108dp"
                 android:layout_height="108dp"
                 android:layout_gravity="center"

@@ -1,35 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
 Liquid Glass Pill - Recording State Border
-Violet/purple accent glow for active recording
+Warm coral glow with layered diffusion for active recording
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    
-    <!-- Outer violet glow - more prominent during recording -->
+
+    <!-- Layer 5: Outermost soft ambient glow -->
     <item
-        android:top="-4dp"
-        android:bottom="-4dp"
-        android:left="-4dp"
-        android:right="-4dp">
+        android:top="-12dp"
+        android:bottom="-12dp"
+        android:left="-12dp"
+        android:right="-12dp">
         <shape android:shape="rectangle">
-            <solid android:color="#40d4845a" />
-            <corners android:radius="30dp" />
+            <solid android:color="#28d4845a" />
+            <corners android:radius="38dp" />
         </shape>
     </item>
-    
-    <!-- Border gradient with violet tint -->
+
+    <!-- Layer 4: Mid glow - builds warmth -->
+    <item
+        android:top="-7dp"
+        android:bottom="-7dp"
+        android:left="-7dp"
+        android:right="-7dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#45d4845a" />
+            <corners android:radius="33dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 3: Inner glow - bright edge -->
+    <item
+        android:top="-3dp"
+        android:bottom="-3dp"
+        android:left="-3dp"
+        android:right="-3dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#60d4845a" />
+            <corners android:radius="29dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 2: Crisp bright border -->
     <item>
         <shape android:shape="rectangle">
-            <gradient
-                android:type="linear"
-                android:startColor="#60d4845a"
-                android:endColor="#30d4845a"
-                android:angle="135" />
+            <stroke
+                android:width="1.5dp"
+                android:color="#AAd4845a" />
             <corners android:radius="26dp" />
+            <solid android:color="#00000000" />
         </shape>
     </item>
-    
-    <!-- Main glass fill -->
+
+    <!-- Layer 1: Main glass fill -->
     <item
         android:top="1.5dp"
         android:bottom="1.5dp"
@@ -40,8 +63,8 @@ Violet/purple accent glow for active recording
             <corners android:radius="24dp" />
         </shape>
     </item>
-    
-    <!-- Inner highlight -->
+
+    <!-- Layer 0: Inner warm highlight -->
     <item
         android:top="1.5dp"
         android:bottom="1.5dp"
@@ -50,12 +73,12 @@ Violet/purple accent glow for active recording
         <shape android:shape="rectangle">
             <gradient
                 android:type="linear"
-                android:startColor="#15d4845a"
-                android:centerColor="#08FFFFFF"
+                android:startColor="#12d4845a"
+                android:centerColor="#06FFFFFF"
                 android:endColor="#00FFFFFF"
                 android:angle="90" />
             <corners android:radius="24dp" />
         </shape>
     </item>
-    
+
 </layer-list>

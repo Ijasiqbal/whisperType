@@ -52,7 +52,9 @@ Layout (left to right):
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingStart="8dp"
-            android:paddingEnd="6dp">
+            android:paddingEnd="6dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
             <!-- Close button (left side - less used) -->
             <ImageButton
@@ -160,13 +162,15 @@ Layout (left to right):
             <FrameLayout
                 android:id="@+id/mic_button_wrapper"
                 android:layout_width="44dp"
-                android:layout_height="44dp">
+                android:layout_height="44dp"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
                 <!-- Outer pulse ring (behind, for animation) -->
                 <View
                     android:id="@+id/pulse_ring_outer"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
                     android:layout_gravity="center"
                     android:background="@drawable/pulse_ring_violet"
                     android:alpha="0"
@@ -175,8 +179,8 @@ Layout (left to right):
                 <!-- Inner pulse ring -->
                 <View
                     android:id="@+id/pulse_ring_inner"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_gravity="center"
                     android:background="@drawable/pulse_ring_violet"
                     android:alpha="0"

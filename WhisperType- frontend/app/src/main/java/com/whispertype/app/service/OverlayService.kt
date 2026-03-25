@@ -1073,8 +1073,8 @@ class OverlayService : Service() {
             
             val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.25f)
             val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.25f)
-            val alpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.8f, 0f)
-            
+            val alpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.4f, 0f)
+
             ringAnimator = ObjectAnimator.ofPropertyValuesHolder(ring, scaleX, scaleY, alpha).apply {
                 duration = 1200L
                 repeatCount = ObjectAnimator.INFINITE
@@ -1089,8 +1089,8 @@ class OverlayService : Service() {
             
             val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0f, 1.35f)
             val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0f, 1.35f)
-            val alpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.5f, 0f)
-            
+            val alpha = PropertyValuesHolder.ofFloat(View.ALPHA, 0.3f, 0f)
+
             ringOuterAnimator = ObjectAnimator.ofPropertyValuesHolder(ring, scaleX, scaleY, alpha).apply {
                 duration = 1500L
                 startDelay = 300L  // Start slightly after inner ring
@@ -1133,8 +1133,8 @@ class OverlayService : Service() {
     private fun startPillBorderPulse() {
         stopPillBorderPulse()
         pillContainer?.background?.mutate()?.let { bg ->
-            pillBorderPulseAnimator = ObjectAnimator.ofInt(bg, "alpha", 255, 153).apply {
-                duration = 1200L
+            pillBorderPulseAnimator = ObjectAnimator.ofInt(bg, "alpha", 255, 200).apply {
+                duration = 1500L
                 repeatCount = ObjectAnimator.INFINITE
                 repeatMode = ObjectAnimator.REVERSE
                 interpolator = AccelerateDecelerateInterpolator()
@@ -1330,8 +1330,9 @@ class OverlayService : Service() {
                 stopIcon?.visibility = View.VISIBLE
                 copyButton?.visibility = View.GONE
                 stopSuccessAnimation()
-                // Start pulse ring animation
+                // Start pulse ring and mic button animations
                 startRingAnimations()
+                startRecordingPulseAnimation()
                 // Show inline waveform during recording
                 showWaveform()
             }

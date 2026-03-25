@@ -6,7 +6,7 @@ Semi-transparent indigo ring that pulses outward during recording
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
     <stroke
-        android:width="2.5dp"
-        android:color="#60c45d3e" />
-    <solid android:color="@android:color/transparent" />
+        android:width="5dp"
+        android:color="#FFa0422a" />
+    <solid android:color="#20a0422a" />
 </shape>
