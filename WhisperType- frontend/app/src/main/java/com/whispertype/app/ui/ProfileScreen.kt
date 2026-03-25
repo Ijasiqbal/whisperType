@@ -148,13 +148,13 @@ fun ProfileScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Star,
-                                    contentDescription = "PRO",
+                                    contentDescription = if (usageState.isUnlimitedPlan) "UNLIMITED" else "PRO",
                                     tint = Gold,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "PRO",
+                                    text = if (usageState.isUnlimitedPlan) "UNLIMITED" else "PRO",
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 1.5.sp
@@ -179,7 +179,9 @@ fun ProfileScreen(
                     )
             ) {
                 Column {
-                    if (usageState.isProUser) {
+                    if (usageState.isProUser && usageState.isUnlimitedPlan) {
+                        UnifiedUnlimitedCard(usageState, onManageSubscription)
+                    } else if (usageState.isProUser) {
                         UnifiedProCard(usageState, onManageSubscription)
                     } else {
                         UnifiedTrialCard(usageState)
@@ -508,10 +510,9 @@ private fun UnifiedProCard(
     usageState: UsageDataManager.UsageState,
     onManageSubscription: () -> Unit
 ) {
-    val isUnlimited = usageState.isUnlimitedPlan
     val usedCount = usageState.proCreditsUsed
     val totalCount = usageState.proCreditsLimit
-    val targetProgress = if (isUnlimited) 0f else if (totalCount > 0) {
+    val targetProgress = if (totalCount > 0) {
         (usedCount.toFloat() / totalCount.toFloat()).coerceIn(0f, 1f)
     } else 0f
 
@@ -579,7 +580,7 @@ private fun UnifiedProCard(
                                     SkeletonText(width = 40.dp, height = 24.dp)
                                 } else {
                                     Text(
-                                        text = if (isUnlimited) "∞" else "${usageState.proCreditsRemaining}",
+                                        text = "${usageState.proCreditsRemaining}",
                                         style = MaterialTheme.typography.headlineLarge,
                                         color = Color.White
                                     )
@@ -598,12 +599,12 @@ private fun UnifiedProCard(
                     // Stats on the right
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isUnlimited) "$usedCount" else "$usedCount / $totalCount",
+                            text = "$usedCount / $totalCount",
                             style = MaterialTheme.typography.headlineSmall,
                             color = Color.White
                         )
                         Text(
-                            text = if (isUnlimited) "credits used" else "credits used this cycle",
+                            text = "credits used this cycle",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.7f)
                         )
@@ -644,7 +645,142 @@ private fun UnifiedProCard(
 
                 // Member since + manage
                 Spacer(modifier = Modifier.height(16.dp))
-                Divider(color = Color.White.copy(alpha = 0.15f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (usageState.proSubscriptionStartDateMs > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = Gold.copy(alpha = 0.8f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Since ${formatMemberSince(usageState.proSubscriptionStartDateMs)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                        }
+                    }
+
+                    TextButton(
+                        onClick = onManageSubscription,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Manage",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Unified Unlimited Card (no arc, no progress bar) ────────────────
+
+@Composable
+private fun UnifiedUnlimitedCard(
+    usageState: UsageDataManager.UsageState,
+    onManageSubscription: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(RustDark, Rust, RustLight)
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            Column {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Unlimited Plan",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White.copy(alpha = 0.9f)
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.White.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "Active",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF90EE90),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Credits used
+                if (usageState.isLoading) {
+                    SkeletonText(width = 60.dp, height = 24.dp)
+                } else {
+                    Text(
+                        text = "${usageState.proCreditsUsed}",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White
+                    )
+                }
+                Text(
+                    text = "credits used",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+
+                // Reset date
+                if (usageState.proResetDateMs > 0) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.DateRange,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = getResetCountdown(usageState.proResetDateMs),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                    }
+                }
+
+                // Member since + manage
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(

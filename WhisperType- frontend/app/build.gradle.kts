@@ -4,6 +4,7 @@ plugins {
     id("com.google.gms.google-services")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -61,6 +62,9 @@ android {
             
             // Disable guest login in production builds
             buildConfigField("Boolean", "ENABLE_GUEST_LOGIN", "false")
+
+            // Enable Crashlytics in release builds
+            manifestPlaceholders["crashlyticsEnabled"] = "true"
         }
         
         debug {
@@ -70,6 +74,9 @@ android {
             
             // Enable guest login in debug builds
             buildConfigField("Boolean", "ENABLE_GUEST_LOGIN", "true")
+
+            // Disable Crashlytics in debug builds
+            manifestPlaceholders["crashlyticsEnabled"] = "false"
         }
     }
     
@@ -176,6 +183,7 @@ dependencies {
     // Firebase (using 32.7.0 for Kotlin 1.9 compatibility - BOM 34.x requires Kotlin 2.0+)
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
     // Size optimization: Analytics removed - not used in app (saves ~1-2 MB)
     // implementation("com.google.firebase:firebase-analytics-ktx")
     

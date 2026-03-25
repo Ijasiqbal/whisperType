@@ -56,6 +56,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.WhisperType"
         tools:targetApi="34">
+
+        <!-- Crashlytics: disabled in debug, enabled in release via build.gradle.kts -->
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="${crashlyticsEnabled}" />
         
         <!-- Main Activity: Onboarding and permission setup -->
         <activity
