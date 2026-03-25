@@ -71,3 +71,9 @@ export interface ListUnlimitedUsersResponse {
   users: UnlimitedUserItem[];
   total: number;
 }
+
+export interface DeleteAnonymousUsersResponse {
+  success: boolean;
+  deletedCount: number;
+  failedCount: number;
+}

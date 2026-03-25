@@ -2785,6 +2785,42 @@ export const verifySubscription = onRequest(
 );
 
 /**
+ * Delete all Firestore data and Firebase Auth account for a user.
+ * Handles batch size limits (max 500 ops per batch).
+ * @param {string} uid - The user ID to delete
+ */
+async function deleteUserData(uid: string): Promise<void> {
+  const refs = [
+    db.collection("usage_logs").doc(uid).collection("entries"),
+    db.collection("transcription_requests").doc(uid).collection("requests"),
+  ];
+
+  // Collect all doc refs to delete
+  const docsToDelete: FirebaseFirestore.DocumentReference[] = [
+    db.collection("users").doc(uid),
+    db.collection("usage_logs").doc(uid),
+    db.collection("transcription_requests").doc(uid),
+  ];
+
+  const snapshots = await Promise.all(refs.map((ref) => ref.get()));
+  for (const snapshot of snapshots) {
+    snapshot.forEach((doc) => docsToDelete.push(doc.ref));
+  }
+
+  // Delete Auth account first — if this fails, no data is lost.
+  // If Firestore cleanup fails after this, the orphaned docs are harmless
+  // and can be retried since the authoritative Auth record is already gone.
+  await admin.auth().deleteUser(uid);
+
+  // Commit in chunks of 500 (Firestore batch limit)
+  for (let i = 0; i < docsToDelete.length; i += 500) {
+    const batch = db.batch();
+    docsToDelete.slice(i, i + 500).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+}
+
+/**
  * Delete user account and all associated data
  * POST /deleteAccount
  * Headers: Authorization: Bearer <firebase_id_token>
@@ -2830,42 +2866,8 @@ export const deleteAccount = functions.https.onRequest(
       const uid = decodedToken.uid;
       logger.info(`Deleting account for user: ${uid}`);
 
-      // Delete all user data from Firestore
-      const batch = db.batch();
-
-      // Delete user document
-      const userRef = db.collection("users").doc(uid);
-      batch.delete(userRef);
-
-      // Delete all usage logs
-      const usageLogsRef = db.collection("usage_logs").doc(uid);
-      const usageEntriesSnapshot = await usageLogsRef
-        .collection("entries")
-        .get();
-
-      usageEntriesSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
-      batch.delete(usageLogsRef);
-
-      // Delete transcription request logs
-      const requestLogsRef = db.collection("transcription_requests").doc(uid);
-      const requestEntriesSnapshot = await requestLogsRef
-        .collection("requests")
-        .get();
-
-      requestEntriesSnapshot.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
-      batch.delete(requestLogsRef);
-
-      // Commit all Firestore deletions
-      await batch.commit();
-      logger.info(`Firestore data deleted for user: ${uid}`);
-
-      // Delete Firebase Auth account
-      await admin.auth().deleteUser(uid);
-      logger.info(`Firebase Auth account deleted for user: ${uid}`);
+      await deleteUserData(uid);
+      logger.info(`Account deleted for user: ${uid}`);
 
       response.status(200).json({
         success: true,
@@ -3990,6 +3992,99 @@ export const adminSetAdminClaim = onRequest(
     } catch (error) {
       logger.error("[Admin] Error setting admin claim", error);
       response.status(500).json({error: "Failed to set admin claim"});
+    }
+  }
+);
+
+/**
+ * Delete all anonymous user accounts and their associated data
+ * POST /adminDeleteAnonymousUsers
+ * Body: { reason: string }
+ * Response: { success: boolean, deletedCount: number }
+ */
+export const adminDeleteAnonymousUsers = onRequest(
+  {region: ["asia-south1"], timeoutSeconds: 540},
+  async (request, response) => {
+    const origin = request.headers.origin;
+    setAdminCorsHeaders(response, origin);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method Not Allowed");
+      return;
+    }
+
+    try {
+      const decodedToken = await verifyAdminToken(
+        request.headers.authorization
+      );
+      if (!decodedToken) {
+        response.status(403).json({error: "Admin access required"});
+        return;
+      }
+
+      const {reason} = request.body;
+      if (!reason || typeof reason !== "string" || !reason.trim()) {
+        response.status(400).json({error: "A reason is required"});
+        return;
+      }
+
+      logger.info("[Admin] Starting bulk delete of anonymous users");
+
+      let deletedCount = 0;
+      let failedCount = 0;
+      let nextPageToken: string | undefined;
+
+      do {
+        const listResult = await admin.auth().listUsers(1000, nextPageToken);
+        nextPageToken = listResult.pageToken;
+
+        const anonymousUsers = listResult.users.filter(
+          (user) => user.providerData.length === 0
+        );
+
+        // Process in parallel batches of 10
+        for (let i = 0; i < anonymousUsers.length; i += 10) {
+          const chunk = anonymousUsers.slice(i, i + 10);
+          const results = await Promise.allSettled(
+            chunk.map((user) => deleteUserData(user.uid))
+          );
+          for (const result of results) {
+            if (result.status === "fulfilled") {
+              deletedCount++;
+            } else {
+              failedCount++;
+              logger.warn(
+                "[Admin] Failed to delete anonymous user",
+                result.reason
+              );
+            }
+          }
+        }
+      } while (nextPageToken);
+
+      // Audit log
+      await db.collection("admin_audit_logs").add({
+        action: "delete_anonymous_users",
+        adminUid: decodedToken.uid,
+        deletedCount,
+        failedCount,
+        reason: reason.trim(),
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      logger.info(
+        `[Admin] Deleted ${deletedCount} anonymous users, ${failedCount} failed`
+      );
+
+      response.status(200).json({success: true, deletedCount, failedCount});
+    } catch (error) {
+      logger.error("[Admin] Error deleting anonymous users", error);
+      response.status(500).json({error: "Failed to delete anonymous users"});
     }
   }
 );
