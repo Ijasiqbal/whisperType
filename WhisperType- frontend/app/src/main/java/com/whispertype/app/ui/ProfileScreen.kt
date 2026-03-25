@@ -645,7 +645,7 @@ private fun UnifiedProCard(
 
                 // Member since + manage
                 Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
@@ -780,7 +780,7 @@ private fun UnifiedUnlimitedCard(
 
                 // Member since + manage
                 Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                Divider(color = Color.White.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
