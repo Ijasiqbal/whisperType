@@ -6,82 +6,67 @@ import com.whispertype.app.ShortcutPreferences
 
 /**
  * Enum representing different transcription flows available in the app
- * 
+ *
  * These flows can be switched at runtime by the user (debug mode only).
- * In the future, each flow may have different backends, models, or processing pipelines.
  */
 enum class TranscriptionFlow(
     val displayName: String,
     val description: String
 ) {
     /**
-     * Groq Whisper flow - uses Groq's ultra-fast whisper-large-v3 model
-     * Audio is recorded → sent directly to Groq API (no silence trimming)
+     * Standard fast transcription flow (no silence trimming)
      */
     GROQ_WHISPER(
-        displayName = "Groq Whisper (Fast)",
-        description = "Ultra-fast transcription via Groq"
+        displayName = "Fast Transcription",
+        description = "Ultra-fast transcription"
     ),
-    
+
     /**
-     * Flow 3 - Groq Whisper Turbo (whisper-large-v3-turbo)
-     * Faster variant of Groq Whisper with slightly lower accuracy
+     * Flow 3 - Fastest transcription variant
      */
     FLOW_3(
-        displayName = "Groq Turbo (Fastest)",
-        description = "Ultra-fast transcription via Groq Turbo"
+        displayName = "Turbo (Fastest)",
+        description = "Ultra-fast turbo transcription"
     ),
 
     /**
-     * Flow 4 - OpenAI GPT-4o-mini-transcribe without silence trimming
-     * Uses OpenAI's latest transcription model without pre-processing
+     * Flow 4 - Premium transcription without silence trimming
      */
     FLOW_4(
-        displayName = "OpenAI Mini (No Trim)",
-        description = "GPT-4o-mini-transcribe without silence trimming"
+        displayName = "Premium (No Trim)",
+        description = "Premium transcription without silence trimming"
     ),
 
     /**
-     * ARAMUS_OPENAI - Default flow with parallel RMS analysis + GPT-4o-mini-transcribe
-     * Uses AudioRecord (not MediaRecorder) with real-time RMS silence detection
-     * RMS analysis runs in parallel during recording for faster processing
-     * Output: WAV format
-     */
-    ARAMUS_OPENAI(
-        displayName = "Aramus + OpenAI (Default)",
-        description = "Parallel RMS + GPT-4o-mini-transcribe"
-    ),
-
-    /**
-     * PARALLEL_OPUS - Parallel RMS + Opus encoding + GPT-4o-mini-transcribe
+     * PARALLEL_OPUS - Parallel RMS + Opus encoding + premium transcription
      * Uses AudioRecord with real-time RMS silence detection AND parallel Opus encoding
      * Both RMS analysis and Opus encoding run in parallel during recording
-     * Output: OGG format (compressed, ~30KB vs ~320KB WAV)
+     * Output: OGG format (compressed)
      * Requirements: Android 10+ (API 29+)
      */
     PARALLEL_OPUS(
-        displayName = "Parallel Encoding [OGG] + Aramus OpenAI",
+        displayName = "Parallel Encoding [OGG] + Premium",
         description = "Parallel RMS + Opus encoding, compressed OGG"
     ),
 
     /**
      * TWO_STAGE_AUTO - Two-stage pipeline (Free tier)
-     * Stage 1: Groq whisper-large-v3-turbo (no prompt) for raw transcription
-     * Stage 2: Groq Llama for cleanup, formatting, and punctuation
+     * Stage 1: Fast transcription
+     * Stage 2: LLM cleanup, formatting, and punctuation
      */
     TWO_STAGE_AUTO(
-        displayName = "New Auto (Two-Stage)",
-        description = "Groq Turbo → Llama cleanup (free)"
+        displayName = "Auto (Two-Stage)",
+        description = "Fast transcription → LLM cleanup (free)"
     ),
 
     /**
-     * TWO_STAGE_NEWER_AUTO - Two-stage pipeline with GPT-OSS post-processing
-     * Stage 1: Groq whisper-large-v3-turbo (no prompt) for raw transcription
-     * Stage 2: Groq llama-3.3-70b-specdec for cleanup (fast speculative decoding)
+     * TWO_STAGE_NEWER_AUTO - Two-stage pipeline with enhanced post-processing
+     * Stage 1: Fast transcription
+     * Stage 2: Enhanced LLM cleanup
      */
     TWO_STAGE_NEWER_AUTO(
-        displayName = "Newer Auto (Two-Stage)",
-        description = "Groq Turbo → GPT-OSS cleanup (free)"
+        displayName = "Enhanced Auto (Two-Stage)",
+        description = "Fast transcription → enhanced cleanup (free)"
     );
 
     companion object {
@@ -92,9 +77,8 @@ enum class TranscriptionFlow(
         /**
          * The default transcription flow used when no preference is set.
          * Change this to switch the default flow for the entire app.
-         * Available options: GROQ_WHISPER, FLOW_3, FLOW_4, ARAMUS_OPENAI
          */
-        val DEFAULT_FLOW = ARAMUS_OPENAI
+        val DEFAULT_FLOW = PARALLEL_OPUS
 
         /**
          * Get the currently selected transcription flow
@@ -109,7 +93,7 @@ enum class TranscriptionFlow(
                 DEFAULT_FLOW
             }
         }
-        
+
         /**
          * Set the selected transcription flow
          */
@@ -121,9 +105,6 @@ enum class TranscriptionFlow(
 
         /**
          * Maps a ModelTier to the corresponding TranscriptionFlow
-         * - AUTO (Free): FLOW_3 (Groq Turbo - whisper-large-v3-turbo)
-         * - STANDARD (1x credit): TWO_STAGE_NEWER_AUTO (Groq Turbo → GPT-OSS 20B cleanup)
-         * - PREMIUM (2x credit): PARALLEL_OPUS (Parallel RMS + Opus OGG + OpenAI gpt-4o-mini-transcribe)
          */
         fun fromModelTier(tier: ShortcutPreferences.ModelTier): TranscriptionFlow {
             return when (tier) {

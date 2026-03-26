@@ -473,22 +473,22 @@ private suspend fun retryTranscription(
 
         when (flow) {
             TranscriptionFlow.FLOW_3 -> {
-                apiClient.transcribeWithGroq(audioBytes, token, entry.audioFormat, entry.durationMs, "whisper-large-v3-turbo", callback)
+                apiClient.transcribeWithGroq(audioBytes, token, entry.audioFormat, entry.durationMs, "auto", callback)
             }
             TranscriptionFlow.GROQ_WHISPER -> {
                 apiClient.transcribeWithGroq(audioBytes, token, entry.audioFormat, entry.durationMs, null, callback)
             }
             TranscriptionFlow.PARALLEL_OPUS -> {
-                apiClient.transcribe(audioBytes, token, entry.audioFormat, "gpt-4o-mini-transcribe", entry.durationMs, callback)
+                apiClient.transcribe(audioBytes, token, entry.audioFormat, "premium", entry.durationMs, callback)
             }
             TranscriptionFlow.TWO_STAGE_AUTO -> {
                 apiClient.transcribeWithTwoStage(audioBytes, token, entry.audioFormat, entry.durationMs, null, "AUTO", callback)
             }
             TranscriptionFlow.TWO_STAGE_NEWER_AUTO -> {
-                apiClient.transcribeWithTwoStage(audioBytes, token, entry.audioFormat, entry.durationMs, "openai/gpt-oss-20b", "STANDARD", callback)
+                apiClient.transcribeWithTwoStage(audioBytes, token, entry.audioFormat, entry.durationMs, "standard_v2", "STANDARD", callback)
             }
             else -> {
-                apiClient.transcribe(audioBytes, token, entry.audioFormat, "gpt-4o-mini-transcribe", entry.durationMs, callback)
+                apiClient.transcribe(audioBytes, token, entry.audioFormat, "premium", entry.durationMs, callback)
             }
         }
     }

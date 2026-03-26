@@ -28,15 +28,12 @@ object ShortcutPreferences {
      * Available Whisper transcription models
      */
     enum class WhisperModel(val displayName: String, val modelId: String) {
-        GPT4O_TRANSCRIBE("GPT-4o Transcribe (Standard)", "gpt-4o-transcribe"),
-        GPT4O_TRANSCRIBE_MINI("GPT-4o Transcribe Mini (Fast)", "gpt-4o-mini-transcribe")
+        QUALITY_TRANSCRIBE("Quality Transcribe", "standard"),
+        PREMIUM_TRANSCRIBE("Premium Transcribe", "premium")
     }
 
     /**
      * Model tiers for transcription quality selection
-     * - AUTO: Free tier using Groq Turbo (whisper-large-v3-turbo)
-     * - STANDARD: 1x credit using Groq Whisper (whisper-large-v3)
-     * - PREMIUM: 2x credit using OpenAI (gpt-4o-mini-transcribe)
      */
     enum class ModelTier(
         val displayName: String,
@@ -75,11 +72,11 @@ object ShortcutPreferences {
      * Get the current Whisper model
      */
     fun getWhisperModel(context: Context): WhisperModel {
-        val modelName = getPrefs(context).getString(KEY_WHISPER_MODEL, WhisperModel.GPT4O_TRANSCRIBE_MINI.name)
+        val modelName = getPrefs(context).getString(KEY_WHISPER_MODEL, WhisperModel.PREMIUM_TRANSCRIBE.name)
         return try {
-            WhisperModel.valueOf(modelName ?: WhisperModel.GPT4O_TRANSCRIBE_MINI.name)
+            WhisperModel.valueOf(modelName ?: WhisperModel.PREMIUM_TRANSCRIBE.name)
         } catch (e: IllegalArgumentException) {
-            WhisperModel.GPT4O_TRANSCRIBE_MINI
+            WhisperModel.PREMIUM_TRANSCRIBE
         }
     }
     
@@ -120,7 +117,7 @@ object ShortcutPreferences {
 
     /**
      * Get the current model tier
-     * Default is PREMIUM (OpenAI) for best quality
+     * Default is PREMIUM for best quality
      */
     fun getModelTier(context: Context): ModelTier {
         val tierName = getPrefs(context).getString(KEY_MODEL_TIER, ModelTier.PREMIUM.name)

@@ -360,7 +360,7 @@ class WhisperApiClient {
      * @param audioBytes Raw audio bytes (M4A, WAV, etc.)
      * @param authToken Firebase Auth ID token for authentication
      * @param audioFormat File format extension ("m4a", "wav", etc.)
-     * @param model Optional Whisper model to use (e.g., "gpt-4o-transcribe", "gpt-4o-transcribe-mini")
+     * @param model Tier identifier for model selection (e.g., "premium")
      * @param audioDurationMs Duration of audio in milliseconds (for usage tracking)
      * @param callback Callback for success/error results
      */
@@ -578,16 +578,14 @@ class WhisperApiClient {
     }
 
     /**
-     * Transcribe audio bytes using Groq's ultra-fast Whisper API
-     *
-     * This method calls the separate transcribeAudioGroq backend endpoint.
+     * Transcribe audio bytes using the fast transcription API endpoint.
      * It's designed for faster transcription without client-side silence trimming.
      *
      * @param audioBytes Raw audio bytes (M4A, WAV, OGG, etc.)
      * @param authToken Firebase Auth ID token for authentication
      * @param audioFormat File format extension ("m4a", "wav", "ogg", etc.)
      * @param audioDurationMs Duration of audio in milliseconds (for usage tracking)
-     * @param model Optional Groq model to use (default: "whisper-large-v3", also supports "whisper-large-v3-turbo")
+     * @param model Tier identifier for model selection (e.g., "auto", "standard")
      * @param callback Callback for success/error results
      */
     fun transcribeWithGroq(
@@ -598,8 +596,8 @@ class WhisperApiClient {
         model: String? = null,
         callback: TranscriptionCallback
     ) {
-        val modelName = model ?: "whisper-large-v3"
-        Log.d(TAG, "[Groq] Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, model: $modelName")
+        val modelName = model ?: "standard"
+        Log.d(TAG, "[Groq] Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, tier: $modelName")
 
         // Encode audio to base64 (NO_WRAP to avoid line breaks)
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
@@ -748,13 +746,13 @@ class WhisperApiClient {
     )
 
     /**
-     * Transcribe audio using the two-stage pipeline: Groq Turbo → LLM cleanup
+     * Transcribe audio using the two-stage pipeline: fast transcription → LLM cleanup
      *
      * @param audioBytes Raw audio bytes (OGG, WAV, etc.)
      * @param authToken Firebase Auth ID token
      * @param audioFormat File format extension ("ogg", "wav", etc.)
      * @param audioDurationMs Duration in milliseconds (for usage tracking)
-     * @param llmModel LLM model for cleanup stage (e.g. "openai/gpt-oss-20b")
+     * @param llmModel Tier identifier for cleanup stage model selection
      * @param tier Model tier for billing ("AUTO", "STANDARD", or "PREMIUM")
      * @param callback Callback for success/error results
      */
@@ -932,8 +930,7 @@ class WhisperApiClient {
     }
     
     /**
-     * Warm up the Groq transcription Firebase Function
-     * Call this when using Flow 2 (Groq Whisper) to avoid cold starts.
+     * Warm up the fast transcription Firebase Function to avoid cold starts.
      */
     fun warmGroqFunction() {
         Log.d(TAG, "Warming up transcribeAudioGroq function (region: ${getBestRegion()})")
@@ -968,19 +965,15 @@ class WhisperApiClient {
         when (selectedFlow) {
             com.whispertype.app.speech.TranscriptionFlow.GROQ_WHISPER -> warmGroqFunction()
             com.whispertype.app.speech.TranscriptionFlow.FLOW_3 -> {
-                // Flow 3 uses Groq Turbo (whisper-large-v3-turbo), same endpoint as regular Groq
+                // Flow 3 uses same endpoint as regular Groq
                 warmGroqFunction()
             }
             com.whispertype.app.speech.TranscriptionFlow.FLOW_4 -> {
-                // Flow 4 uses OpenAI gpt-4o-mini-transcribe, same endpoint as CLOUD_API
-                warmTranscribeFunction()
-            }
-            com.whispertype.app.speech.TranscriptionFlow.ARAMUS_OPENAI -> {
-                // ARAMUS_OPENAI uses OpenAI endpoint
+                // Flow 4 uses same endpoint as CLOUD_API
                 warmTranscribeFunction()
             }
             com.whispertype.app.speech.TranscriptionFlow.PARALLEL_OPUS -> {
-                // PARALLEL_OPUS uses OpenAI endpoint (same as ARAMUS)
+                // PARALLEL_OPUS uses premium endpoint
                 warmTranscribeFunction()
             }
             com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_AUTO,
@@ -1000,8 +993,8 @@ class WhisperApiClient {
      */
     fun warmAllEndpoints() {
         Log.d(TAG, "Warming up ALL endpoints (region: ${getBestRegion()})")
-        warmTranscribeFunction()  // OpenAI endpoint (PREMIUM)
-        warmGroqFunction()        // Groq endpoint (FREE, STANDARD)
+        warmTranscribeFunction()  // Premium endpoint
+        warmGroqFunction()        // Free/Standard endpoint
         warmTwoStageFunction()    // Two-stage endpoint (NEW tiers)
     }
     

@@ -24,11 +24,47 @@ const remoteConfig = admin.remoteConfig();
 
 /**
  * Model tiers for transcription quality selection
- * - AUTO: Free tier using Groq Turbo (whisper-large-v3-turbo) - 0 credits
- * - STANDARD: 1x credit using Groq Whisper (whisper-large-v3)
- * - PREMIUM: 2x credit using OpenAI (gpt-4o-mini-transcribe)
  */
 type ModelTier = "AUTO" | "STANDARD" | "PREMIUM";
+
+/**
+ * Maps opaque tier identifiers from the client to actual model names.
+ * Client sends tier codes ("auto", "standard", "premium") instead of
+ * real model names to prevent reverse-engineering of our model strategy.
+ */
+const OPENAI_TIER_MAP: Record<string, string> = {
+  "premium": "gpt-4o-mini-transcribe",
+  "standard": "gpt-4o-transcribe",
+};
+
+const GROQ_TIER_MAP: Record<string, string> = {
+  "auto": "whisper-large-v3-turbo",
+  "standard": "whisper-large-v3",
+};
+
+const LLM_TIER_MAP: Record<string, string> = {
+  "standard_v2": "openai/gpt-oss-20b",
+  "auto_v2": "llama-3.1-8b-instant",
+};
+
+/**
+ * Resolves a client tier identifier to an actual model name.
+ * Accepts both opaque tier codes and legacy direct model names for
+ * backwards compatibility with older app versions.
+ */
+function resolveModel(
+  clientValue: string | undefined,
+  tierMap: Record<string, string>,
+  validModels: string[],
+  defaultModel: string
+): string {
+  if (!clientValue) return defaultModel;
+  // Check if it's an opaque tier code
+  if (tierMap[clientValue]) return tierMap[clientValue];
+  // Legacy: accept direct model names for older app versions
+  if (validModels.includes(clientValue)) return clientValue;
+  return defaultModel;
+}
 
 /**
  * Get the credit multiplier for a given model tier
@@ -1622,13 +1658,14 @@ export const transcribeAudio = onRequest(
       ];
       const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
 
-      // Validate and set model - default to gpt-4o-mini-transcribe
-      const validModels = [
+      // Resolve model from tier code or legacy model name
+      const validOpenAIModels = [
         "gpt-4o-transcribe",
         "gpt-4o-mini-transcribe",
       ];
-      const selectedModel = model && validModels.includes(model) ?
-        model : "gpt-4o-mini-transcribe";
+      const selectedModel = resolveModel(
+        model, OPENAI_TIER_MAP, validOpenAIModels, "gpt-4o-mini-transcribe"
+      );
 
       logger.info(
         `Processing request - format: ${format}, model: ${selectedModel}`
@@ -1828,13 +1865,14 @@ export const transcribeAudioGroq = onRequest(
       ];
       const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
 
-      // Validate and set Groq model - default to whisper-large-v3
+      // Resolve model from tier code or legacy model name
       const validGroqModels = [
         "whisper-large-v3",
         "whisper-large-v3-turbo",
       ];
-      const selectedModel = model && validGroqModels.includes(model) ?
-        model : "whisper-large-v3";
+      const selectedModel = resolveModel(
+        model, GROQ_TIER_MAP, validGroqModels, "whisper-large-v3"
+      );
 
       // Determine model tier EARLY so AUTO can bypass quota check
       // whisper-large-v3-turbo = AUTO (free), whisper-large-v3 = STANDARD
@@ -2042,13 +2080,14 @@ export const transcribeAudioTwoStage = onRequest(
       ];
       const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
 
-      // Validate and set Groq STT model
-      const validGroqModels = [
+      // Resolve STT model from tier code or legacy model name
+      const validGroqSttModels = [
         "whisper-large-v3",
         "whisper-large-v3-turbo",
       ];
-      const selectedModel = model && validGroqModels.includes(model) ?
-        model : "whisper-large-v3-turbo";
+      const selectedModel = resolveModel(
+        model, GROQ_TIER_MAP, validGroqSttModels, "whisper-large-v3-turbo"
+      );
 
       // Determine model tier from request or infer from STT model
       const isTurbo = selectedModel === "whisper-large-v3-turbo";
@@ -2187,8 +2226,9 @@ export const transcribeAudioTwoStage = onRequest(
           "llama-3.3-70b-versatile",
           "gemma2-9b-it",
         ];
-        const selectedLlmModel = llmModel && validLlmModels.includes(llmModel) ?
-          llmModel : "llama-3.1-8b-instant";
+        const selectedLlmModel = resolveModel(
+          llmModel, LLM_TIER_MAP, validLlmModels, "llama-3.1-8b-instant"
+        );
 
         logger.info(
           "[TwoStage] Stage 2: Calling Groq LLM " +

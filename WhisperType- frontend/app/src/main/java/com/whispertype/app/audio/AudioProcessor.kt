@@ -22,8 +22,7 @@ import kotlin.math.min
  * 2. Detects speech segments using RMS amplitude analysis
  * 3. Outputs only the speech portions as a WAV file (simpler and more reliable than re-encoding)
  *
- * Purpose: Reduce audio duration to lower OpenAI Whisper API costs
- * (OpenAI charges $0.003 per minute of audio)
+ * Purpose: Reduce audio duration to lower transcription API costs
  *
  * Supported formats: M4A (AAC), OGG (Opus) → processes to → WAV (16-bit PCM, mono, 16kHz)
  *
@@ -499,7 +498,7 @@ class AudioProcessor(private val context: Context) {
      * Write PCM samples to a WAV file
      *
      * WAV format is simpler and more reliable than re-encoding to AAC.
-     * OpenAI Whisper API supports WAV files.
+     * Transcription API supports WAV files.
      *
      * PERFORMANCE OPTIMIZED: Uses bulk write for sample data
      */

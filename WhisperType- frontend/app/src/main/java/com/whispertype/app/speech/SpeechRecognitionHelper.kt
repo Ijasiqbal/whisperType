@@ -33,7 +33,7 @@ import kotlinx.coroutines.*
  * 4. Parallel Opus encoding compresses audio in real-time
  * 5. stopListening() -> Get trimmed OGG audio
  * 6. Check CURRENT tier at stop time
- * 7. Route to appropriate backend (Groq Turbo/Groq Whisper/OpenAI Mini)
+ * 7. Route to appropriate backend tier (auto/standard/premium)
  *
  * Fallback: Android < 10 (no Opus support) uses RealtimeRmsRecorder (WAV output)
  */
@@ -339,41 +339,40 @@ class SpeechRecognitionHelper(
 
         when (flow) {
             TranscriptionFlow.FLOW_3 -> {
-                // FREE tier → Groq Turbo (whisper-large-v3-turbo) - fastest, unlimited
-                Log.d(TAG, "[FREE] Sending to Groq Turbo API")
+                // FREE tier - fastest, unlimited
+                Log.d(TAG, "[FREE] Sending to auto tier API")
                 transcribeWithGroqTurboApi(audioBytes, audioFormat, durationMs)
             }
             TranscriptionFlow.GROQ_WHISPER -> {
-                // STANDARD tier → Groq Whisper (whisper-large-v3) - high accuracy
-                Log.d(TAG, "[STANDARD] Sending to Groq Whisper API")
+                // STANDARD tier - high accuracy
+                Log.d(TAG, "[STANDARD] Sending to standard tier API")
                 transcribeWithGroqApi(audioBytes, audioFormat, durationMs)
             }
             TranscriptionFlow.PARALLEL_OPUS -> {
-                // PREMIUM tier → OpenAI (gpt-4o-mini-transcribe) - best quality
-                Log.d(TAG, "[PREMIUM] Sending to OpenAI API")
+                // PREMIUM tier - best quality
+                Log.d(TAG, "[PREMIUM] Sending to premium tier API")
                 transcribeWithParallelOpusFlow(audioBytes, audioFormat, durationMs)
             }
             TranscriptionFlow.TWO_STAGE_AUTO -> {
-                // TWO_STAGE_AUTO → Groq Turbo + Llama cleanup
-                Log.d(TAG, "[TWO_STAGE] Sending to two-stage API (Llama)")
+                // TWO_STAGE_AUTO → two-stage cleanup
+                Log.d(TAG, "[TWO_STAGE] Sending to two-stage API")
                 transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, null, "AUTO")
             }
             TranscriptionFlow.TWO_STAGE_NEWER_AUTO -> {
-                // TWO_STAGE_NEWER_AUTO → Groq Turbo + GPT-OSS 20B cleanup
-                Log.d(TAG, "[NEWER_AUTO] Sending to two-stage API (GPT-OSS 20B)")
-                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "openai/gpt-oss-20b", "STANDARD")
+                // TWO_STAGE_NEWER_AUTO → two-stage enhanced cleanup
+                Log.d(TAG, "[NEWER_AUTO] Sending to two-stage API (enhanced)")
+                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "standard_v2", "STANDARD")
             }
             else -> {
-                // Fallback to premium flow for any other flows (ARAMUS_OPENAI, FLOW_4)
-                Log.d(TAG, "[FALLBACK] Using OpenAI API for flow: ${flow.name}")
+                // Fallback to premium flow for any other flows (FLOW_4)
+                Log.d(TAG, "[FALLBACK] Using premium tier API for flow: ${flow.name}")
                 transcribeWithParallelOpusFlow(audioBytes, audioFormat, durationMs)
             }
         }
     }
 
     /**
-     * Transcribe using Groq API (whisper-large-v3)
-     * This method skips silence trimming and uses Groq's ultra-fast transcription
+     * Transcribe using standard tier API
      */
     private fun transcribeWithGroqApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
         processingScope.launch {
@@ -427,7 +426,7 @@ class SpeechRecognitionHelper(
     }
 
     /**
-     * Transcribe using Groq Turbo API (whisper-large-v3-turbo)
+     * Transcribe using auto (free) tier API
      * This is the fastest transcription option with slightly lower accuracy
      */
     private fun transcribeWithGroqTurboApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
@@ -452,7 +451,7 @@ class SpeechRecognitionHelper(
                 return@launch
             }
 
-            Log.d(TAG, "[Groq Turbo] Calling Groq API with whisper-large-v3-turbo, format: $audioFormat, duration: ${durationMs}ms")
+            Log.d(TAG, "[Groq Turbo] Calling Groq API, format: $audioFormat, duration: ${durationMs}ms")
 
             // Notify UI that transcription is starting
             mainHandler.post {
@@ -461,8 +460,8 @@ class SpeechRecognitionHelper(
                 }
             }
 
-            // Make Groq API call with whisper-large-v3-turbo model
-            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, "whisper-large-v3-turbo", object : WhisperApiClient.TranscriptionCallback {
+            // Make Groq API call with auto tier
+            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, "auto", object : WhisperApiClient.TranscriptionCallback {
                 override fun onSuccess(text: String) {
                     Log.d(TAG, "[Groq Turbo] Transcription successful: ${text.take(50)}...")
                     mainHandler.post {
@@ -482,8 +481,7 @@ class SpeechRecognitionHelper(
     }
 
     /**
-     * Transcribe using OpenAI API (gpt-4o-mini-transcribe)
-     * Used for PREMIUM tier transcription - best quality
+     * Transcribe using premium tier API - best quality
      */
     private fun transcribeWithParallelOpusFlow(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
         processingScope.launch {
@@ -507,8 +505,8 @@ class SpeechRecognitionHelper(
                 return@launch
             }
 
-            val modelId = "gpt-4o-mini-transcribe"
-            Log.d(TAG, "[OpenAI] Using model: $modelId, format: $audioFormat, duration: ${durationMs}ms, size: ${audioBytes.size} bytes")
+            val modelId = "premium"
+            Log.d(TAG, "[Premium] Using tier: $modelId, format: $audioFormat, duration: ${durationMs}ms, size: ${audioBytes.size} bytes")
 
             // Notify UI that transcription is starting
             mainHandler.post {
@@ -517,7 +515,7 @@ class SpeechRecognitionHelper(
                 }
             }
 
-            // Make API call with auth token and gpt-4o-mini-transcribe model
+            // Make API call with auth token and premium tier
             whisperApiClient.transcribe(audioBytes, token, audioFormat, modelId, durationMs, object : WhisperApiClient.TranscriptionCallback {
                 override fun onSuccess(text: String) {
                     Log.d(TAG, "[OpenAI] Transcription successful: ${text.take(50)}...")
@@ -538,7 +536,7 @@ class SpeechRecognitionHelper(
     }
 
     /**
-     * Transcribe using the two-stage pipeline (Groq Turbo → LLM cleanup)
+     * Transcribe using the two-stage pipeline
      */
     private fun transcribeWithTwoStageApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long, llmModel: String?, tier: String) {
         processingScope.launch {
