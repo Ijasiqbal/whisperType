@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+RETRY MODEL PICKER - Dark glass popup matching overlay options menu style.
+Shows model tiers with radio indicators for retry selection.
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/retry_model_container"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:minWidth="170dp"
+    android:orientation="vertical"
+    android:background="@drawable/popup_dark_background"
+    android:padding="6dp"
+    android:elevation="12dp">
+
+    <!-- Header -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Retry with"
+        android:textColor="#80FFFFFF"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:textAllCaps="true"
+        android:letterSpacing="0.08"
+        android:paddingHorizontal="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="6dp" />
+
+</LinearLayout>

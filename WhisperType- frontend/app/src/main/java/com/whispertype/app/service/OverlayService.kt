@@ -5,6 +5,7 @@ import android.animation.Animator
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
 import android.annotation.SuppressLint
+import androidx.core.content.ContextCompat
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -508,8 +509,10 @@ class OverlayService : Service() {
         stopPulseAnimation()
         stopRecordingPulseAnimation()
 
-        // Hide options menu if visible
+        // Hide popups if visible
         hideOptionsMenu()
+        retryModelPopup?.dismiss()
+        retryModelPopup = null
 
         // Hide warning dialog if visible
         hideWarningDialog()
@@ -710,27 +713,9 @@ class OverlayService : Service() {
     private fun updateSecondaryOverlayPositions() {
         val overlayParams = overlayView?.layoutParams as? WindowManager.LayoutParams ?: return
 
-        // Update options menu position
+        // Dismiss options menu when overlay is dragged (PopupWindow can't reposition with anchor)
         if (isOptionsMenuVisible) {
-            optionsMenuView?.let { menu ->
-                val menuParams = menu.layoutParams as? WindowManager.LayoutParams
-                if (menuParams != null) {
-                    // Position above and aligned with the right edge of the main overlay
-                    // Since both use Gravity.CENTER, to align right edges:
-                    // menuX + menuWidth/2 = overlayX + overlayWidth/2
-                    // menuX = overlayX + (overlayWidth - menuWidth) / 2
-                    val overlayWidth = overlayView?.width ?: 220
-                    val menuWidth = menu.width.takeIf { it > 0 } ?: (150 * resources.displayMetrics.density).toInt()
-                    val leftOffset = (10 * resources.displayMetrics.density).toInt() // 10dp left adjustment
-                    menuParams.x = overlayParams.x + (overlayWidth - menuWidth) / 2 - leftOffset
-                    menuParams.y = overlayParams.y - 292 // moved up by 12 pixels total
-                    try {
-                        windowManager?.updateViewLayout(menu, menuParams)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error updating options menu position", e)
-                    }
-                }
-            }
+            hideOptionsMenu()
         }
     }
     
@@ -1429,29 +1414,89 @@ class OverlayService : Service() {
      * Show retry popup menu with model tier options.
      * Tapping a model retries transcription with that provider.
      */
+    private var retryModelPopup: android.widget.PopupWindow? = null
+
     private fun showRetryModelPopup(anchorView: View) {
-        val popup = android.widget.PopupMenu(this, anchorView)
+        // Dismiss existing popup if open
+        retryModelPopup?.dismiss()
+
         val currentFailedTier = lastFailedModelTier
         val tiers = ShortcutPreferences.ModelTier.entries
+        val density = resources.displayMetrics.density
 
-        tiers.forEachIndexed { index, tier ->
-            val label = if (tier == currentFailedTier) {
-                "${tier.displayName} (${tier.creditCost}) - failed"
-            } else {
-                "${tier.displayName} (${tier.creditCost})"
+        val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+        val popupView = inflater.inflate(R.layout.popup_retry_model, null)
+        val container = popupView.findViewById<LinearLayout>(R.id.retry_model_container)
+
+        // Dynamically add tier rows matching the options menu style
+        tiers.forEach { tier ->
+            val isFailed = tier == currentFailedTier
+
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(
+                    (8 * density).toInt(), (8 * density).toInt(),
+                    (8 * density).toInt(), (8 * density).toInt()
+                )
+                background = ContextCompat.getDrawable(this@OverlayService, R.drawable.menu_item_background)
+                isClickable = true
+                isFocusable = true
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = (2 * density).toInt()
+                }
             }
-            popup.menu.add(0, index, index, label)
+
+            // Tier name
+            val nameText = TextView(this).apply {
+                text = tier.displayName
+                setTextColor(if (isFailed) 0x80FFFFFF.toInt() else 0xF0FFFFFF.toInt())
+                textSize = 13f
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = (2 * density).toInt()
+                }
+            }
+
+            // Credit cost / failed badge
+            val badgeText = TextView(this).apply {
+                if (isFailed) {
+                    text = "failed"
+                    setTextColor(0xFFFF6B6B.toInt())
+                } else {
+                    text = tier.creditCost
+                    setTextColor(0x80FFFFFF.toInt())
+                }
+                textSize = 10f
+            }
+
+            row.addView(nameText)
+            row.addView(badgeText)
+
+            row.setOnClickListener {
+                retryModelPopup?.dismiss()
+                retryModelPopup = null
+                retryTranscription(tier)
+            }
+
+            container.addView(row)
         }
 
-        popup.setOnMenuItemClickListener { menuItem ->
-            val selectedTier = tiers.getOrNull(menuItem.itemId)
-            if (selectedTier != null) {
-                retryTranscription(selectedTier)
-            }
+        val popup = android.widget.PopupWindow(
+            popupView,
+            (170 * density).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT,
             true
+        ).apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0))
+            elevation = 12 * density
+            isOutsideTouchable = true
         }
 
-        popup.show()
+        retryModelPopup = popup
+        popup.showAsDropDown(anchorView, 0, (12 * density).toInt())
     }
 
     /**
@@ -1520,6 +1565,8 @@ class OverlayService : Service() {
     /**
      * Show the options menu above the main overlay
      */
+    private var optionsPopup: android.widget.PopupWindow? = null
+
     @SuppressLint("InflateParams", "ClickableViewAccessibility")
     private fun showOptionsMenu() {
         if (isOptionsMenuVisible) {
@@ -1576,51 +1623,50 @@ class OverlayService : Service() {
         }
         ============================================================ */
 
-        // Calculate position above the main overlay
-        val overlayParams = (overlayView?.layoutParams as? WindowManager.LayoutParams)
-        val menuParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
-            },
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT
-        )
+        val density = resources.displayMetrics.density
+        val anchor = optionsButton ?: return
 
-        // Position the menu above and aligned with the right edge of the main overlay
-        menuParams.gravity = Gravity.CENTER
-        // Since both use Gravity.CENTER, to align right edges:
-        // menuX + menuWidth/2 = overlayX + overlayWidth/2
-        // menuX = overlayX + (overlayWidth - menuWidth) / 2
-        val overlayWidth = overlayView?.width ?: (220 * resources.displayMetrics.density).toInt()
-        val menuWidthEstimate = (150 * resources.displayMetrics.density).toInt() // menu minWidth is 150dp
-        val leftOffset = (10 * resources.displayMetrics.density).toInt() // 10dp left adjustment
-        menuParams.x = (overlayParams?.x ?: 0) + (overlayWidth - menuWidthEstimate) / 2 - leftOffset
-        menuParams.y = (overlayParams?.y ?: 0) - 292 // moved up by 12 pixels total
-
-        // Close menu when tapping outside (on transparent area)
-        menuView.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                hideOptionsMenu()
-                true
-            } else {
-                false
+        val popup = android.widget.PopupWindow(
+            menuView,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            true
+        ).apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0))
+            elevation = 12 * density
+            isOutsideTouchable = true
+            setOnDismissListener {
+                isOptionsMenuVisible = false
+                optionsMenuViewRef = null
+                optionsPopup = null
             }
         }
 
-        // Add view to window
-        try {
-            windowManager?.addView(menuView, menuParams)
-            isOptionsMenuVisible = true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to show options menu", e)
-        }
+        optionsPopup = popup
+        isOptionsMenuVisible = true
+
+        // Position above the overlay, aligned center-ish (matching original WindowManager positioning)
+        menuView.measure(
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val menuHeight = menuView.measuredHeight
+        val menuWidth = menuView.measuredWidth
+        val anchorHeight = anchor.height
+
+        // X offset: align menu roughly centered over the overlay, not the anchor button
+        // The anchor is at the right edge, so shift left by the distance from anchor to overlay center
+        val overlayWidth = overlayView?.width ?: (220 * density).toInt()
+        val anchorLocationInOverlay = anchor.left
+        val overlayCenterX = overlayWidth / 2
+        val menuCenterOffset = overlayCenterX - anchorLocationInOverlay - (menuWidth / 2) + anchor.width / 2
+        val leftAdjust = (-40 * density).toInt()
+        val xOffset = menuCenterOffset - leftAdjust
+
+        // Y offset: place above the overlay pill (matching original -292 offset)
+        val yOffset = -(menuHeight + anchorHeight + (24 * density).toInt())
+
+        popup.showAsDropDown(anchor, xOffset, yOffset)
     }
 
     /**
@@ -1679,16 +1725,7 @@ class OverlayService : Service() {
 
         Log.d(TAG, "Hiding options menu")
 
-        optionsMenuView?.let { view ->
-            try {
-                windowManager?.removeView(view)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error removing options menu", e)
-            }
-        }
-
-        optionsMenuViewRef = null
-        isOptionsMenuVisible = false
+        optionsPopup?.dismiss()
     }
 
     /**

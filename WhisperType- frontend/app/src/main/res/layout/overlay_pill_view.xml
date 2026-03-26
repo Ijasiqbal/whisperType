@@ -299,12 +299,13 @@ Layout (left to right):
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:textAllCaps="false"
+                android:gravity="center"
                 android:drawableStart="@drawable/ic_retry"
-                android:drawablePadding="3dp"
+                android:drawablePadding="1dp"
                 android:drawableTint="#FFFFFFFF"
                 android:background="@drawable/retry_button_primary"
-                android:paddingStart="8dp"
-                android:paddingEnd="10dp" />
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp" />
 
             <!-- Model picker pill (outlined) -->
             <Button
@@ -321,6 +322,7 @@ Layout (left to right):
                 android:textAllCaps="false"
                 android:singleLine="true"
                 android:ellipsize="end"
+                android:gravity="center"
                 android:drawableEnd="@drawable/ic_arrow_drop_down"
                 android:drawablePadding="2dp"
                 android:drawableTint="#CCFFFFFF"
@@ -339,12 +341,13 @@ Layout (left to right):
                 android:textColor="#CCFFFFFF"
                 android:textSize="11sp"
                 android:textAllCaps="false"
+                android:gravity="center"
                 android:drawableStart="@drawable/ic_save"
-                android:drawablePadding="3dp"
+                android:drawablePadding="1dp"
                 android:drawableTint="#CCFFFFFF"
                 android:background="@drawable/retry_button_secondary"
-                android:paddingStart="8dp"
-                android:paddingEnd="10dp" />
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp" />
 
         </LinearLayout>
 
