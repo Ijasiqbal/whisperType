@@ -73,7 +73,7 @@ firebase deploy --only functions # Deploy to production
 
 ### Cloud Functions
 All functions are defined in `functions/src/index.ts`. Key groups:
-- **Transcription**: `transcribeAudio`, `transcribeAudioGroq`, `transcribeAudioTwoStage`
+- **Transcription**: `transcribePremium`, `transcribeAuto`, `transcribeStandard`
 - **Billing**: `getTrialStatus`, `getSubscriptionStatus`, `verifySubscription`
 - **Admin**: `admin*` endpoints for user/analytics management
 
@@ -110,7 +110,9 @@ npm run build                    # Production build
 ### Adding a new transcription flow
 1. Add enum value in `TranscriptionFlow.kt`
 2. Handle in `SpeechRecognitionHelper.kt`
-3. Map from `ModelTier` if needed
+3. Handle retry in `PendingScreen.kt`
+4. Add warmup in `WhisperApiClient.kt`
+5. Map from `ModelTier` if needed
 
 ### Adding a new API endpoint
 1. Add function in `WhisperType-Backend/functions/src/index.ts`
@@ -121,6 +123,12 @@ npm run build                    # Production build
 - Screens are in `ui/` folder as Composables
 - Theme in `ui/theme/Theme.kt`
 - Use Material 3 components
+
+## Security: Opaque Tier Codes
+
+The app sends opaque tier identifiers (`auto`, `standard`, `premium`, `standard_v2`) to the backend instead of real AI model names. The backend's `resolveModel()` function maps these to actual models. This prevents competitors from learning our model strategy by decompiling the APK.
+
+**Rule**: Never hardcode AI provider names (Groq, OpenAI, etc.) or model names in frontend code. Use tier codes and let the backend resolve them.
 
 ## Debug vs Release
 
@@ -156,7 +164,7 @@ npm test
 ## Environment Setup
 
 - **Firebase project**: `whispertype-1de9f` — Android app needs `google-services.json` in `app/`
-- **Backend env**: Copy `functions/.env.example` to `functions/.env` and set `OPENAI_API_KEY`
+- **Backend env**: Copy `functions/.env.example` to `functions/.env` and set API keys (see `.env.example` for required vars)
 - **Admin env**: Copy `whispertype-admin/.env.example` to `.env.local` and fill in Firebase config
 - **Android signing**: Release builds require a keystore (not checked in)
 - **SDK versions**: Check `app/build.gradle.kts` for current minSdk, targetSdk, Kotlin version, and versionCode
