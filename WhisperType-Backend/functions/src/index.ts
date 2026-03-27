@@ -1582,7 +1582,7 @@ export const health = onRequest((request, response) => {
  * audioDurationMs: Duration of audio in milliseconds (for usage tracking)
  * Response: { text: string, minutesUsed: number, totalUsedThisMonth: number }
  */
-export const transcribeAudio = onRequest(
+export const transcribePremium = onRequest(
   {
     region: ["us-central1", "asia-south1", "europe-west1"],
     secrets: ["OPENAI_API_KEY", "GOOGLE_PLAY_KEY"],
@@ -1791,7 +1791,7 @@ export const transcribeAudio = onRequest(
  * Groq provides OpenAI-compatible API, so we use the OpenAI SDK
  * with Groq's base URL.
  */
-export const transcribeAudioGroq = onRequest(
+export const transcribeAuto = onRequest(
   {
     region: ["us-central1", "asia-south1", "europe-west1"],
     secrets: ["GROQ_API_KEY", "GOOGLE_PLAY_KEY"],
@@ -2006,7 +2006,7 @@ export const transcribeAudioGroq = onRequest(
  * Stage 1: Groq Whisper transcription (NO prompt - raw verbatim output)
  * Stage 2: Groq Llama 3.1 8B cleanup (punctuation, formatting, capitalization)
  */
-export const transcribeAudioTwoStage = onRequest(
+export const transcribeStandard = onRequest(
   {
     region: ["us-central1", "asia-south1", "europe-west1"],
     secrets: ["GROQ_API_KEY", "GOOGLE_PLAY_KEY"],

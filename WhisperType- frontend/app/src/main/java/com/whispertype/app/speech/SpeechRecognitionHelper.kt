@@ -341,27 +341,17 @@ class SpeechRecognitionHelper(
             TranscriptionFlow.FLOW_3 -> {
                 // FREE tier - fastest, unlimited
                 Log.d(TAG, "[FREE] Sending to auto tier API")
-                transcribeWithGroqTurboApi(audioBytes, audioFormat, durationMs)
-            }
-            TranscriptionFlow.GROQ_WHISPER -> {
-                // STANDARD tier - high accuracy
-                Log.d(TAG, "[STANDARD] Sending to standard tier API")
-                transcribeWithGroqApi(audioBytes, audioFormat, durationMs)
+                transcribeWithAutoApi(audioBytes, audioFormat, durationMs)
             }
             TranscriptionFlow.PARALLEL_OPUS -> {
                 // PREMIUM tier - best quality
                 Log.d(TAG, "[PREMIUM] Sending to premium tier API")
                 transcribeWithParallelOpusFlow(audioBytes, audioFormat, durationMs)
             }
-            TranscriptionFlow.TWO_STAGE_AUTO -> {
-                // TWO_STAGE_AUTO → two-stage cleanup
-                Log.d(TAG, "[TWO_STAGE] Sending to two-stage API")
-                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, null, "AUTO")
-            }
-            TranscriptionFlow.TWO_STAGE_NEWER_AUTO -> {
-                // TWO_STAGE_NEWER_AUTO → two-stage enhanced cleanup
-                Log.d(TAG, "[NEWER_AUTO] Sending to two-stage API (enhanced)")
-                transcribeWithTwoStageApi(audioBytes, audioFormat, durationMs, "standard_v2", "STANDARD")
+            TranscriptionFlow.AUTO_ENHANCED -> {
+                // STANDARD tier - enhanced auto with cleanup
+                Log.d(TAG, "[STANDARD] Sending to enhanced API")
+                transcribeWithStandardApi(audioBytes, audioFormat, durationMs, "standard_v2", "STANDARD")
             }
             else -> {
                 // Fallback to premium flow for any other flows (FLOW_4)
@@ -372,64 +362,10 @@ class SpeechRecognitionHelper(
     }
 
     /**
-     * Transcribe using standard tier API
-     */
-    private fun transcribeWithGroqApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
-        processingScope.launch {
-            if (isDestroyed) return@launch
-            
-            // Ensure signed in
-            val user = authManager.ensureSignedIn()
-            if (user == null) {
-                mainHandler.post {
-                    callback.onError("Authentication failed. Please restart the app.")
-                }
-                return@launch
-            }
-
-            // Get ID token
-            val token = authManager.getIdToken()
-            if (token == null) {
-                mainHandler.post {
-                    callback.onError("Failed to get authentication token.")
-                }
-                return@launch
-            }
-
-            Log.d(TAG, "Calling Groq API with format: $audioFormat, duration: ${durationMs}ms")
-
-            // Notify UI that transcription is starting
-            mainHandler.post {
-                if (!isDestroyed) {
-                    callback.onTranscribing()
-                }
-            }
-
-            // Make Groq API call
-            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, null, object : WhisperApiClient.TranscriptionCallback {
-                override fun onSuccess(text: String) {
-                    Log.d(TAG, "[Groq] Transcription successful: ${text.take(50)}...")
-                    mainHandler.post {
-                        lastTranscribedAudioBytes = null
-                        callback.onResults(text)
-                    }
-                }
-
-                override fun onError(error: String) {
-                    Log.e(TAG, "[Groq] Transcription error: $error")
-                    mainHandler.post {
-                        callback.onError(error)
-                    }
-                }
-            })
-        }
-    }
-
-    /**
      * Transcribe using auto (free) tier API
      * This is the fastest transcription option with slightly lower accuracy
      */
-    private fun transcribeWithGroqTurboApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
+    private fun transcribeWithAutoApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long) {
         processingScope.launch {
             if (isDestroyed) return@launch
 
@@ -451,7 +387,7 @@ class SpeechRecognitionHelper(
                 return@launch
             }
 
-            Log.d(TAG, "[Groq Turbo] Calling Groq API, format: $audioFormat, duration: ${durationMs}ms")
+            Log.d(TAG, "[Auto] Calling fast API, format: $audioFormat, duration: ${durationMs}ms")
 
             // Notify UI that transcription is starting
             mainHandler.post {
@@ -460,10 +396,10 @@ class SpeechRecognitionHelper(
                 }
             }
 
-            // Make Groq API call with auto tier
-            whisperApiClient.transcribeWithGroq(audioBytes, token, audioFormat, durationMs, "auto", object : WhisperApiClient.TranscriptionCallback {
+            // Make fast transcription API call with auto tier
+            whisperApiClient.transcribeWithFastApi(audioBytes, token, audioFormat, durationMs, "auto", object : WhisperApiClient.TranscriptionCallback {
                 override fun onSuccess(text: String) {
-                    Log.d(TAG, "[Groq Turbo] Transcription successful: ${text.take(50)}...")
+                    Log.d(TAG, "[Auto] Transcription successful: ${text.take(50)}...")
                     mainHandler.post {
                         lastTranscribedAudioBytes = null
                         callback.onResults(text)
@@ -471,7 +407,7 @@ class SpeechRecognitionHelper(
                 }
 
                 override fun onError(error: String) {
-                    Log.e(TAG, "[Groq Turbo] Transcription error: $error")
+                    Log.e(TAG, "[Auto] Transcription error: $error")
                     mainHandler.post {
                         callback.onError(error)
                     }
@@ -518,7 +454,7 @@ class SpeechRecognitionHelper(
             // Make API call with auth token and premium tier
             whisperApiClient.transcribe(audioBytes, token, audioFormat, modelId, durationMs, object : WhisperApiClient.TranscriptionCallback {
                 override fun onSuccess(text: String) {
-                    Log.d(TAG, "[OpenAI] Transcription successful: ${text.take(50)}...")
+                    Log.d(TAG, "[Premium] Transcription successful: ${text.take(50)}...")
                     mainHandler.post {
                         lastTranscribedAudioBytes = null
                         callback.onResults(text)
@@ -526,7 +462,7 @@ class SpeechRecognitionHelper(
                 }
 
                 override fun onError(error: String) {
-                    Log.e(TAG, "[OpenAI] Transcription error: $error")
+                    Log.e(TAG, "[Premium] Transcription error: $error")
                     mainHandler.post {
                         callback.onError(error)
                     }
@@ -536,9 +472,9 @@ class SpeechRecognitionHelper(
     }
 
     /**
-     * Transcribe using the two-stage pipeline
+     * Transcribe using the standard tier pipeline
      */
-    private fun transcribeWithTwoStageApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long, llmModel: String?, tier: String) {
+    private fun transcribeWithStandardApi(audioBytes: ByteArray, audioFormat: String, durationMs: Long, llmModel: String?, tier: String) {
         processingScope.launch {
             if (isDestroyed) return@launch
 
@@ -555,7 +491,7 @@ class SpeechRecognitionHelper(
 
             mainHandler.post { if (!isDestroyed) callback.onTranscribing() }
 
-            whisperApiClient.transcribeWithTwoStage(audioBytes, token, audioFormat, durationMs, llmModel, tier,
+            whisperApiClient.transcribeWithStandard(audioBytes, token, audioFormat, durationMs, llmModel, tier,
                 object : WhisperApiClient.TranscriptionCallback {
                     override fun onSuccess(text: String) {
                         mainHandler.post {

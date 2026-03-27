@@ -14,14 +14,6 @@ enum class TranscriptionFlow(
     val description: String
 ) {
     /**
-     * Standard fast transcription flow (no silence trimming)
-     */
-    GROQ_WHISPER(
-        displayName = "Fast Transcription",
-        description = "Ultra-fast transcription"
-    ),
-
-    /**
      * Flow 3 - Fastest transcription variant
      */
     FLOW_3(
@@ -50,23 +42,11 @@ enum class TranscriptionFlow(
     ),
 
     /**
-     * TWO_STAGE_AUTO - Two-stage pipeline (Free tier)
-     * Stage 1: Fast transcription
-     * Stage 2: LLM cleanup, formatting, and punctuation
+     * AUTO_ENHANCED - Enhanced auto transcription with post-processing cleanup
      */
-    TWO_STAGE_AUTO(
-        displayName = "Auto (Two-Stage)",
-        description = "Fast transcription → LLM cleanup (free)"
-    ),
-
-    /**
-     * TWO_STAGE_NEWER_AUTO - Two-stage pipeline with enhanced post-processing
-     * Stage 1: Fast transcription
-     * Stage 2: Enhanced LLM cleanup
-     */
-    TWO_STAGE_NEWER_AUTO(
-        displayName = "Enhanced Auto (Two-Stage)",
-        description = "Fast transcription → enhanced cleanup (free)"
+    AUTO_ENHANCED(
+        displayName = "Enhanced Auto",
+        description = "Enhanced auto transcription with cleanup"
     );
 
     companion object {
@@ -109,7 +89,7 @@ enum class TranscriptionFlow(
         fun fromModelTier(tier: ShortcutPreferences.ModelTier): TranscriptionFlow {
             return when (tier) {
                 ShortcutPreferences.ModelTier.AUTO -> FLOW_3
-                ShortcutPreferences.ModelTier.STANDARD -> TWO_STAGE_NEWER_AUTO
+                ShortcutPreferences.ModelTier.STANDARD -> AUTO_ENHANCED
                 ShortcutPreferences.ModelTier.PREMIUM -> PARALLEL_OPUS
             }
         }

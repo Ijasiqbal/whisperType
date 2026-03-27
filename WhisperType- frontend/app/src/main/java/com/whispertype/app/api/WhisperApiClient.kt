@@ -23,7 +23,7 @@ import javax.net.ssl.SSLException
  * 2. Parses the JSON response
  * 3. Handles errors appropriately
  * 
- * API Endpoint: POST https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribeAudio
+ * API Endpoint: POST https://us-central1-whispertype-1de9f.cloudfunctions.net/transcribePremium
  * Request: {"audioBase64": "<base64_audio>"}
  * Response: {"text": "transcribed text"}
  * 
@@ -66,13 +66,13 @@ class WhisperApiClient {
         
         // Dynamically selected URLs based on region
         private val API_URL: String
-            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeAudio"
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribePremium"
 
-        private val GROQ_API_URL: String
-            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeAudioGroq"
+        private val FAST_API_URL: String
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeAuto"
 
-        private val TWO_STAGE_API_URL: String
-            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeAudioTwoStage"
+        private val STANDARD_API_URL: String
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/transcribeStandard"
 
         private val TRIAL_STATUS_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/getTrialStatus"
@@ -588,7 +588,7 @@ class WhisperApiClient {
      * @param model Tier identifier for model selection (e.g., "auto", "standard")
      * @param callback Callback for success/error results
      */
-    fun transcribeWithGroq(
+    fun transcribeWithFastApi(
         audioBytes: ByteArray,
         authToken: String,
         audioFormat: String = "m4a",
@@ -597,18 +597,18 @@ class WhisperApiClient {
         callback: TranscriptionCallback
     ) {
         val modelName = model ?: "standard"
-        Log.d(TAG, "[Groq] Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, tier: $modelName")
+        Log.d(TAG, "[Fast] Starting transcription, audio size: ${audioBytes.size} bytes, format: $audioFormat, duration: ${audioDurationMs}ms, tier: $modelName")
 
         // Encode audio to base64 (NO_WRAP to avoid line breaks)
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
-        Log.d(TAG, "[Groq] Base64 encoded, length: ${audioBase64.length}")
+        Log.d(TAG, "[Fast] Base64 encoded, length: ${audioBase64.length}")
 
         // Create request body with model parameter
         val requestBody = TranscribeRequest(audioBase64, audioFormat, model, audioDurationMs)
         val jsonBody = gson.toJson(requestBody)
 
         val request = Request.Builder()
-            .url(GROQ_API_URL)
+            .url(FAST_API_URL)
             .addHeader("Authorization", "Bearer $authToken")
             .post(jsonBody.toRequestBody(JSON_MEDIA_TYPE))
             .build()
@@ -618,7 +618,7 @@ class WhisperApiClient {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                 val responseBody = response.body?.string()
-                Log.d(TAG, "[Groq] Response code: ${response.code}")
+                Log.d(TAG, "[Fast] Response code: ${response.code}")
 
                 when (response.code) {
                     200 -> {
@@ -627,13 +627,13 @@ class WhisperApiClient {
                             val text = transcribeResponse.text
                             
                             if (text.isNullOrBlank()) {
-                                Log.w(TAG, "[Groq] Empty transcription result")
+                                Log.w(TAG, "[Fast] Empty transcription result")
                                 callback.onError("No speech detected")
                             } else {
                                 // Log usage info
                                 val creditsUsed = transcribeResponse.creditsUsed ?: 0
                                 val totalCreditsThisMonth = transcribeResponse.totalCreditsThisMonth ?: 0
-                                Log.d(TAG, "[Groq] Usage: ${creditsUsed} credits used, ${totalCreditsThisMonth} credits total this month")
+                                Log.d(TAG, "[Fast] Usage: ${creditsUsed} credits used, ${totalCreditsThisMonth} credits total this month")
 
                                 // Update usage data (same as regular transcribe)
                                 val proStatus = transcribeResponse.proStatus
@@ -669,16 +669,16 @@ class WhisperApiClient {
                                     val messagePattern = Regex("^[Mm][Ee][Ss][Ss][Aa][Gg][Ee][:\\s]*", RegexOption.IGNORE_CASE)
                                     messagePattern.replaceFirst(t, "").trim().ifEmpty { t }
                                 }
-                                Log.d(TAG, "[Groq] Final transcription: ${cleanedText.take(50)}...")
+                                Log.d(TAG, "[Fast] Final transcription: ${cleanedText.take(50)}...")
                                 callback.onSuccess(cleanedText)
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "[Groq] Failed to parse response", e)
+                            Log.e(TAG, "[Fast] Failed to parse response", e)
                             callback.onError("Failed to parse transcription response")
                         }
                     }
                     403 -> {
-                        Log.w(TAG, "[Groq] Quota exceeded (403)")
+                        Log.w(TAG, "[Fast] Quota exceeded (403)")
                         try {
                             val errorResponse = gson.fromJson(responseBody, QuotaExceededResponse::class.java)
                             val message = errorResponse?.message ?: "You have used all your quota"
@@ -707,7 +707,7 @@ class WhisperApiClient {
             }
 
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "[Groq] Network request failed", e)
+                Log.e(TAG, "[Fast] Network request failed", e)
                 val errorMessage = when {
                     e.message?.contains("timeout", ignoreCase = true) == true ->
                         "Request timed out. Please try again."
@@ -730,9 +730,9 @@ class WhisperApiClient {
     }
 
     /**
-     * Request body for the two-stage transcription API
+     * Request body for the standard transcription API
      */
-    private data class TwoStageRequest(
+    private data class StandardRequest(
         @SerializedName("audioBase64")
         val audioBase64: String,
         @SerializedName("audioFormat")
@@ -746,7 +746,7 @@ class WhisperApiClient {
     )
 
     /**
-     * Transcribe audio using the two-stage pipeline: fast transcription → LLM cleanup
+     * Transcribe audio using the standard tier transcription pipeline
      *
      * @param audioBytes Raw audio bytes (OGG, WAV, etc.)
      * @param authToken Firebase Auth ID token
@@ -756,7 +756,7 @@ class WhisperApiClient {
      * @param tier Model tier for billing ("AUTO", "STANDARD", or "PREMIUM")
      * @param callback Callback for success/error results
      */
-    fun transcribeWithTwoStage(
+    fun transcribeWithStandard(
         audioBytes: ByteArray,
         authToken: String,
         audioFormat: String = "ogg",
@@ -765,14 +765,14 @@ class WhisperApiClient {
         tier: String? = null,
         callback: TranscriptionCallback
     ) {
-        Log.d(TAG, "[TwoStage] Starting, size: ${audioBytes.size} bytes, format: $audioFormat, llmModel: $llmModel, tier: $tier")
+        Log.d(TAG, "[Standard] Starting, size: ${audioBytes.size} bytes, format: $audioFormat, llmModel: $llmModel, tier: $tier")
 
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
-        val requestBody = TwoStageRequest(audioBase64, audioFormat, audioDurationMs, llmModel, tier)
+        val requestBody = StandardRequest(audioBase64, audioFormat, audioDurationMs, llmModel, tier)
         val jsonBody = gson.toJson(requestBody)
 
         val request = Request.Builder()
-            .url(TWO_STAGE_API_URL)
+            .url(STANDARD_API_URL)
             .addHeader("Authorization", "Bearer $authToken")
             .post(jsonBody.toRequestBody(JSON_MEDIA_TYPE))
             .build()
@@ -789,13 +789,13 @@ class WhisperApiClient {
                                 val text = transcribeResponse.text
 
                                 if (text.isNullOrBlank()) {
-                                    Log.w(TAG, "[TwoStage] Empty transcription result")
+                                    Log.w(TAG, "[Standard] Empty transcription result")
                                     callback.onError("No speech detected")
                                 } else {
                                     // Update usage data
                                     val creditsUsed = transcribeResponse.creditsUsed ?: 0
                                     val totalCreditsThisMonth = transcribeResponse.totalCreditsThisMonth ?: 0
-                                    Log.d(TAG, "[TwoStage] Usage: $creditsUsed credits used, $totalCreditsThisMonth total")
+                                    Log.d(TAG, "[Standard] Usage: $creditsUsed credits used, $totalCreditsThisMonth total")
 
                                     val proStatus = transcribeResponse.proStatus
                                     val isPro = transcribeResponse.plan == "pro" || proStatus != null
@@ -825,16 +825,16 @@ class WhisperApiClient {
                                         }
                                     }
 
-                                    Log.d(TAG, "[TwoStage] Final: ${text.take(50)}...")
+                                    Log.d(TAG, "[Standard] Final: ${text.take(50)}...")
                                     callback.onSuccess(text.trim())
                                 }
                             } catch (e: Exception) {
-                                Log.e(TAG, "[TwoStage] Failed to parse response", e)
+                                Log.e(TAG, "[Standard] Failed to parse response", e)
                                 callback.onError("Failed to parse transcription response")
                             }
                         }
                         403 -> {
-                            Log.w(TAG, "[TwoStage] Quota exceeded (403)")
+                            Log.w(TAG, "[Standard] Quota exceeded (403)")
                             try {
                                 val errorResponse = gson.fromJson(responseBody, QuotaExceededResponse::class.java)
                                 val message = errorResponse?.message ?: "You have used all your credits"
@@ -863,7 +863,7 @@ class WhisperApiClient {
             }
 
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "[TwoStage] Network request failed", e)
+                Log.e(TAG, "[Standard] Network request failed", e)
                 val errorMessage = when {
                     e is SocketTimeoutException -> "Request timed out. Please try again."
                     e is UnknownHostException -> "No internet connection."
@@ -877,43 +877,43 @@ class WhisperApiClient {
     }
 
     /**
-     * Warm up the two-stage transcription Firebase Function
+     * Warm up the standard transcription Firebase Function
      */
-    fun warmTwoStageFunction() {
-        Log.d(TAG, "Warming up transcribeAudioTwoStage function (region: ${getBestRegion()})")
+    fun warmStandardFunction() {
+        Log.d(TAG, "Warming up transcribeStandard function (region: ${getBestRegion()})")
 
         val request = Request.Builder()
-            .url(TWO_STAGE_API_URL)
+            .url(STANDARD_API_URL)
             .get()
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
-                Log.d(TAG, "TwoStage warmup: ${response.code}")
+                Log.d(TAG, "Standard warmup: ${response.code}")
                 response.close()
             }
 
             override fun onFailure(call: Call, e: IOException) {
-                Log.d(TAG, "TwoStage warmup failed (non-critical): ${e.message}")
+                Log.d(TAG, "Standard warmup failed (non-critical): ${e.message}")
             }
         })
     }
 
     /**
-     * Warm up the transcribeAudio Firebase Function
+     * Warm up the transcribePremium Firebase Function
      *
      * IMPORTANT: Each Firebase Function (Gen 2) runs in a separate Cloud Run instance.
-     * Warming up the 'health' function does NOT warm up 'transcribeAudio'.
-     * This method directly warms up the transcribeAudio function by sending a GET request.
+     * Warming up the 'health' function does NOT warm up 'transcribePremium'.
+     * This method directly warms up the transcribePremium function by sending a GET request.
      *
      * Fire-and-forget: doesn't block or return result
      * Call this when recording starts so the function is warm when recording stops.
      */
     fun warmTranscribeFunction() {
-        Log.d(TAG, "Warming up transcribeAudio function (region: ${getBestRegion()})")
+        Log.d(TAG, "Warming up transcribePremium function (region: ${getBestRegion()})")
 
         val request = Request.Builder()
-            .url(API_URL)  // Use the actual transcribeAudio endpoint
+            .url(API_URL)  // Use the actual transcribePremium endpoint
             .get()         // GET request triggers warmup mode in the function
             .build()
 
@@ -932,22 +932,22 @@ class WhisperApiClient {
     /**
      * Warm up the fast transcription Firebase Function to avoid cold starts.
      */
-    fun warmGroqFunction() {
-        Log.d(TAG, "Warming up transcribeAudioGroq function (region: ${getBestRegion()})")
+    fun warmFastApiFunction() {
+        Log.d(TAG, "Warming up transcribeAuto function (region: ${getBestRegion()})")
 
         val request = Request.Builder()
-            .url(GROQ_API_URL)  // Use the Groq endpoint
+            .url(FAST_API_URL)  // Use the fast transcription endpoint
             .get()             // GET request triggers warmup mode
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
-                Log.d(TAG, "Groq warmup: ${response.code}")
+                Log.d(TAG, "Fast API warmup: ${response.code}")
                 response.close()
             }
 
             override fun onFailure(call: Call, e: IOException) {
-                Log.d(TAG, "Groq warmup failed (non-critical): ${e.message}")
+                Log.d(TAG, "Fast API warmup failed (non-critical): ${e.message}")
             }
         })
     }
@@ -963,10 +963,9 @@ class WhisperApiClient {
         Log.d(TAG, "Warming up for flow: ${selectedFlow.name}")
 
         when (selectedFlow) {
-            com.whispertype.app.speech.TranscriptionFlow.GROQ_WHISPER -> warmGroqFunction()
             com.whispertype.app.speech.TranscriptionFlow.FLOW_3 -> {
-                // Flow 3 uses same endpoint as regular Groq
-                warmGroqFunction()
+                // Flow 3 uses fast endpoint
+                warmFastApiFunction()
             }
             com.whispertype.app.speech.TranscriptionFlow.FLOW_4 -> {
                 // Flow 4 uses same endpoint as CLOUD_API
@@ -976,9 +975,8 @@ class WhisperApiClient {
                 // PARALLEL_OPUS uses premium endpoint
                 warmTranscribeFunction()
             }
-            com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_AUTO,
-            com.whispertype.app.speech.TranscriptionFlow.TWO_STAGE_NEWER_AUTO -> {
-                warmTwoStageFunction()
+            com.whispertype.app.speech.TranscriptionFlow.AUTO_ENHANCED -> {
+                warmStandardFunction()
             }
         }
     }
@@ -994,8 +992,8 @@ class WhisperApiClient {
     fun warmAllEndpoints() {
         Log.d(TAG, "Warming up ALL endpoints (region: ${getBestRegion()})")
         warmTranscribeFunction()  // Premium endpoint
-        warmGroqFunction()        // Free/Standard endpoint
-        warmTwoStageFunction()    // Two-stage endpoint (NEW tiers)
+        warmFastApiFunction()        // Free/Standard endpoint
+        warmStandardFunction()    // Standard endpoint
     }
     
     /**
