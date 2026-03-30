@@ -29,7 +29,7 @@ final class TranscriptionService: ObservableObject {
 
     private var selectedModel: TranscriptionModel {
         let raw = UserDefaults.standard.string(forKey: Constants.selectedModelKey) ?? ""
-        return TranscriptionModel(rawValue: raw) ?? .groqTurbo
+        return TranscriptionModel(rawValue: raw) ?? .auto
     }
 
     private init() {}

@@ -70,40 +70,40 @@ enum UserPlan: String, Codable {
 // MARK: - Transcription Model
 
 enum TranscriptionModel: String, CaseIterable, Identifiable {
-    case groqTurbo = "whisper-large-v3-turbo"
-    case groqStandard = "whisper-large-v3"
-    case openAIMini = "gpt-4o-mini-transcribe"
+    case auto = "auto"
+    case standard = "standard_v2"
+    case premium = "premium"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .groqTurbo: return "Groq Turbo (Free)"
-        case .groqStandard: return "Standard (1x credits)"
-        case .openAIMini: return "OpenAI Mini (2x credits)"
+        case .auto: return "Auto (Free)"
+        case .standard: return "Standard (1x credits)"
+        case .premium: return "Premium (2x credits)"
         }
     }
 
     var endpoint: String {
         switch self {
-        case .groqTurbo:
-            return Constants.transcribeGroqPath
-        case .groqStandard:
-            return Constants.transcribeTwoStagePath
-        case .openAIMini:
-            return Constants.transcribeOpenAIPath
+        case .auto:
+            return Constants.transcribeAutoPath
+        case .standard:
+            return Constants.transcribeStandardPath
+        case .premium:
+            return Constants.transcribePremiumPath
         }
     }
 
-    /// Whether this model uses the two-stage pipeline
+    /// Whether this model uses the standard pipeline
     var isTwoStage: Bool {
-        self == .groqStandard
+        self == .standard
     }
 
-    /// LLM model for two-stage cleanup (nil = backend default / Llama)
+    /// LLM tier for standard pipeline cleanup
     var llmModel: String? {
         switch self {
-        case .groqStandard: return "openai/gpt-oss-20b"
+        case .standard: return "standard_v2"
         default: return nil
         }
     }
@@ -111,44 +111,44 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
     /// Billing tier sent to the backend
     var tier: String {
         switch self {
-        case .groqTurbo: return "AUTO"
-        case .groqStandard: return "STANDARD"
-        case .openAIMini: return "PREMIUM"
+        case .auto: return "AUTO"
+        case .standard: return "STANDARD"
+        case .premium: return "PREMIUM"
         }
     }
 
     var isFree: Bool {
-        self == .groqTurbo
+        self == .auto
     }
 
     var shortName: String {
         switch self {
-        case .groqTurbo: return "Auto"
-        case .groqStandard: return "Standard"
-        case .openAIMini: return "Premium"
+        case .auto: return "Auto"
+        case .standard: return "Standard"
+        case .premium: return "Premium"
         }
     }
 
     var creditLabel: String {
         switch self {
-        case .groqTurbo: return "Free"
-        case .groqStandard: return "1x"
-        case .openAIMini: return "2x"
+        case .auto: return "Free"
+        case .standard: return "1x"
+        case .premium: return "2x"
         }
     }
 
     var color: Color {
         switch self {
-        case .groqTurbo: return .green
-        case .groqStandard: return .blue
-        case .openAIMini: return .orange
+        case .auto: return .green
+        case .standard: return .blue
+        case .premium: return .orange
         }
     }
 
     /// Get the current model from UserDefaults
     static var current: TranscriptionModel {
         let raw = UserDefaults.standard.string(forKey: Constants.selectedModelKey) ?? ""
-        return TranscriptionModel(rawValue: raw) ?? .groqTurbo
+        return TranscriptionModel(rawValue: raw) ?? .auto
     }
 
     /// Save this model as the current selection

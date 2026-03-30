@@ -6,7 +6,7 @@ struct MenuBarView: View {
     @EnvironmentObject var auth: AuthManager
     @EnvironmentObject var usage: UsageManager
     @ObservedObject var pendingManager = PendingTranscriptionManager.shared
-    @AppStorage(Constants.selectedModelKey) private var selectedModelRaw = TranscriptionModel.groqTurbo.rawValue
+    @AppStorage(Constants.selectedModelKey) private var selectedModelRaw = TranscriptionModel.auto.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

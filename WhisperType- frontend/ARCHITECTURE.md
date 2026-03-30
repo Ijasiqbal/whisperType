@@ -59,8 +59,8 @@ Detailed technical architecture of the VoxType Android app.
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
 │  │                     Firebase Cloud Functions                           │  │
 │  │  ┌─────────────────┐  ┌──────────────────┐  ┌──────────────────────┐  │  │
-│  │  │ transcribeAudio │  │transcribeAudioGrq│  │   getTrialStatus     │  │  │
-│  │  │    (OpenAI)     │  │     (Groq)       │  │                      │  │  │
+│  │  │transcribePremium│  │  transcribeAuto  │  │   getTrialStatus     │  │  │
+│  │  │                 │  │                  │  │                      │  │  │
 │  │  └─────────────────┘  └──────────────────┘  └──────────────────────┘  │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                              │                                               │
@@ -222,13 +222,11 @@ const val MIN_SILENCE_DURATION_MS = 500L
 
 Each flow represents a different transcription pipeline:
 
-| Flow | Recorder | Encoding | Backend | Credit Multiplier |
-|------|----------|----------|---------|-------------------|
-| `FLOW_3` | MediaRecorder | AAC | Groq Turbo | 0x (Free) |
-| `GROQ_WHISPER` | MediaRecorder | AAC | Groq Large | 1x |
-| `FLOW_4` | MediaRecorder | AAC | OpenAI Mini | 1x |
-| `ARAMUS_OPENAI` | RealtimeRms | WAV | OpenAI Mini | 1x |
-| `PARALLEL_OPUS` | ParallelOpus | Opus | OpenAI Mini | 2x |
+| Flow | Recorder | Encoding | Tier | Credit Multiplier |
+|------|----------|----------|------|-------------------|
+| `FLOW_3` | MediaRecorder | AAC | auto | 0x (Free) |
+| `PARALLEL_OPUS` | ParallelOpus | Opus | premium | 2x |
+| `AUTO_ENHANCED` | ParallelOpus | Opus | standard | 1x |
 
 ### Flow Selection Logic
 
@@ -236,7 +234,7 @@ Each flow represents a different transcription pipeline:
 fun fromModelTier(tier: ModelTier): TranscriptionFlow {
     return when (tier) {
         ModelTier.AUTO -> FLOW_3         // Free tier
-        ModelTier.STANDARD -> GROQ_WHISPER
+        ModelTier.STANDARD -> AUTO_ENHANCED
         ModelTier.PREMIUM -> PARALLEL_OPUS
     }
 }

@@ -18,7 +18,7 @@ final class VoxTypeAPIClient {
     func transcribe(
         audioData: Data,
         format: String = "wav",
-        model: TranscriptionModel = .groqTurbo,
+        model: TranscriptionModel = .auto,
         audioDurationMs: Int
     ) async throws -> TranscriptionResult {
         let region = RegionSelector.bestRegion()
@@ -97,10 +97,10 @@ final class VoxTypeAPIClient {
     /// Call this when recording starts so the function is warm when recording stops.
     func warmAllEndpoints() async {
         let region = RegionSelector.bestRegion()
-        async let groq: Void = warmEndpoint(Constants.baseURL(for: region) + Constants.transcribeGroqPath)
-        async let openAI: Void = warmEndpoint(Constants.baseURL(for: region) + Constants.transcribeOpenAIPath)
-        async let twoStage: Void = warmEndpoint(Constants.baseURL(for: region) + Constants.transcribeTwoStagePath)
-        _ = await (groq, openAI, twoStage)
+        async let autoTier: Void = warmEndpoint(Constants.baseURL(for: region) + Constants.transcribeAutoPath)
+        async let premiumTier: Void = warmEndpoint(Constants.baseURL(for: region) + Constants.transcribePremiumPath)
+        async let standardTier: Void = warmEndpoint(Constants.baseURL(for: region) + Constants.transcribeStandardPath)
+        _ = await (autoTier, premiumTier, standardTier)
     }
 
     private func warmEndpoint(_ urlString: String) async {

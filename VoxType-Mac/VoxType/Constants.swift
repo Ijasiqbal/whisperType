@@ -13,9 +13,9 @@ enum Constants {
 
     // MARK: - Endpoints
 
-    static let transcribeGroqPath = "/transcribeAudioGroq"
-    static let transcribeOpenAIPath = "/transcribeAudio"
-    static let transcribeTwoStagePath = "/transcribeAudioTwoStage"
+    static let transcribeAutoPath = "/transcribeAuto"
+    static let transcribePremiumPath = "/transcribePremium"
+    static let transcribeStandardPath = "/transcribeStandard"
     static let trialStatusPath = "/getTrialStatus"
     static let subscriptionStatusPath = "/getSubscriptionStatus"
     static let healthPath = "/health"
@@ -68,12 +68,11 @@ enum Constants {
     static let creditsPro = 6000
     static let creditsUnlimited = 15000
 
-    // MARK: - Models
+    // MARK: - Model Tier Codes
 
-    static let modelGroqTurbo = "whisper-large-v3-turbo"
-    static let modelGroqStandard = "whisper-large-v3"
-    static let modelOpenAIMini = "gpt-4o-mini-transcribe"
-    static let modelOpenAI = "gpt-4o-transcribe"
+    static let modelAuto = "auto"
+    static let modelStandard = "standard_v2"
+    static let modelPremium = "premium"
 
     // MARK: - UserDefaults Keys
 

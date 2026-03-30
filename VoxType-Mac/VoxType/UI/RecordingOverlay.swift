@@ -107,11 +107,11 @@ struct RecordingOverlayView: View {
 
     @StateObject private var service = TranscriptionService.shared
     @ObservedObject private var audioRecorder = TranscriptionService.shared.audioRecorder  // Observe audioRecorder directly for amplitude updates
-    @AppStorage(Constants.selectedModelKey) private var selectedModelRaw = TranscriptionModel.groqTurbo.rawValue
+    @AppStorage(Constants.selectedModelKey) private var selectedModelRaw = TranscriptionModel.auto.rawValue
     @State private var showModelPicker = false
 
     private var currentModel: TranscriptionModel {
-        TranscriptionModel(rawValue: selectedModelRaw) ?? .groqTurbo
+        TranscriptionModel(rawValue: selectedModelRaw) ?? .auto
     }
 
     var body: some View {

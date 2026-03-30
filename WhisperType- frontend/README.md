@@ -17,7 +17,7 @@ Vozcribe (WhisperType) is an Android accessibility service that enables voice in
 │                          ↓                                       │
 │   3. Floating mic button appears → tap to record                │
 │                          ↓                                       │
-│   4. Speak → Audio sent to cloud (Groq/OpenAI)                  │
+│   4. Speak → Audio sent to cloud for transcription              │
 │                          ↓                                       │
 │   5. Transcribed text inserted into text field                  │
 │                                                                  │
@@ -28,7 +28,7 @@ Vozcribe (WhisperType) is an Android accessibility service that enables voice in
 
 - **Universal Text Input**: Works in any app with text fields
 - **Volume Button Shortcuts**: Double-press volume up, down, or both buttons
-- **Multiple AI Backends**: Groq Whisper (fast) and OpenAI GPT-4o-mini (accurate)
+- **Multiple Quality Tiers**: Auto (fast, free), Standard (enhanced accuracy), Premium (best quality)
 - **Silence Trimming**: Real-time RMS analysis removes silence for faster processing
 - **Opus Compression**: Android 10+ uses Opus encoding for 90% smaller uploads
 - **Credit System**: Free tier + Pro subscription via Google Play Billing
@@ -142,15 +142,15 @@ The app requires three permissions to function:
 
 ## Transcription Flows
 
-The app supports multiple transcription pipelines selectable per-request:
+The app supports multiple transcription pipelines mapped to quality tiers:
 
-| Flow | Backend | Features | Credit Cost |
-|------|---------|----------|-------------|
-| **FLOW_3** (Auto) | Groq Turbo | Fastest, basic | 0x (Free) |
-| **GROQ_WHISPER** | Groq Large v3 | Fast, accurate | 1x |
-| **PARALLEL_OPUS** | OpenAI mini | Opus compression, silence trim | 2x |
+| Flow | Tier | Features | Credit Cost |
+|------|------|----------|-------------|
+| **FLOW_3** | Auto | Fastest | 0x (Free) |
+| **AUTO_ENHANCED** | Standard | Enhanced accuracy | 1x |
+| **PARALLEL_OPUS** | Premium | Opus compression, silence trim | 2x |
 
-Default: `ARAMUS_OPENAI` (Parallel RMS + GPT-4o-mini)
+Default: `PARALLEL_OPUS`
 
 ## Architecture
 

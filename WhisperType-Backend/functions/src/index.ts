@@ -51,6 +51,11 @@ const LLM_TIER_MAP: Record<string, string> = {
  * Resolves a client tier identifier to an actual model name.
  * Accepts both opaque tier codes and legacy direct model names for
  * backwards compatibility with older app versions.
+ * @param {string | undefined} clientValue - Tier code or model name.
+ * @param {Record<string, string>} tierMap - Map of tier codes to model names.
+ * @param {string[]} validModels - Valid model names for backwards compat.
+ * @param {string} defaultModel - Fallback if clientValue is unrecognized.
+ * @return {string} The resolved model name.
  */
 function resolveModel(
   clientValue: string | undefined,

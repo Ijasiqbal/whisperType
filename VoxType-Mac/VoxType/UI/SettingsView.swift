@@ -7,7 +7,7 @@ struct SettingsView: View {
     @EnvironmentObject var auth: AuthManager
     @EnvironmentObject var usage: UsageManager
 
-    @AppStorage(Constants.selectedModelKey) private var selectedModel = TranscriptionModel.groqTurbo.rawValue
+    @AppStorage(Constants.selectedModelKey) private var selectedModel = TranscriptionModel.auto.rawValue
     @AppStorage(Constants.launchAtLoginKey) private var launchAtLogin = false
     @AppStorage(Constants.selectedRegionKey) private var selectedRegion = ""
     @AppStorage(Constants.selectedHotkeyKey) private var selectedHotkeyRaw = HotkeyOption.ctrlOption.rawValue
@@ -136,7 +136,7 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.radioGroup)
 
-                Text("Groq Turbo is fastest and free. Standard uses AI cleanup for better accuracy (1x credits). OpenAI uses 2x credits.")
+                Text("Auto is fastest and free. Standard uses enhanced processing for better accuracy (1x credits). Premium is highest quality (2x credits).")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
