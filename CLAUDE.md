@@ -64,8 +64,27 @@ cd WhisperType-Backend/functions
 npm install
 npm run build                    # Compile TypeScript
 npm run serve                    # Local emulator
-firebase deploy --only functions # Deploy to production
 ```
+
+### Deploying Backend
+Run deploy from `WhisperType-Backend/` (not `functions/`):
+```bash
+cd WhisperType-Backend
+firebase deploy --only functions
+```
+
+**Gotcha — Renaming functions**: If you rename an exported function, Firebase blocks deploy.
+Manually delete the old function across all 3 regions first:
+```bash
+firebase functions:delete oldName --region us-central1 --force
+firebase functions:delete oldName --region asia-south1 --force
+firebase functions:delete oldName --region europe-west1 --force
+```
+
+### Backend ESLint Rules
+- Max line length: **80 chars**
+- All functions require **JSDoc** with `@param` and `@return` tags
+- Run `npm run lint` in `functions/` before deploying to catch errors early
 
 ### Key Paths
 - Source: `functions/src/index.ts` (monolithic)
@@ -89,6 +108,11 @@ All functions are defined in `functions/src/index.ts`. Key groups:
 - Xcode project: `VoxType-Mac/VoxType.xcodeproj`
 - Build via Xcode (open `.xcodeproj`)
 
+### Key Paths
+- API client: `VoxType/API/VoxTypeAPIClient.swift`
+- Models/enums (TranscriptionModel): `VoxType/Models.swift`
+- Constants (endpoints, tier codes): `VoxType/Constants.swift`
+
 ## Admin Dashboard
 
 **Location**: `whispertype-admin/`
@@ -106,6 +130,14 @@ npm run build                    # Production build
 - Radix UI + shadcn components
 
 ## Common Patterns
+
+### Version Bumping
+```bash
+cd "WhisperType- frontend"
+./bump-version.sh patch   # 1.0.19 → 1.0.20 (use for most releases)
+./bump-version.sh minor   # 1.0.x → 1.1.0
+./bump-version.sh major   # 1.x.x → 2.0.0
+```
 
 ### Adding a new transcription flow
 1. Add enum value in `TranscriptionFlow.kt`
