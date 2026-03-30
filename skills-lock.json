@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "skills": {
+    "anticipatory-selling": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "b779f200c64046dac01d001b35c7fee1b36565f841f9631e73c831058ca0071a"
+    },
+    "choice-architecture": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "751666b0440a4a50f8356d927d096c8ef72fd71f3adb82e32491af4b36fb3b30"
+    },
+    "confidence": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "d3e6bf3cee70709a11ec3e28f52a436988e9756933813d99d531d2fbc59be6f8"
+    },
+    "content-rules": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "a473191efd86c1a398326d1ea9356215f6f1ed89788b30748956c47ef9a9eecb"
+    },
+    "critical-chain": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "038ff2ab88a858c83928e7d465d0560317d8c069cbdc8a5160e8c090359cc9b0"
+    },
+    "culture-map": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "922d0ed9c4bdd9830ec796e36c4b6171c79f96cfe3ee8df458158f0aa47621fe"
+    },
+    "disruption": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "f0a7013fefff2f113ec9a1a8a78f449445b17b0a551d68cab9ed27b461b533dd"
+    },
+    "effectuation": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "0b105eebd136dd24a30c801f642648e90b76120ed37788885f0664f188f59103"
+    },
+    "failure-essence": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "a3cc6d60e39c6db7153c4a052abd846eda65e116546b66cbc1b5121df3e6a364"
+    },
+    "growth-metrics": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "c62e0c5e381041eac91c225befbe3c306222308b316e60adbf52ee04db0acc09"
+    },
+    "kpi-tree": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "237afc264d05c229637e5e009e35b65d48ed2847fec461d7fbf52534bdc80bfc"
+    },
+    "network-effects": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "c225c3aac4b456702e0a5cf19f56a204028e0a92cc25ee4bdedd4303af6c3040"
+    },
+    "pipeline": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "8f3061626805609038c0a1eea348ef6792c76952e960b59711c029a3232bf91a"
+    },
+    "plan-b": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "c842aa5c549761df2b9657840a08fcaadd5b25610778cbeaf9da283c5cee41be"
+    },
+    "pre-mortem": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "ecd2fbbc4cdd88b66611f888c83e4aee35c2401703d6b0a0ad11956c988f64e2"
+    },
+    "qualification": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "8bc7a50a128ed520cf6008cb2219e0d7a24edaecc6855c98fa1551fc88827686"
+    },
+    "quest-interview": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "669a9bdcfd314e5cf3e9030101848821a46437028f7a9d3152862430aa2abdb1"
+    },
+    "retention-cohorts": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "b0b737d14b6b2db2d8dfb99df9b283f650a2b9c42d6f4829f4b8d66a2d58e6c2"
+    },
+    "review-engine": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "6d101b90b11d8f2fb6133eac475c9db8a03001ece3c2ef5d0b008d17e112eac4"
+    },
+    "root-cause": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "30e2a1c7d0766c49a7e81af651b62db7550b627402c7139127f575bbd0b94320"
+    },
+    "strategy-kernel": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "9d6668f9fdd2cd137241cfaec76ca2c11d09a0ed64170e84e3344411ac4a2d62"
+    },
+    "stupid-games": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "20a9966ef0b25b19d1e8d3813bed34238e514fa1179263931f87f4e8db26c8d0"
+    },
+    "unit-economics": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "bd7b0951e88fb2091cde0457c41d8479c69ceaf6d8e09b00656d46439ce0fb01"
+    },
+    "value-stick": {
+      "source": "masterleopold/anty-framework",
+      "sourceType": "github",
+      "computedHash": "8d04bb9948800522007a9eab652c7d7a4568aad54b5c2d278b5a450ef533ff3e"
+    }
+  }
+}
