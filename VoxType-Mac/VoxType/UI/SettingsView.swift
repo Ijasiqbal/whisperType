@@ -10,7 +10,7 @@ struct SettingsView: View {
     @AppStorage(Constants.selectedModelKey) private var selectedModel = TranscriptionModel.auto.rawValue
     @AppStorage(Constants.launchAtLoginKey) private var launchAtLogin = false
     @AppStorage(Constants.selectedRegionKey) private var selectedRegion = ""
-    @AppStorage(Constants.selectedHotkeyKey) private var selectedHotkeyRaw = HotkeyOption.ctrlOption.rawValue
+    @AppStorage(Constants.selectedHotkeyKey) private var selectedHotkeyRaw = HotkeyOption.ctrlSpace.rawValue
 
     var body: some View {
         TabView {
@@ -70,11 +70,47 @@ struct SettingsView: View {
             }
 
             Section("Hotkey") {
-                Picker("Record shortcut:", selection: $selectedHotkeyRaw) {
-                    ForEach(HotkeyOption.allCases) { option in
-                        Text(option.displayName).tag(option.rawValue)
+                ForEach(HotkeyOption.allCases) { option in
+                    HStack {
+                        Button {
+                            selectedHotkeyRaw = option.rawValue
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: selectedHotkeyRaw == option.rawValue ? "largecircle.fill.circle" : "circle")
+                                    .foregroundColor(selectedHotkeyRaw == option.rawValue ? .accentColor : .secondary)
+
+                                Text(option.shortLabel)
+                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                    .frame(width: 50, alignment: .leading)
+
+                                Text(option.displayName)
+                                    .font(.system(size: 12))
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+
+                        if option.requiresAccessibility {
+                            if HotkeyManager.isAccessibilityGranted {
+                                Text("Accessibility ✓")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.green)
+                            } else {
+                                Text("Needs Accessibility")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.orange)
+                            }
+                        }
                     }
                 }
+                .onChange(of: selectedHotkeyRaw) { newValue in
+                    guard let option = HotkeyOption(rawValue: newValue) else { return }
+                    if option.requiresAccessibility && !HotkeyManager.isAccessibilityGranted {
+                        PermissionChecker.openAccessibilitySettings()
+                    }
+                }
+
                 Text("Press once to start recording, press again to stop and transcribe.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -89,10 +125,17 @@ struct SettingsView: View {
                             .foregroundColor(.green)
                             .font(.system(size: 12))
                     } else {
-                        Button("Grant Access") {
-                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                        let currentHotkey = HotkeyOption(rawValue: selectedHotkeyRaw) ?? .ctrlSpace
+                        if currentHotkey.requiresAccessibility {
+                            Button("Required — Grant Access") {
+                                PermissionChecker.openAccessibilitySettings()
+                            }
+                            .controlSize(.small)
+                        } else {
+                            Text("Not needed")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
                         }
-                        .controlSize(.small)
                     }
                 }
 
