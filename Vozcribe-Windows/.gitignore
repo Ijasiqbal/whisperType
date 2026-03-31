@@ -1,0 +1,23 @@
+## Build results
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userprefs
+
+## NuGet
+packages/
+*.nupkg
+
+## VS
+.vs/
+*.rsuser
+
+## App config with secrets
+appsettings.json
+
+## OS
+.DS_Store
+Thumbs.db
