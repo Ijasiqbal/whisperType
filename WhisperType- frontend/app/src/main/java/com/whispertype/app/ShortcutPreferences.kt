@@ -53,11 +53,11 @@ object ShortcutPreferences {
      * Get the current shortcut mode
      */
     fun getShortcutMode(context: Context): ShortcutMode {
-        val modeName = getPrefs(context).getString(KEY_SHORTCUT_MODE, ShortcutMode.DOUBLE_VOLUME_UP.name)
+        val modeName = getPrefs(context).getString(KEY_SHORTCUT_MODE, ShortcutMode.BOTH_VOLUME_BUTTONS.name)
         return try {
-            ShortcutMode.valueOf(modeName ?: ShortcutMode.DOUBLE_VOLUME_UP.name)
+            ShortcutMode.valueOf(modeName ?: ShortcutMode.BOTH_VOLUME_BUTTONS.name)
         } catch (e: IllegalArgumentException) {
-            ShortcutMode.DOUBLE_VOLUME_UP
+            ShortcutMode.BOTH_VOLUME_BUTTONS
         }
     }
     
