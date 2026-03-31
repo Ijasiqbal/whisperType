@@ -46,6 +46,13 @@ public class HotkeyOption
     public static HotkeyOption FromId(string id) =>
         Presets.FirstOrDefault(p => p.Id == id) ?? CtrlShift;
 
+    public static HotkeyOption FromSettings(string id, int? customModifiers, int? customKey)
+    {
+        if (id == "custom" && customModifiers.HasValue && customKey.HasValue)
+            return Custom((ModifierKeys)customModifiers.Value, (Key)customKey.Value);
+        return FromId(id);
+    }
+
     private static string FormatCustom(ModifierKeys mod, Key key)
     {
         var parts = new List<string>();

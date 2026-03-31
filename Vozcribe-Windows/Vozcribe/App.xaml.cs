@@ -80,11 +80,15 @@ public partial class App : Application
         _textInsertion = new TextInsertionService();
         _pending = new PendingTranscriptionService();
 
-        var hotkeyOption = HotkeyOption.FromId(_settings.Settings.HotkeyId);
+        var hotkeyOption = HotkeyOption.FromSettings(
+            _settings.Settings.HotkeyId,
+            _settings.Settings.CustomHotkeyModifiers,
+            _settings.Settings.CustomHotkeyKey);
         _hotkey = new HotkeyService(hotkeyOption);
 
         _orchestrator = new TranscriptionOrchestrator(
             _audio, _api, _textInsertion, _pending, _settings);
+        _orchestrator.SetHotkeyService(_hotkey);
     }
 
     private void ShowOnboarding()

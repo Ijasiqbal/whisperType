@@ -6,13 +6,18 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Vozcribe.Models;
-using Vozcribe.ViewModels;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace Vozcribe.Services;
 
-public class AuthService : ViewModelBase
+public class AuthService : INotifyPropertyChanged
 {
-    private readonly HttpClient _http = new();
+    private static readonly HttpClient Http = new();
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     private string? _idToken;
     private string? _refreshToken;
     private DateTime _tokenExpiry;
@@ -22,13 +27,13 @@ public class AuthService : ViewModelBase
     public bool IsSignedIn
     {
         get => _isSignedIn;
-        private set => SetField(ref _isSignedIn, value);
+        private set { if (_isSignedIn != value) { _isSignedIn = value; OnPropertyChanged(); } }
     }
 
     public string? Email
     {
         get => _email;
-        private set => SetField(ref _email, value);
+        private set { if (_email != value) { _email = value; OnPropertyChanged(); } }
     }
 
     public static string GenerateCodeVerifier()
@@ -157,7 +162,7 @@ public class AuthService : ViewModelBase
             ["code_verifier"] = codeVerifier
         });
 
-        var response = await _http.PostAsync("https://oauth2.googleapis.com/token", content);
+        var response = await Http.PostAsync("https://oauth2.googleapis.com/token", content);
         if (!response.IsSuccessStatusCode) return null;
 
         var json = await response.Content.ReadAsStringAsync();
@@ -178,7 +183,7 @@ public class AuthService : ViewModelBase
 
         var json = JsonSerializer.Serialize(body);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await _http.PostAsync(url, content);
+        var response = await Http.PostAsync(url, content);
 
         if (!response.IsSuccessStatusCode) return null;
 
@@ -195,7 +200,7 @@ public class AuthService : ViewModelBase
             ["refresh_token"] = _refreshToken!
         });
 
-        var response = await _http.PostAsync(url, content);
+        var response = await Http.PostAsync(url, content);
         if (!response.IsSuccessStatusCode)
         {
             SignOut();

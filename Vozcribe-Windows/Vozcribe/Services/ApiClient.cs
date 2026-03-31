@@ -99,9 +99,9 @@ public class ApiClient
             "/transcribePremium"
         };
 
-        using var warmupClient = new HttpClient { Timeout = Constants.WarmupTimeout };
+        using var cts = new CancellationTokenSource(Constants.WarmupTimeout);
         var tasks = endpoints.Select(ep =>
-            warmupClient.GetAsync(baseUrl + ep).ContinueWith(_ => { }));
+            Http.GetAsync(baseUrl + ep, cts.Token).ContinueWith(_ => { }));
         await Task.WhenAll(tasks);
     }
 

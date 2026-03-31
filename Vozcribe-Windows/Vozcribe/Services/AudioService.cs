@@ -8,8 +8,7 @@ public class AudioService : IDisposable
 {
     private WasapiCapture? _capture;
     private WaveFormat? _captureFormat;
-    private readonly ConcurrentBag<short[]> _chunks = [];
-    private readonly object _lock = new();
+    private readonly ConcurrentQueue<short[]> _chunks = new();
     private bool _isRecording;
 
     public event Action<float>? AmplitudeUpdated;
@@ -17,7 +16,7 @@ public class AudioService : IDisposable
 
     public void StartRecording()
     {
-        _chunks.Clear();
+        while (_chunks.TryDequeue(out _)) { }
 
         var targetFormat = new WaveFormat(Constants.SampleRate, Constants.BitsPerSample, Constants.Channels);
         _capture = new WasapiCapture
@@ -54,7 +53,7 @@ public class AudioService : IDisposable
         var samples = new short[sampleCount];
         Buffer.BlockCopy(e.Buffer, 0, samples, 0, e.BytesRecorded);
 
-        _chunks.Add(samples);
+        _chunks.Enqueue(samples);
 
         float rmsDb = SilenceDetector.CalculateRmsDb(samples);
         float rmsLinear = (float)Math.Pow(10, rmsDb / 20) * short.MaxValue;

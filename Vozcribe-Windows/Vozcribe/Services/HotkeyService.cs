@@ -12,10 +12,21 @@ public class HotkeyService : IDisposable
     private Win32Interop.LowLevelKeyboardProc? _hookProc;
     private HotkeyOption _currentHotkey;
     private bool _modifiersPressed;
+    private bool _isActive;
 
     public event Action? HotkeyTriggered;
     public event Action? ModelNextTriggered;
     public event Action? ModelPreviousTriggered;
+
+    /// <summary>
+    /// Set to true when recording/overlay is active so Shift+Arrow model cycling is enabled.
+    /// When false, Shift+Arrow passes through to other apps normally.
+    /// </summary>
+    public bool IsActive
+    {
+        get => _isActive;
+        set => _isActive = value;
+    }
 
     public HotkeyService(HotkeyOption hotkey)
     {
@@ -47,16 +58,19 @@ public class HotkeyService : IDisposable
 
             if (msg == Win32Interop.WM_KEYDOWN || msg == Win32Interop.WM_SYSKEYDOWN)
             {
-                bool shiftHeld = (Win32Interop.GetAsyncKeyState(Win32Interop.VK_SHIFT) & 0x8000) != 0;
-                if (shiftHeld && hookStruct.vkCode == Win32Interop.VK_UP)
+                if (_isActive)
                 {
-                    ModelNextTriggered?.Invoke();
-                    return (IntPtr)1;
-                }
-                if (shiftHeld && hookStruct.vkCode == Win32Interop.VK_DOWN)
-                {
-                    ModelPreviousTriggered?.Invoke();
-                    return (IntPtr)1;
+                    bool shiftHeld = (Win32Interop.GetAsyncKeyState(Win32Interop.VK_SHIFT) & 0x8000) != 0;
+                    if (shiftHeld && hookStruct.vkCode == Win32Interop.VK_UP)
+                    {
+                        ModelNextTriggered?.Invoke();
+                        return (IntPtr)1;
+                    }
+                    if (shiftHeld && hookStruct.vkCode == Win32Interop.VK_DOWN)
+                    {
+                        ModelPreviousTriggered?.Invoke();
+                        return (IntPtr)1;
+                    }
                 }
             }
 

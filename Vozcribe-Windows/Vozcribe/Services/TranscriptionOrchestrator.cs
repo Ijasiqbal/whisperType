@@ -10,6 +10,7 @@ public class TranscriptionOrchestrator : ViewModelBase
     private readonly TextInsertionService _textInsertion;
     private readonly PendingTranscriptionService _pending;
     private readonly SettingsService _settings;
+    private HotkeyService? _hotkeyService;
 
     private RecordingState _state = RecordingState.Idle;
     private ModelTier _currentTier;
@@ -21,8 +22,16 @@ public class TranscriptionOrchestrator : ViewModelBase
     public RecordingState State
     {
         get => _state;
-        private set => SetField(ref _state, value);
+        private set
+        {
+            SetField(ref _state, value);
+            if (_hotkeyService != null)
+                _hotkeyService.IsActive = value.Type == RecordingStateType.Recording
+                    || value.Type == RecordingStateType.Processing;
+        }
     }
+
+    public void SetHotkeyService(HotkeyService hotkeyService) => _hotkeyService = hotkeyService;
 
     public ModelTier CurrentTier
     {
@@ -63,7 +72,11 @@ public class TranscriptionOrchestrator : ViewModelBase
     public void ToggleRecording()
     {
         if (State.Type == RecordingStateType.Recording)
-            _ = StopAndTranscribeAsync();
+            _ = StopAndTranscribeAsync().ContinueWith(t =>
+            {
+                if (t.Exception != null)
+                    State = RecordingState.Failed($"Unexpected error: {t.Exception.InnerException?.Message}");
+            }, TaskContinuationOptions.OnlyOnFaulted);
         else if (State.Type == RecordingStateType.Idle || State.Type == RecordingStateType.Success
             || State.Type == RecordingStateType.Error)
             StartRecording();
