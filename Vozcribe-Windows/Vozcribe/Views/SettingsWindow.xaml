@@ -1,0 +1,50 @@
+<Window x:Class="Vozcribe.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Vozcribe Settings"
+        Width="420" Height="520"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#1E1E2E">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
+        <StackPanel Margin="24">
+            <TextBlock Text="Settings" Foreground="White" FontSize="22" FontWeight="Bold" Margin="0,0,0,24"/>
+
+            <!-- Shortcuts -->
+            <TextBlock Text="SHORTCUTS" Foreground="#7777FF" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock Text="Hotkey" Foreground="#AAAACC" FontSize="13" Margin="0,0,0,4"/>
+            <ComboBox ItemsSource="{Binding HotkeyPresets}" SelectedItem="{Binding SelectedHotkey}"
+                      DisplayMemberPath="DisplayName" Background="#2A2A3E" Foreground="White" BorderBrush="#444466" Margin="0,0,0,8"/>
+            <Button Content="{Binding CaptureHotkeyText}" Click="CaptureHotkey_Click" KeyDown="CaptureHotkey_KeyDown"
+                    Style="{StaticResource OverlayButton}" Margin="0,0,0,12"/>
+
+            <TextBlock Text="Text Insertion" Foreground="#AAAACC" FontSize="13" Margin="0,0,0,4"/>
+            <RadioButton Content="Paste where I started recording" IsChecked="{Binding IsWhereStarted}"
+                         Foreground="White" Margin="0,0,0,4" GroupName="InsertionMode"/>
+            <RadioButton Content="Paste in currently active field" IsChecked="{Binding IsWhereCurrent}"
+                         Foreground="White" Margin="0,0,0,16" GroupName="InsertionMode"/>
+
+            <!-- Transcription -->
+            <TextBlock Text="TRANSCRIPTION" Foreground="#7777FF" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock Text="Model" Foreground="#AAAACC" FontSize="13" Margin="0,0,0,4"/>
+            <ComboBox ItemsSource="{Binding ModelTiers}" SelectedItem="{Binding SelectedModelTier}"
+                      DisplayMemberPath="DisplayName" Background="#2A2A3E" Foreground="White" BorderBrush="#444466" Margin="0,0,0,8"/>
+            <TextBlock Text="Region" Foreground="#AAAACC" FontSize="13" Margin="0,0,0,4"/>
+            <ComboBox ItemsSource="{Binding RegionDisplayNames}" SelectedIndex="{Binding SelectedRegionIndex}"
+                      Background="#2A2A3E" Foreground="White" BorderBrush="#444466" Margin="0,0,0,16"/>
+
+            <!-- General -->
+            <TextBlock Text="GENERAL" Foreground="#7777FF" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
+            <CheckBox Content="Launch at startup" IsChecked="{Binding LaunchAtStartup}" Foreground="White" Margin="0,0,0,8"/>
+            <Button Content="Reset Overlay Position" Click="ResetOverlay_Click"
+                    Style="{StaticResource OverlayButton}" Margin="0,0,0,16"/>
+
+            <!-- Account -->
+            <TextBlock Text="ACCOUNT" Foreground="#7777FF" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock Text="{Binding UserEmail}" Foreground="White" FontSize="13" Margin="0,0,0,8"/>
+            <Button Content="Sign Out" Click="SignOut_Click" Style="{StaticResource OverlayButton}"
+                    Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}}"/>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

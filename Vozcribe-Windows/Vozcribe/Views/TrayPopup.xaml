@@ -1,0 +1,80 @@
+<UserControl x:Class="Vozcribe.Views.TrayPopup"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="300">
+
+    <Border Background="#1E1E2E" CornerRadius="12" Padding="16"
+            BorderBrush="#333355" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" Opacity="0.4" ShadowDepth="4"/>
+        </Border.Effect>
+
+        <StackPanel>
+            <!-- Status -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                <Ellipse Width="8" Height="8" Fill="#44BB44" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding StatusText}" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
+            </StackPanel>
+
+            <!-- Model Selection -->
+            <TextBlock Text="Model" Foreground="#888899" FontSize="11" Margin="0,0,0,4"/>
+            <ComboBox ItemsSource="{Binding AllTiers}"
+                      SelectedItem="{Binding CurrentTier}"
+                      DisplayMemberPath="DisplayName"
+                      SelectionChanged="ModelComboBox_SelectionChanged"
+                      Margin="0,0,0,12"
+                      Background="#2A2A3E" Foreground="White" BorderBrush="#444466"/>
+
+            <!-- Credits -->
+            <TextBlock Text="Credits" Foreground="#888899" FontSize="11" Margin="0,0,0,4"/>
+            <ProgressBar Value="{Binding CreditsProgress}" Maximum="1"
+                         Height="6" Margin="0,0,0,4"
+                         Foreground="#7777FF" Background="#333355"/>
+            <TextBlock Text="{Binding CreditsDisplay}" Foreground="#AAAACC"
+                       FontSize="12" Margin="0,0,0,12"/>
+
+            <!-- Hotkey Reminder -->
+            <Border Background="#2A2A3E" CornerRadius="8" Padding="10,6" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Hotkey: " Foreground="#888899" FontSize="12"/>
+                    <TextBlock Text="{Binding HotkeyDisplay}" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Pending Transcriptions -->
+            <StackPanel Visibility="{Binding HasPending, Converter={StaticResource BoolToVis}}"
+                        Margin="0,0,0,12">
+                <TextBlock Foreground="#FFAA44" FontSize="12" Margin="0,0,0,6">
+                    <Run Text="{Binding PendingCount, Mode=OneWay}"/>
+                    <Run Text=" pending transcription(s)"/>
+                </TextBlock>
+                <ItemsControl ItemsSource="{Binding PendingItems}" MaxHeight="120">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#2A2A3E" CornerRadius="6" Padding="8,4" Margin="0,2">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Error}" Foreground="#AAAACC"
+                                               FontSize="11" MaxWidth="180" TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"/>
+                                    <Button Content="Retry" Click="RetryPending_Click"
+                                            Tag="{Binding}" Style="{StaticResource OverlayButton}"
+                                            FontSize="11" Margin="8,0,0,0" Padding="8,2"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <Separator Background="#333355" Margin="0,0,0,8"/>
+
+            <!-- Actions -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Settings" Click="Settings_Click"
+                        Style="{StaticResource OverlayButton}" Margin="0,0,8,0"/>
+                <Button Content="Quit" Click="Quit_Click"
+                        Style="{StaticResource OverlayButton}"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

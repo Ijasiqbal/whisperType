@@ -1,0 +1,88 @@
+<Window x:Class="Vozcribe.Views.RecordingOverlay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Vozcribe"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseLeftButtonUp="Window_MouseLeftButtonUp">
+
+    <Border CornerRadius="24" Padding="16,10"
+            MinWidth="240" MinHeight="48">
+        <Border.Background>
+            <SolidColorBrush Color="#1E1E2E" Opacity="0.95"/>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" Opacity="0.3" ShadowDepth="4"/>
+        </Border.Effect>
+
+        <Grid>
+            <!-- Recording State -->
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding IsRecording, Converter={StaticResource BoolToVis}}">
+                <Ellipse Width="10" Height="10" Fill="#FF4444" Margin="0,0,10,0">
+                    <Ellipse.Triggers>
+                        <EventTrigger RoutedEvent="Loaded">
+                            <BeginStoryboard>
+                                <Storyboard RepeatBehavior="Forever">
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                     From="1" To="0.3" Duration="0:0:0.8"
+                                                     AutoReverse="True"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Ellipse.Triggers>
+                </Ellipse>
+
+                <TextBlock Text="{Binding DurationText}" Foreground="White"
+                           FontSize="14" VerticalAlignment="Center" Margin="0,0,10,0"/>
+
+                <Border CornerRadius="8" Background="#333355" Padding="8,3">
+                    <TextBlock Text="{Binding Orchestrator.CurrentTier.ShortName}"
+                               Foreground="#AAAACC" FontSize="11"/>
+                </Border>
+            </StackPanel>
+
+            <!-- Processing State -->
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="⏳" FontSize="14" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Transcribing..." Foreground="White" FontSize="14"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Success State -->
+            <StackPanel Visibility="{Binding IsSuccess, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="✓" Foreground="#44BB44" FontSize="16"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding Orchestrator.State.Text}"
+                               Foreground="White" FontSize="13"
+                               MaxWidth="280" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button Content="Copy" Click="CopyButton_Click"
+                        Visibility="{Binding ShowCopyButton, Converter={StaticResource BoolToVis}}"
+                        Style="{StaticResource OverlayButton}" Margin="0,6,0,0"/>
+            </StackPanel>
+
+            <!-- Error State -->
+            <StackPanel Visibility="{Binding IsError, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding Orchestrator.State.Text}"
+                           Foreground="#FF6666" FontSize="13"
+                           MaxWidth="280" TextWrapping="Wrap"/>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <Button Content="Retry" Click="RetryButton_Click"
+                            Style="{StaticResource OverlayButton}" Margin="0,0,8,0"/>
+                    <Button Content="Save" Click="SaveButton_Click"
+                            Style="{StaticResource OverlayButton}"/>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
