@@ -178,60 +178,81 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
 // MARK: - Hotkey Options
 
 enum HotkeyOption: String, CaseIterable, Identifiable {
+    case ctrlSpace = "ctrl_space"
+    case ctrlD = "ctrl_d"
     case ctrlOption = "ctrl_option"
-    case cmdShift = "cmd_shift"
-    case rightOption = "right_option"
-    case fn = "fn"
-    case f5 = "f5"
-    case ctrlShift = "ctrl_shift"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
+        case .ctrlSpace: return "Ctrl + Space"
+        case .ctrlD: return "Ctrl + D"
         case .ctrlOption: return "Ctrl + Option"
-        case .cmdShift: return "Cmd + Shift"
-        case .rightOption: return "Right Option"
-        case .fn: return "Fn (Globe)"
-        case .f5: return "F5"
-        case .ctrlShift: return "Ctrl + Shift"
         }
     }
 
     var shortLabel: String {
         switch self {
+        case .ctrlSpace: return "⌃Space"
+        case .ctrlD: return "⌃D"
         case .ctrlOption: return "⌃⌥"
-        case .cmdShift: return "⌘⇧"
-        case .rightOption: return "Right ⌥"
-        case .fn: return "🌐"
-        case .f5: return "F5"
-        case .ctrlShift: return "⌃⇧"
         }
     }
 
-    /// The modifier flags that constitute this hotkey (for modifier-only hotkeys)
-    var requiredFlags: CGEventFlags? {
+    var subtitle: String {
+        switch self {
+        case .ctrlSpace: return "Recommended — natural and quick"
+        case .ctrlD: return "D for Dictate"
+        case .ctrlOption: return "Two keys side by side — requires extra permission"
+        }
+    }
+
+    /// Whether this hotkey requires Accessibility permission
+    var requiresAccessibility: Bool {
+        switch self {
+        case .ctrlSpace, .ctrlD: return false
+        case .ctrlOption: return true
+        }
+    }
+
+    /// Whether this hotkey uses NSEvent monitor (no Accessibility) or CGEvent tap (Accessibility)
+    var usesNSEventMonitor: Bool {
+        !requiresAccessibility
+    }
+
+    // -- NSEvent detection properties --
+
+    /// The key code for NSEvent-based hotkeys
+    var nsEventKeyCode: UInt16? {
+        switch self {
+        case .ctrlSpace: return 0x31  // Space bar
+        case .ctrlD: return 0x02     // D key
+        case .ctrlOption: return nil  // Uses CGEvent, not NSEvent
+        }
+    }
+
+    /// The modifier flags for NSEvent-based hotkeys
+    var nsEventModifierFlags: NSEvent.ModifierFlags? {
+        switch self {
+        case .ctrlSpace, .ctrlD: return .control
+        case .ctrlOption: return nil
+        }
+    }
+
+    // -- CGEvent detection properties --
+
+    /// The modifier flags for CGEvent-based hotkeys (modifier-only combos)
+    var cgEventRequiredFlags: CGEventFlags? {
         switch self {
         case .ctrlOption: return [.maskControl, .maskAlternate]
-        case .cmdShift: return [.maskCommand, .maskShift]
-        case .ctrlShift: return [.maskControl, .maskShift]
-        case .rightOption, .fn, .f5: return nil  // Handled via keyCode, not flags
+        case .ctrlSpace, .ctrlD: return nil
         }
     }
 
-    /// The key code for key-based hotkeys (non-modifier-only)
-    var keyCode: UInt16? {
-        switch self {
-        case .fn: return 0x3F         // Fn/Globe key
-        case .f5: return 0x60         // F5
-        case .rightOption: return 0x3D // Right Option
-        default: return nil
-        }
-    }
-
-    /// Whether this hotkey is modifier-only (detected via flagsChanged)
+    /// Whether this hotkey is modifier-only (detected via flagsChanged in CGEvent)
     var isModifierOnly: Bool {
-        requiredFlags != nil && keyCode == nil
+        cgEventRequiredFlags != nil
     }
 }
 
