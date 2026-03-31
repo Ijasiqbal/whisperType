@@ -332,10 +332,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         self?.wasProcessing = true
                     }
 
-                    // Text was inserted — show overlay with copy button for 6 seconds
+                    // Text field was focused — auto-close quickly after confirmed insert
                     if case .inserted = state, self?.wasProcessing == true {
                         self?.wasProcessing = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             if case .inserted = TranscriptionService.shared.state {
                                 TranscriptionService.shared.dismiss()
                                 self?.hideOverlay()
@@ -344,10 +344,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                     }
 
-                    // No text field detected — keep overlay open with copy button, auto-hide after 12s
+                    // No text field detected — keep overlay open with copy button for 6s
                     if case .success = state, self?.wasProcessing == true {
                         self?.wasProcessing = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 12.0) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
                             if case .success = TranscriptionService.shared.state {
                                 TranscriptionService.shared.dismiss()
                                 self?.hideOverlay()

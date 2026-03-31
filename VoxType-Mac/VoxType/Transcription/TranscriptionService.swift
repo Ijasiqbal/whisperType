@@ -126,11 +126,17 @@ final class TranscriptionService: ObservableObject {
 
             NSLog("[VOXDEBUG] Transcription complete: \(text.prefix(50))...")
 
-            // Always attempt to paste (harmless if no text field)
-            // AND always show overlay with copy button as backup
-            textInsertion.insertText(text)
-            state = .inserted(text)
-            NSLog("[VOXDEBUG] Text inserted + overlay shown with copy button")
+            // Paste and confirm via cursor shift detection
+            // Returns true if cursor advanced (paste confirmed), false if unconfirmed
+            let pasteConfirmed = await textInsertion.insertText(text)
+
+            if pasteConfirmed {
+                state = .inserted(text)  // auto-closes in 1.5s
+                NSLog("[VOXDEBUG] Paste confirmed — auto-closing overlay")
+            } else {
+                state = .success(text)   // shows copy button for 6s
+                NSLog("[VOXDEBUG] Paste unconfirmed — showing copy button")
+            }
 
         } catch {
             // Retain audio data for retry
