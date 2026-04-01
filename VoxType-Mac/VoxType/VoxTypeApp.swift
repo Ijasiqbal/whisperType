@@ -145,15 +145,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Firebase is configured in VozcribeApp.init()
 
-        // Migrate old hotkey values to new options
-        if let savedHotkey = UserDefaults.standard.string(forKey: Constants.selectedHotkeyKey) {
-            let oldValues: Set<String> = ["cmd_shift", "right_option", "fn", "f5", "ctrl_shift"]
-            if oldValues.contains(savedHotkey) {
-                UserDefaults.standard.set(HotkeyOption.ctrlSpace.rawValue, forKey: Constants.selectedHotkeyKey)
-                print("[Vozcribe] Migrated old hotkey '\(savedHotkey)' to ctrl_space")
-            }
-        }
-
         // Check if onboarding is needed
         let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: Constants.hasCompletedOnboardingKey)
         print("[Vozcribe] App launched - hasCompletedOnboarding: \(hasCompletedOnboarding)")
@@ -315,23 +306,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Start the appropriate backend based on selected hotkey
-        if hotkeyManager.selectedHotkey.requiresAccessibility {
-            // CGEvent tap — needs Accessibility
-            if HotkeyManager.isAccessibilityGranted {
-                hotkeyManager.start()
-            } else {
-                // Poll for Accessibility grant (user may be in Settings granting it)
-                Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] timer in
-                    if HotkeyManager.isAccessibilityGranted {
-                        self?.hotkeyManager.start()
-                        timer.invalidate()
-                    }
+        let isGranted = HotkeyManager.isAccessibilityGranted
+
+        if isGranted {
+            hotkeyManager.start()
+        } else {
+            // Keep trying every 3 seconds until accessibility is granted
+            Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] timer in
+                if HotkeyManager.isAccessibilityGranted {
+                    self?.hotkeyManager.start()
+                    timer.invalidate()
                 }
             }
-        } else {
-            // NSEvent monitor — no Accessibility needed, start immediately
-            hotkeyManager.start()
         }
     }
 

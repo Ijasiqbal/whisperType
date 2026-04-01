@@ -7,23 +7,23 @@ struct OnboardingView: View {
     @State private var currentStep = 0
     @State private var microphoneGranted = PermissionChecker.isMicrophoneGranted
     @State private var accessibilityGranted = HotkeyManager.isAccessibilityGranted
-    @State private var selectedHotkey: HotkeyOption = .ctrlSpace
     var onComplete: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
+            // Step content
             Group {
                 switch currentStep {
                 case 0: welcomeStep
                 case 1: signInStep
-                case 2: microphoneStep
-                case 3: hotkeyStep
-                case 4: readyStep
+                case 2: permissionsStep
+                case 3: readyStep
                 default: EmptyView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+            // Navigation
             HStack {
                 if currentStep > 0 {
                     Button("Back") {
@@ -34,8 +34,9 @@ struct OnboardingView: View {
 
                 Spacer()
 
+                // Step indicators
                 HStack(spacing: 6) {
-                    ForEach(0..<5, id: \.self) { step in
+                    ForEach(0..<4, id: \.self) { step in
                         Circle()
                             .fill(step == currentStep ? Color.accentColor : Color.secondary.opacity(0.3))
                             .frame(width: 8, height: 8)
@@ -44,29 +45,19 @@ struct OnboardingView: View {
 
                 Spacer()
 
-                if currentStep < 4 {
+                if currentStep < 3 {
                     Button("Next") {
                         withAnimation { currentStep += 1 }
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .disabled(nextDisabled)
+                    .disabled(currentStep == 1 && !auth.isSignedIn)
                 } else {
                     Button("Get Started") {
-                        UserDefaults.standard.set(selectedHotkey.rawValue, forKey: Constants.selectedHotkeyKey)
                         UserDefaults.standard.set(true, forKey: Constants.hasCompletedOnboardingKey)
+                        // Force UserDefaults to sync to disk immediately
                         UserDefaults.standard.synchronize()
-                        print("[Vozcribe] Onboarding completed — hotkey: \(selectedHotkey.displayName)")
-
-                        UserDefaults.standard.removeObject(forKey: "NSWindow Frame onboarding")
-                        UserDefaults.standard.synchronize()
-
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            if let window = NSApplication.shared.windows.first(where: { $0.title == "Welcome to Vozcribe" }) {
-                                window.close()
-                            }
-                            onComplete()
-                        }
+                        onComplete()
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
@@ -74,19 +65,10 @@ struct OnboardingView: View {
             }
             .padding(24)
         }
-        .frame(width: 520, height: 460)
+        .frame(width: 500, height: 400)
     }
 
-    private var nextDisabled: Bool {
-        switch currentStep {
-        case 1: return !auth.isSignedIn
-        case 2: return !microphoneGranted
-        case 3: return selectedHotkey.requiresAccessibility && !accessibilityGranted
-        default: return false
-        }
-    }
-
-    // MARK: - Step 0: Welcome
+    // MARK: - Steps
 
     private var welcomeStep: some View {
         VStack(spacing: 16) {
@@ -105,8 +87,6 @@ struct OnboardingView: View {
         }
         .padding(40)
     }
-
-    // MARK: - Step 1: Sign In
 
     private var signInStep: some View {
         VStack(spacing: 16) {
@@ -158,179 +138,91 @@ struct OnboardingView: View {
         .padding(40)
     }
 
-    // MARK: - Step 2: Microphone
-
-    private var microphoneStep: some View {
+    private var permissionsStep: some View {
         VStack(spacing: 16) {
-            Image(systemName: "mic.fill")
+            Image(systemName: "lock.shield")
                 .font(.system(size: 48))
                 .foregroundColor(.accentColor)
 
-            Text("Microphone Access")
+            Text("Permissions")
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("Vozcribe needs microphone access to record your voice.")
-                .multilineTextAlignment(.center)
+            Text("Vozcribe needs two permissions to work:")
                 .foregroundColor(.secondary)
 
-            if microphoneGranted {
-                Label("Microphone access granted", systemImage: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                    .padding(.top, 8)
-            } else {
-                Button("Grant Microphone Access") {
-                    Task {
-                        let granted = await PermissionChecker.requestMicrophone()
-                        await MainActor.run {
-                            microphoneGranted = granted
+            VStack(alignment: .leading, spacing: 12) {
+                permissionRow(
+                    icon: "mic.fill",
+                    title: "Microphone",
+                    description: "To record your voice",
+                    isGranted: microphoneGranted
+                )
+
+                permissionRow(
+                    icon: "hand.raised.fill",
+                    title: "Accessibility",
+                    description: "For global hotkey & text insertion",
+                    isGranted: accessibilityGranted
+                )
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.quaternary)
+            )
+
+            HStack(spacing: 12) {
+                if !microphoneGranted {
+                    Button("Grant Microphone Access") {
+                        Task {
+                            let granted = await PermissionChecker.requestMicrophone()
+                            print("[Vozcribe] Microphone permission: \(granted)")
+                            // Update state on main thread
+                            await MainActor.run {
+                                microphoneGranted = granted
+                            }
                         }
                     }
+                    .controlSize(.large)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .padding(.top, 8)
 
-                if AVCaptureDevice.authorizationStatus(for: .audio) == .denied {
-                    Text("Microphone was denied. Go to **System Settings > Privacy & Security > Microphone** and enable Vozcribe.")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .multilineTextAlignment(.center)
+                if !accessibilityGranted {
+                    Button("Open Accessibility Settings") {
+                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                    }
+                    .controlSize(.large)
                 }
+            }
+
+            if AVCaptureDevice.authorizationStatus(for: .audio) == .denied {
+                Text("Microphone was denied. Go to **System Settings > Privacy & Security > Microphone** and enable Vozcribe.")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .multilineTextAlignment(.center)
             }
         }
         .padding(40)
         .onAppear {
-            microphoneGranted = PermissionChecker.isMicrophoneGranted
+            // Start polling for permission changes
+            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+                let newMicStatus = PermissionChecker.isMicrophoneGranted
+                let newAccessStatus = HotkeyManager.isAccessibilityGranted
+
+                if newMicStatus != microphoneGranted {
+                    microphoneGranted = newMicStatus
+                }
+                if newAccessStatus != accessibilityGranted {
+                    accessibilityGranted = newAccessStatus
+                }
+
+                // Stop timer if we move away from permissions step
+                if currentStep != 2 {
+                    timer.invalidate()
+                }
+            }
         }
     }
-
-    // MARK: - Step 3: Hotkey Selection
-
-    private var hotkeyStep: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "keyboard")
-                .font(.system(size: 48))
-                .foregroundColor(.accentColor)
-
-            Text("Choose Your Hotkey")
-                .font(.title)
-                .fontWeight(.bold)
-
-            Text("Press this key combo to start and stop recording.")
-                .foregroundColor(.secondary)
-
-            VStack(spacing: 10) {
-                ForEach(HotkeyOption.allCases) { option in
-                    hotkeyCard(option)
-                }
-            }
-            .padding(.top, 4)
-
-            if selectedHotkey.requiresAccessibility {
-                VStack(spacing: 8) {
-                    Divider()
-                        .padding(.vertical, 4)
-
-                    if accessibilityGranted {
-                        Label("Accessibility permission granted", systemImage: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.system(size: 13))
-                    } else {
-                        VStack(spacing: 6) {
-                            Text("Accessibility lets Vozcribe detect modifier-only key combos. Your keystrokes are never recorded or stored.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-
-                            Button("Grant Accessibility Access") {
-                                PermissionChecker.openAccessibilitySettings()
-                            }
-                            .controlSize(.regular)
-                        }
-                    }
-                }
-            }
-        }
-        .padding(32)
-        .onAppear {
-            startAccessibilityPolling()
-        }
-    }
-
-    private func hotkeyCard(_ option: HotkeyOption) -> some View {
-        let isSelected = selectedHotkey == option
-
-        return Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                selectedHotkey = option
-            }
-            if option.requiresAccessibility {
-                startAccessibilityPolling()
-            }
-        } label: {
-            HStack(spacing: 12) {
-                Text(option.shortLabel)
-                    .font(.system(size: 15, weight: .bold, design: .monospaced))
-                    .foregroundColor(isSelected ? .white : .primary)
-                    .frame(width: 60)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.15))
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(option.displayName)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.primary)
-
-                        if option == .ctrlSpace {
-                            Text("Recommended")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Capsule().fill(Color.green))
-                        }
-
-                        if option.requiresAccessibility {
-                            Text("Requires permission")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.orange)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Capsule().strokeBorder(Color.orange.opacity(0.5), lineWidth: 1))
-                        }
-                    }
-
-                    Text(option.subtitle)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.accentColor)
-                }
-            }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: isSelected ? 2 : 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Step 4: Ready
 
     private var readyStep: some View {
         VStack(spacing: 16) {
@@ -343,7 +235,7 @@ struct OnboardingView: View {
                 .fontWeight(.bold)
 
             VStack(alignment: .leading, spacing: 8) {
-                Label("Press **\(selectedHotkey.displayName)** to start recording", systemImage: "keyboard")
+                Label("Press **Ctrl+Option** to start recording", systemImage: "keyboard")
                 Label("Press again to stop and transcribe", systemImage: "text.cursor")
                 Label("Click the menu bar icon for settings", systemImage: "menubar.arrow.up.rectangle")
             }
@@ -359,14 +251,29 @@ struct OnboardingView: View {
 
     // MARK: - Helpers
 
-    private func startAccessibilityPolling() {
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-            let newStatus = HotkeyManager.isAccessibilityGranted
-            if newStatus != accessibilityGranted {
-                accessibilityGranted = newStatus
+    private func permissionRow(icon: String, title: String, description: String, isGranted: Bool) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .frame(width: 24)
+                .foregroundColor(.accentColor)
+
+            VStack(alignment: .leading) {
+                Text(title)
+                    .fontWeight(.medium)
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            if currentStep != 3 || accessibilityGranted {
-                timer.invalidate()
+
+            Spacer()
+
+            if isGranted {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+            } else {
+                Image(systemName: "exclamationmark.circle")
+                    .foregroundColor(.orange)
             }
         }
     }

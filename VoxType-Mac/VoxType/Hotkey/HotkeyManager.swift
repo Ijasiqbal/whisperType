@@ -14,155 +14,31 @@ final class HotkeyManager: ObservableObject {
     var onRecordingStart: (() -> Void)?
     /// Called when the hotkey toggles recording OFF
     var onRecordingStop: (() -> Void)?
-    /// Called when Shift+Up/Right is pressed to cycle model forward
+    /// Called when Shift+Up is pressed to cycle model forward
     var onModelCycleForward: (() -> Void)?
-    /// Called when Shift+Down/Left is pressed to cycle model backward
+    /// Called when Shift+Down is pressed to cycle model backward
     var onModelCycleBackward: (() -> Void)?
 
-    // -- CGEvent backend state --
     fileprivate var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var modifierFlagsActive = false
-    private let allMonitoredFlags: CGEventFlags = [.maskControl, .maskAlternate, .maskCommand, .maskShift]
 
-    // -- NSEvent backend state --
-    private var globalMonitor: Any?
-    private var localMonitor: Any?
+    /// Tracks whether modifier-only hotkey flags are currently held (to detect press/release edges)
+    private var modifierFlagsActive = false
+
+    // All modifier flags we monitor
+    private let allMonitoredFlags: CGEventFlags = [.maskControl, .maskAlternate, .maskCommand, .maskShift]
 
     // MARK: - Init
 
     init() {
         let saved = UserDefaults.standard.string(forKey: Constants.selectedHotkeyKey) ?? ""
-        selectedHotkey = HotkeyOption(rawValue: saved) ?? .ctrlSpace
+        selectedHotkey = HotkeyOption(rawValue: saved) ?? .ctrlOption
     }
 
     // MARK: - Public
 
-    /// Start listening for hotkey events. Returns true if successful.
-    @discardableResult
     func start() -> Bool {
-        if selectedHotkey.usesNSEventMonitor {
-            return startNSEventMonitor()
-        } else {
-            return startCGEventTap()
-        }
-    }
-
-    /// Stop all hotkey listening.
-    func stop() {
-        stopNSEventMonitor()
-        stopCGEventTap()
-        isRecording = false
-        modifierFlagsActive = false
-        print("[HotkeyManager] All hotkey listeners stopped")
-    }
-
-    /// Change the active hotkey. Restarts the listener with the appropriate backend.
-    func changeHotkey(to option: HotkeyOption) {
-        let wasRunning = (eventTap != nil || globalMonitor != nil)
-        stop()
-        selectedHotkey = option
-        if wasRunning { start() }
-        print("[HotkeyManager] Hotkey changed to \(option.displayName)")
-    }
-
-    // MARK: - Permission
-
-    static var isAccessibilityGranted: Bool {
-        AXIsProcessTrusted()
-    }
-
-    static func promptAccessibility() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
-    }
-
-    // MARK: - Toggle Logic
-
-    private func toggle() {
-        isRecording.toggle()
-        if isRecording {
-            onRecordingStart?()
-        } else {
-            onRecordingStop?()
-        }
-    }
-
-    // =========================================================================
-    // MARK: - NSEvent Backend (no Accessibility required)
-    // =========================================================================
-
-    private func startNSEventMonitor() -> Bool {
-        guard let keyCode = selectedHotkey.nsEventKeyCode,
-              let modifiers = selectedHotkey.nsEventModifierFlags else {
-            print("[HotkeyManager] NSEvent hotkey misconfigured")
-            return false
-        }
-
-        // Global monitor — catches events when other apps are focused
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleNSEvent(event, expectedKeyCode: keyCode, expectedModifiers: modifiers)
-        }
-
-        // Local monitor — catches events when our own app is focused
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleNSEvent(event, expectedKeyCode: keyCode, expectedModifiers: modifiers)
-            return event // pass through
-        }
-
-        print("[HotkeyManager] NSEvent monitor started for \(selectedHotkey.displayName)")
-        return true
-    }
-
-    private func stopNSEventMonitor() {
-        if let monitor = globalMonitor {
-            NSEvent.removeMonitor(monitor)
-            globalMonitor = nil
-        }
-        if let monitor = localMonitor {
-            NSEvent.removeMonitor(monitor)
-            localMonitor = nil
-        }
-    }
-
-    private func handleNSEvent(_ event: NSEvent, expectedKeyCode: UInt16, expectedModifiers: NSEvent.ModifierFlags) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-
-        // Check for model cycling: Shift + Arrow keys
-        let isShiftOnly = flags.contains(.shift)
-            && !flags.contains(.command)
-            && !flags.contains(.control)
-            && !flags.contains(.option)
-
-        if isShiftOnly {
-            if event.keyCode == 0x7E || event.keyCode == 0x7C { // Up or Right
-                DispatchQueue.main.async { [weak self] in self?.onModelCycleForward?() }
-                return
-            } else if event.keyCode == 0x7D || event.keyCode == 0x7B { // Down or Left
-                DispatchQueue.main.async { [weak self] in self?.onModelCycleBackward?() }
-                return
-            }
-        }
-
-        // Check for our hotkey
-        let hasRequiredModifiers = flags.contains(expectedModifiers)
-        // Make sure no extra modifiers are pressed (e.g., Ctrl+Shift+D should not trigger Ctrl+D)
-        let extraModifiers: NSEvent.ModifierFlags = [.command, .option, .shift, .control]
-        let activeExtra = flags.intersection(extraModifiers).subtracting(expectedModifiers)
-        let noExtraModifiers = activeExtra.isEmpty
-
-        if event.keyCode == expectedKeyCode && hasRequiredModifiers && noExtraModifiers {
-            DispatchQueue.main.async { [weak self] in self?.toggle() }
-        }
-    }
-
-    // =========================================================================
-    // MARK: - CGEvent Backend (Accessibility required)
-    // =========================================================================
-
-    private func startCGEventTap() -> Bool {
-        guard HotkeyManager.isAccessibilityGranted else {
-            print("[HotkeyManager] CGEvent tap requires Accessibility permission")
+        guard checkAccessibilityPermission() else {
             return false
         }
 
@@ -181,7 +57,7 @@ final class HotkeyManager: ObservableObject {
             callback: hotkeyEventCallback,
             userInfo: userInfo
         ) else {
-            print("[HotkeyManager] Failed to create event tap")
+            print("[HotkeyManager] Failed to create event tap. Check Accessibility permissions.")
             return false
         }
 
@@ -193,11 +69,11 @@ final class HotkeyManager: ObservableObject {
         }
 
         CGEvent.tapEnable(tap: tap, enable: true)
-        print("[HotkeyManager] CGEvent tap started for \(selectedHotkey.displayName)")
+        print("[HotkeyManager] Global hotkey registered (\(selectedHotkey.displayName), toggle mode)")
         return true
     }
 
-    private func stopCGEventTap() {
+    func stop() {
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
         }
@@ -206,38 +82,87 @@ final class HotkeyManager: ObservableObject {
         }
         eventTap = nil
         runLoopSource = nil
+        isRecording = false
+        modifierFlagsActive = false
+        print("[HotkeyManager] Global hotkey unregistered")
     }
 
-    // MARK: - CGEvent Handlers
+    /// Change the active hotkey. Restarts the event tap if running.
+    func changeHotkey(to option: HotkeyOption) {
+        let wasRunning = eventTap != nil
+        if wasRunning { stop() }
+        selectedHotkey = option
+        modifierFlagsActive = false
+        if wasRunning { _ = start() }
+        print("[HotkeyManager] Hotkey changed to \(option.displayName)")
+    }
+
+    // MARK: - Permission
+
+    func checkAccessibilityPermission() -> Bool {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
+    }
+
+    static var isAccessibilityGranted: Bool {
+        AXIsProcessTrusted()
+    }
+
+    // MARK: - Toggle Logic
+
+    private func toggle() {
+        isRecording.toggle()
+        if isRecording {
+            onRecordingStart?()
+        } else {
+            onRecordingStop?()
+        }
+    }
+
+    // MARK: - Event Handling
 
     fileprivate func handleFlagsChanged(_ flags: CGEventFlags) {
         let hotkey = selectedHotkey
-        guard hotkey.isModifierOnly, let required = hotkey.cgEventRequiredFlags else { return }
+
+        guard hotkey.isModifierOnly, let required = hotkey.requiredFlags else { return }
 
         let activeModifiers = flags.intersection(allMonitoredFlags)
         let isMatch = activeModifiers == required
 
         if isMatch && !modifierFlagsActive {
+            // Modifier combo just pressed — toggle on key-down edge
             modifierFlagsActive = true
             toggle()
         } else if !isMatch && modifierFlagsActive {
+            // Modifiers released — just track the release, don't toggle again
             modifierFlagsActive = false
         }
     }
 
     fileprivate func handleKeyDown(_ keyCode: UInt16, flags: CGEventFlags) {
-        // Shift+Arrow for model cycling
+        // Shift+Up/Down for model cycling
         let isShiftOnly = flags.contains(.maskShift)
             && !flags.contains(.maskCommand)
             && !flags.contains(.maskControl)
             && !flags.contains(.maskAlternate)
 
         if isShiftOnly {
-            if keyCode == 0x7E || keyCode == 0x7C {
+            if keyCode == 0x7E || keyCode == 0x7C { // Up arrow or Right arrow
                 onModelCycleForward?()
-            } else if keyCode == 0x7D || keyCode == 0x7B {
+                return
+            } else if keyCode == 0x7D || keyCode == 0x7B { // Down arrow or Left arrow
                 onModelCycleBackward?()
+                return
             }
+        }
+
+        // Normal hotkey handling
+        let hotkey = selectedHotkey
+
+        guard !hotkey.isModifierOnly, let targetKey = hotkey.keyCode else { return }
+
+        if keyCode == targetKey {
+            toggle()
         }
     }
 
@@ -246,7 +171,7 @@ final class HotkeyManager: ObservableObject {
     }
 }
 
-// MARK: - CGEvent C Callback
+// MARK: - C Callback
 
 private func hotkeyEventCallback(
     proxy: CGEventTapProxy,
@@ -254,6 +179,7 @@ private func hotkeyEventCallback(
     event: CGEvent,
     userInfo: UnsafeMutableRawPointer?
 ) -> Unmanaged<CGEvent>? {
+    // If the tap is disabled by the system, re-enable it
     if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
         if let userInfo {
             let manager = Unmanaged<HotkeyManager>.fromOpaque(userInfo).takeUnretainedValue()
@@ -283,5 +209,6 @@ private func hotkeyEventCallback(
         }
     }
 
+    // Pass the event through (don't consume it)
     return Unmanaged.passRetained(event)
 }

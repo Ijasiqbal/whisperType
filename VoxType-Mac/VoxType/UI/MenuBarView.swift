@@ -170,7 +170,7 @@ struct MenuBarView: View {
 
     private var hotkeyLabel: String {
         let saved = UserDefaults.standard.string(forKey: Constants.selectedHotkeyKey) ?? ""
-        let option = HotkeyOption(rawValue: saved) ?? .ctrlSpace
+        let option = HotkeyOption(rawValue: saved) ?? .ctrlOption
         return option.shortLabel
     }
 
