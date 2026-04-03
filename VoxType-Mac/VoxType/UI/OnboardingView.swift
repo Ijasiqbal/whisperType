@@ -4,9 +4,13 @@ import SwiftUI
 struct OnboardingView: View {
 
     @EnvironmentObject var auth: AuthManager
-    @State private var currentStep = 0
+    @SceneStorage("onboarding_step") private var currentStep = 0
     @State private var microphoneGranted = PermissionChecker.isMicrophoneGranted
     @State private var accessibilityGranted = HotkeyManager.isAccessibilityGranted
+    @State private var selectedHotkey: HotkeyOption = {
+        let raw = UserDefaults.standard.string(forKey: Constants.selectedHotkeyKey) ?? ""
+        return HotkeyOption(rawValue: raw) ?? .ctrlOption
+    }()
     var onComplete: () -> Void
 
     var body: some View {
@@ -17,7 +21,8 @@ struct OnboardingView: View {
                 case 0: welcomeStep
                 case 1: signInStep
                 case 2: permissionsStep
-                case 3: readyStep
+                case 3: hotkeyStep
+                case 4: readyStep
                 default: EmptyView()
                 }
             }
@@ -36,7 +41,7 @@ struct OnboardingView: View {
 
                 // Step indicators
                 HStack(spacing: 6) {
-                    ForEach(0..<4, id: \.self) { step in
+                    ForEach(0..<5, id: \.self) { step in
                         Circle()
                             .fill(step == currentStep ? Color.accentColor : Color.secondary.opacity(0.3))
                             .frame(width: 8, height: 8)
@@ -45,7 +50,7 @@ struct OnboardingView: View {
 
                 Spacer()
 
-                if currentStep < 3 {
+                if currentStep < 4 {
                     Button("Next") {
                         withAnimation { currentStep += 1 }
                     }
@@ -65,7 +70,7 @@ struct OnboardingView: View {
             }
             .padding(24)
         }
-        .frame(width: 500, height: 400)
+        .frame(width: 500, height: 480)
     }
 
     // MARK: - Steps
@@ -175,13 +180,20 @@ struct OnboardingView: View {
             HStack(spacing: 12) {
                 if !microphoneGranted {
                     Button("Grant Microphone Access") {
-                        Task {
-                            let granted = await PermissionChecker.requestMicrophone()
-                            print("[Vozcribe] Microphone permission: \(granted)")
-                            // Update state on main thread
-                            await MainActor.run {
-                                microphoneGranted = granted
+                        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+                        if status == .notDetermined {
+                            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                                DispatchQueue.main.async {
+                                    microphoneGranted = granted
+                                    if !granted {
+                                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                                            NSWorkspace.shared.open(url)
+                                        }
+                                    }
+                                }
                             }
+                        } else if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                            NSWorkspace.shared.open(url)
                         }
                     }
                     .controlSize(.large)
@@ -189,7 +201,9 @@ struct OnboardingView: View {
 
                 if !accessibilityGranted {
                     Button("Open Accessibility Settings") {
-                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                            NSWorkspace.shared.open(url)
+                        }
                     }
                     .controlSize(.large)
                 }
@@ -224,6 +238,61 @@ struct OnboardingView: View {
         }
     }
 
+    private var hotkeyStep: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "keyboard")
+                .font(.system(size: 48))
+                .foregroundColor(.accentColor)
+
+            Text("Choose Your Hotkey")
+                .font(.title)
+                .fontWeight(.bold)
+
+            Text("Pick the shortcut you'll press to start and stop recording.")
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(HotkeyOption.allCases) { option in
+                        Button {
+                            selectedHotkey = option
+                            UserDefaults.standard.set(option.rawValue, forKey: Constants.selectedHotkeyKey)
+                        } label: {
+                            HStack {
+                                Text(option.shortLabel)
+                                    .font(.title3)
+                                    .frame(width: 50)
+                                Text(option.displayName)
+                                    .fontWeight(.medium)
+                                Spacer()
+                                if selectedHotkey == option {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.accentColor)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(selectedHotkey == option ? Color.accentColor.opacity(0.15) : Color.clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(selectedHotkey == option ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .frame(maxHeight: 240)
+        }
+        .padding(.horizontal, 40)
+        .padding(.top, 24)
+        .padding(.bottom, 8)
+    }
+
     private var readyStep: some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle")
@@ -235,7 +304,7 @@ struct OnboardingView: View {
                 .fontWeight(.bold)
 
             VStack(alignment: .leading, spacing: 8) {
-                Label("Press **Ctrl+Option** to start recording", systemImage: "keyboard")
+                Label("Press **\(selectedHotkey.displayName)** to start recording", systemImage: "keyboard")
                 Label("Press again to stop and transcribe", systemImage: "text.cursor")
                 Label("Click the menu bar icon for settings", systemImage: "menubar.arrow.up.rectangle")
             }

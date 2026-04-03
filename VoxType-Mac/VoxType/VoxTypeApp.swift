@@ -82,6 +82,7 @@ struct VoxTypeApp: App {
             SettingsView()
                 .environmentObject(authManager)
                 .environmentObject(usageManager)
+                .environmentObject(appDelegate.hotkeyManager)
         }
         .commands {
             // Override the default Settings command to ensure window activation
@@ -133,7 +134,7 @@ struct MenuBarIcon: View {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
-    private let hotkeyManager = HotkeyManager()
+    let hotkeyManager = HotkeyManager()
     private var overlayWindow: OverlayWindowController?
     private var transcriptionStateObserver: AnyCancellable?
     private var wasProcessing = false
@@ -304,6 +305,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ModelSwitchOverlayController.shared.show(model: prev)
                 print("[Vozcribe] Model switched to \(prev.shortName)")
             }
+        }
+
+        // Sync hotkey from UserDefaults — user may have changed it during onboarding
+        // after HotkeyManager was initialized at app launch.
+        let saved = UserDefaults.standard.string(forKey: Constants.selectedHotkeyKey) ?? ""
+        if let option = HotkeyOption(rawValue: saved) {
+            hotkeyManager.selectedHotkey = option
         }
 
         let isGranted = HotkeyManager.isAccessibilityGranted

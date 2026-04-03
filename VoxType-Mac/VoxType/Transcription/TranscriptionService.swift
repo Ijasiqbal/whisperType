@@ -217,6 +217,14 @@ final class TranscriptionService: ObservableObject {
 
     // MARK: - Manual Control
 
+    /// Cancel an in-progress recording without transcribing
+    func cancelRecording() {
+        guard case .recording = state else { return }
+        _ = audioRecorder.stopRecording() // discard audio
+        state = .idle
+        print("[Transcription] Recording cancelled by user")
+    }
+
     /// Manually dismiss the overlay (reset to idle)
     func dismiss() {
         if case .success = state { state = .idle }

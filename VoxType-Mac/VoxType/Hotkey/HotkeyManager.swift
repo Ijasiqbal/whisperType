@@ -25,6 +25,11 @@ final class HotkeyManager: ObservableObject {
     /// Tracks whether modifier-only hotkey flags are currently held (to detect press/release edges)
     private var modifierFlagsActive = false
 
+    /// Timestamp of last Fn key press for double-tap detection
+    private var lastFnTapTime: TimeInterval = 0
+    /// Maximum interval between taps to count as double-tap (seconds)
+    private let doubleTapInterval: TimeInterval = 0.4
+
     // All modifier flags we monitor
     private let allMonitoredFlags: CGEventFlags = [.maskControl, .maskAlternate, .maskCommand, .maskShift]
 
@@ -121,9 +126,38 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - Event Handling
 
-    fileprivate func handleFlagsChanged(_ flags: CGEventFlags) {
+    fileprivate func handleFlagsChanged(keyCode: UInt16, flags: CGEventFlags) {
         let hotkey = selectedHotkey
 
+        // Key-based modifier hotkey (e.g. Right Option, Fn — modifier keys detected by keycode)
+        if let targetKey = hotkey.keyCode, !hotkey.isModifierOnly {
+            guard keyCode == targetKey else { return }
+
+            if hotkey.isDoubleTap {
+                // Fn/Globe fires flagsChanged with maskSecondaryFn on Apple Silicon (not keyDown)
+                // Only react on press edge (flag becoming active), ignore release
+                guard flags.contains(.maskSecondaryFn) else { return }
+                let now = ProcessInfo.processInfo.systemUptime
+                if now - lastFnTapTime < doubleTapInterval {
+                    lastFnTapTime = 0
+                    toggle()
+                } else {
+                    lastFnTapTime = now
+                }
+            } else {
+                // Right Option: edge-detect press/release via maskAlternate
+                let isPressed = flags.contains(.maskAlternate)
+                if isPressed && !modifierFlagsActive {
+                    modifierFlagsActive = true
+                    toggle()
+                } else if !isPressed && modifierFlagsActive {
+                    modifierFlagsActive = false
+                }
+            }
+            return
+        }
+
+        // Combo modifier hotkey (e.g. Ctrl+Option, Ctrl+Shift)
         guard hotkey.isModifierOnly, let required = hotkey.requiredFlags else { return }
 
         let activeModifiers = flags.intersection(allMonitoredFlags)
@@ -161,7 +195,8 @@ final class HotkeyManager: ObservableObject {
 
         guard !hotkey.isModifierOnly, let targetKey = hotkey.keyCode else { return }
 
-        if keyCode == targetKey {
+        // doubleTapFn is handled in handleFlagsChanged (Fn fires flagsChanged on Apple Silicon)
+        if keyCode == targetKey && !hotkey.isDoubleTap {
             toggle()
         }
     }
@@ -197,9 +232,10 @@ private func hotkeyEventCallback(
     let manager = Unmanaged<HotkeyManager>.fromOpaque(userInfo).takeUnretainedValue()
 
     if type == .flagsChanged {
+        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
         let flags = event.flags
         DispatchQueue.main.async {
-            manager.handleFlagsChanged(flags)
+            manager.handleFlagsChanged(keyCode: keyCode, flags: flags)
         }
     } else if type == .keyDown {
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))

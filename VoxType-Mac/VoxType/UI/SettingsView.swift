@@ -10,6 +10,7 @@ struct SettingsView: View {
     @AppStorage(Constants.selectedModelKey) private var selectedModel = TranscriptionModel.auto.rawValue
     @AppStorage(Constants.launchAtLoginKey) private var launchAtLogin = false
     @AppStorage(Constants.selectedRegionKey) private var selectedRegion = ""
+    @EnvironmentObject var hotkeyManager: HotkeyManager
     @AppStorage(Constants.selectedHotkeyKey) private var selectedHotkeyRaw = HotkeyOption.ctrlOption.rawValue
 
     var body: some View {
@@ -73,6 +74,11 @@ struct SettingsView: View {
                 Picker("Record shortcut:", selection: $selectedHotkeyRaw) {
                     ForEach(HotkeyOption.allCases) { option in
                         Text(option.displayName).tag(option.rawValue)
+                    }
+                }
+                .onChange(of: selectedHotkeyRaw) { newValue in
+                    if let option = HotkeyOption(rawValue: newValue) {
+                        hotkeyManager.changeHotkey(to: option)
                     }
                 }
                 Text("Press once to start recording, press again to stop and transcribe.")

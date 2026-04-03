@@ -11,12 +11,12 @@ killall Vozcribe 2>/dev/null || echo "   (Vozcribe was not running)"
 
 # 2. Clear UserDefaults (both sandboxed and non-sandboxed locations)
 echo "2️⃣  Clearing app settings..."
-defaults delete com.wozcribe.Wozcribe 2>/dev/null || echo "   (No non-sandboxed settings found)"
+defaults delete com.wozcribe.mac 2>/dev/null || echo "   (No non-sandboxed settings found)"
 
 # Clear sandboxed preferences
-SANDBOXED_PREFS="$HOME/Library/Containers/com.wozcribe.Wozcribe/Data/Library/Preferences"
+SANDBOXED_PREFS="$HOME/Library/Containers/com.wozcribe.mac/Data/Library/Preferences"
 if [ -d "$SANDBOXED_PREFS" ]; then
-    rm -f "$SANDBOXED_PREFS/com.wozcribe.Wozcribe.plist" 2>/dev/null || true
+    rm -f "$SANDBOXED_PREFS/com.wozcribe.mac.plist" 2>/dev/null || true
     echo "   ✓ Cleared sandboxed preferences"
 fi
 
@@ -30,7 +30,7 @@ else
 fi
 
 # Clear sandboxed Application Support
-SANDBOXED_APP_SUPPORT="$HOME/Library/Containers/com.wozcribe.Wozcribe/Data/Library/Application Support"
+SANDBOXED_APP_SUPPORT="$HOME/Library/Containers/com.wozcribe.mac/Data/Library/Application Support"
 if [ -d "$SANDBOXED_APP_SUPPORT" ]; then
     echo "   Removing sandboxed app data..."
     rm -rf "$SANDBOXED_APP_SUPPORT"/*
@@ -38,7 +38,7 @@ if [ -d "$SANDBOXED_APP_SUPPORT" ]; then
 fi
 
 # 4. Clear caches (if exists)
-CACHE_DIR="$HOME/Library/Caches/com.wozcribe.Wozcribe"
+CACHE_DIR="$HOME/Library/Caches/com.wozcribe.mac"
 if [ -d "$CACHE_DIR" ]; then
     echo "4️⃣  Clearing caches..."
     rm -rf "$CACHE_DIR"
@@ -48,15 +48,12 @@ fi
 
 echo ""
 echo "✅ App reset complete!"
+# 5. Reset OS-level permissions
+echo "5️⃣  Resetting OS-level permissions..."
+tccutil reset Microphone com.wozcribe.mac 2>/dev/null || echo "   (Could not reset Microphone permission)"
+tccutil reset Accessibility com.wozcribe.mac 2>/dev/null || echo "   (Could not reset Accessibility permission)"
+echo "   ✓ Reset Microphone and Accessibility permissions"
+
 echo ""
-echo "📋 Manual steps still needed:"
-echo "   1. Reset Microphone permission:"
-echo "      System Settings → Privacy & Security → Microphone → Remove Vozcribe"
-echo ""
-echo "   2. Reset Accessibility permission:"
-echo "      System Settings → Privacy & Security → Accessibility → Remove Vozcribe"
-echo ""
-echo "   You can open these settings directly with:"
-echo "      open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'"
-echo "      open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'"
+echo "✅ Full reset complete! Rebuild and run the app."
 echo ""

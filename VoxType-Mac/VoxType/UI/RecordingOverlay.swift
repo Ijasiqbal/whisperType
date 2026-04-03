@@ -187,11 +187,27 @@ struct RecordingOverlayView: View {
 
                 Spacer()
 
-                // Right side: Duration or Close button
+                // Right side: Duration + Cancel, or Close button
                 if case .recording = service.state {
-                    Text(formattedDuration)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.8))
+                    HStack(spacing: 8) {
+                        Text(formattedDuration)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.8))
+
+                        Button(action: {
+                            service.cancelRecording()
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.6))
+                                .frame(width: 20, height: 20)
+                                .background(
+                                    Circle()
+                                        .fill(.white.opacity(0.1))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 } else {
                     // Close button (always visible except when recording)
                     Button(action: {

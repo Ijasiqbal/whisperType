@@ -179,33 +179,27 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
 
 enum HotkeyOption: String, CaseIterable, Identifiable {
     case ctrlOption = "ctrl_option"
-    case cmdShift = "cmd_shift"
     case rightOption = "right_option"
-    case fn = "fn"
-    case f5 = "f5"
     case ctrlShift = "ctrl_shift"
+    case doubleTapFn = "double_tap_fn"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .ctrlOption: return "Ctrl + Option"
-        case .cmdShift: return "Cmd + Shift"
         case .rightOption: return "Right Option"
-        case .fn: return "Fn (Globe)"
-        case .f5: return "F5"
+        case .ctrlOption: return "Ctrl + Option"
         case .ctrlShift: return "Ctrl + Shift"
+        case .doubleTapFn: return "Double-tap Fn"
         }
     }
 
     var shortLabel: String {
         switch self {
-        case .ctrlOption: return "⌃⌥"
-        case .cmdShift: return "⌘⇧"
         case .rightOption: return "Right ⌥"
-        case .fn: return "🌐"
-        case .f5: return "F5"
+        case .ctrlOption: return "⌃⌥"
         case .ctrlShift: return "⌃⇧"
+        case .doubleTapFn: return "Fn Fn"
         }
     }
 
@@ -213,18 +207,16 @@ enum HotkeyOption: String, CaseIterable, Identifiable {
     var requiredFlags: CGEventFlags? {
         switch self {
         case .ctrlOption: return [.maskControl, .maskAlternate]
-        case .cmdShift: return [.maskCommand, .maskShift]
         case .ctrlShift: return [.maskControl, .maskShift]
-        case .rightOption, .fn, .f5: return nil  // Handled via keyCode, not flags
+        case .rightOption, .doubleTapFn: return nil  // Handled via keyCode, not flags
         }
     }
 
     /// The key code for key-based hotkeys (non-modifier-only)
     var keyCode: UInt16? {
         switch self {
-        case .fn: return 0x3F         // Fn/Globe key
-        case .f5: return 0x60         // F5
         case .rightOption: return 0x3D // Right Option
+        case .doubleTapFn: return 0x3F // Fn key
         default: return nil
         }
     }
@@ -232,6 +224,11 @@ enum HotkeyOption: String, CaseIterable, Identifiable {
     /// Whether this hotkey is modifier-only (detected via flagsChanged)
     var isModifierOnly: Bool {
         requiredFlags != nil && keyCode == nil
+    }
+
+    /// Whether this hotkey requires double-tap detection
+    var isDoubleTap: Bool {
+        self == .doubleTapFn
     }
 }
 
