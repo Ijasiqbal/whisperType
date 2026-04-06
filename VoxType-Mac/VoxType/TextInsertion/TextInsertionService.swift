@@ -14,13 +14,13 @@ final class TextInsertionService {
     func captureFrontmostApp() {
         frontmostPIDAtRecordingStart = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let name = NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil"
-        NSLog("[VOXDEBUG] Captured frontmost app: \(name) PID: \(frontmostPIDAtRecordingStart ?? -1)")
+        debugLog("[VOXDEBUG] Captured frontmost app: \(name) PID: \(frontmostPIDAtRecordingStart ?? -1)")
     }
 
     /// Inserts text and returns true if cursor shift confirms the paste landed.
     /// Returns false if confirmation failed (Electron, Terminal, etc.) — caller should show copy button.
     func insertText(_ text: String) async -> Bool {
-        NSLog("[VOXDEBUG] insertText called with text: \(text.prefix(50))...")
+        debugLog("[VOXDEBUG] insertText called with text: \(text.prefix(50))...")
 
         let pid = frontmostPIDAtRecordingStart
             ?? NSWorkspace.shared.frontmostApplication?.processIdentifier
@@ -28,18 +28,17 @@ final class TextInsertionService {
         // Re-activate the captured app so it receives the paste
         if let pid, let app = NSRunningApplication(processIdentifier: pid) {
             app.activate(options: [])
-            NSLog("[VOXDEBUG] Reactivated app PID: \(pid)")
+            debugLog("[VOXDEBUG] Reactivated app PID: \(pid)")
             try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
         }
 
         // Read cursor position BEFORE paste
         let cursorBefore = cursorPosition(pid: pid)
-        NSLog("[VOXDEBUG] Cursor before paste: \(cursorBefore?.description ?? "nil")")
+        debugLog("[VOXDEBUG] Cursor before paste: \(cursorBefore?.description ?? "nil")")
 
         // Set clipboard and paste
         let pasteboard = NSPasteboard.general
         let previousString = pasteboard.string(forType: .string)
-        let previousChangeCount = pasteboard.changeCount
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
@@ -52,26 +51,24 @@ final class TextInsertionService {
 
         // Read cursor position AFTER paste
         let cursorAfter = cursorPosition(pid: pid)
-        NSLog("[VOXDEBUG] Cursor after paste: \(cursorAfter?.description ?? "nil")")
+        debugLog("[VOXDEBUG] Cursor after paste: \(cursorAfter?.description ?? "nil")")
 
-        // Restore previous clipboard
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            if pasteboard.changeCount == previousChangeCount + 1 {
-                pasteboard.clearContents()
-                if let prev = previousString {
-                    pasteboard.setString(prev, forType: .string)
-                }
-                NSLog("[VOXDEBUG] Clipboard restored")
-            }
+        // Restore previous clipboard unconditionally after 500ms.
+        // No changeCount check — it's unreliable when the target app or a clipboard
+        // manager modifies the pasteboard during paste processing.
+        try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
+        if let prev = previousString {
+            pasteboard.clearContents()
+            pasteboard.setString(prev, forType: .string)
         }
 
         // Confirm paste by checking if cursor advanced
         if let before = cursorBefore, let after = cursorAfter, after > before {
-            NSLog("[VOXDEBUG] Cursor advanced \(before) → \(after) — paste confirmed")
+            debugLog("[VOXDEBUG] Cursor advanced \(before) → \(after) — paste confirmed")
             return true
         }
 
-        NSLog("[VOXDEBUG] Cursor did not advance — paste unconfirmed (Electron/Terminal/etc.)")
+        debugLog("[VOXDEBUG] Cursor did not advance — paste unconfirmed (Electron/Terminal/etc.)")
         return false
     }
 
@@ -110,7 +107,7 @@ final class TextInsertionService {
 
         guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true),
               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false) else {
-            print("[TextInsertion] Failed to create keyboard events")
+            debugLog("[TextInsertion] Failed to create keyboard events")
             return
         }
 

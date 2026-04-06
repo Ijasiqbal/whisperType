@@ -15,7 +15,7 @@ final class OverlayWindowController {
     }
 
     func showOverlay() {
-        NSLog("[VOXDEBUG] showOverlay called, window=\(window != nil)")
+        debugLog("[VOXDEBUG] showOverlay called, window=\(window != nil)")
         if window == nil {
             createWindow()
         }
@@ -27,11 +27,11 @@ final class OverlayWindowController {
             panel.setFrameOrigin(NSPoint(x: x, y: y))
         }
         window?.orderFront(nil)
-        NSLog("[VOXDEBUG] showOverlay done, window frame=\(String(describing: window?.frame))")
+        debugLog("[VOXDEBUG] showOverlay done, window frame=\(String(describing: window?.frame))")
     }
 
     func hideOverlay() {
-        NSLog("[VOXDEBUG] hideOverlay called")
+        debugLog("[VOXDEBUG] hideOverlay called")
         window?.orderOut(nil)
     }
 
@@ -228,7 +228,43 @@ struct RecordingOverlayView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
 
-            // Row 2: Error action buttons (Retry + Save for later)
+            // Row 2: Recording limit warning
+            if service.isShowingRecordingWarning {
+                Divider()
+                    .background(Color.white.opacity(0.15))
+                    .padding(.horizontal, 12)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.badge.exclamationmark")
+                        .font(.system(size: 11))
+                        .foregroundColor(.orange)
+
+                    Text("Stopping in \(service.warningSecondsLeft)s")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.85))
+
+                    Spacer()
+
+                    Button(action: {
+                        service.extendRecording()
+                    }) {
+                        Text("Extend 5 min")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(.orange.opacity(0.4))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+            }
+
+            // Row 3: Error action buttons (Retry + Save for later)
             if case .error = service.state, service.hasRetryableAudio {
                 Divider()
                     .background(Color.white.opacity(0.15))

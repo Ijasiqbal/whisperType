@@ -36,7 +36,7 @@ struct VoxTypeApp: App {
                     // Force UserDefaults to sync to disk
                     UserDefaults.standard.synchronize()
 
-                    print("[Vozcribe] Onboarding completed and saved to UserDefaults")
+                    debugLog("[Vozcribe] Onboarding completed and saved to UserDefaults")
 
                     // Clear the window restoration state to prevent re-opening
                     UserDefaults.standard.removeObject(forKey: "NSWindow Frame onboarding")
@@ -148,11 +148,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Check if onboarding is needed
         let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: Constants.hasCompletedOnboardingKey)
-        print("[Vozcribe] App launched - hasCompletedOnboarding: \(hasCompletedOnboarding)")
+        debugLog("[Vozcribe] App launched - hasCompletedOnboarding: \(hasCompletedOnboarding)")
 
         if !hasCompletedOnboarding {
             // Show onboarding window for first-time users
-            print("[Vozcribe] Showing onboarding window")
+            debugLog("[Vozcribe] Showing onboarding window")
             showOnboardingWindow()
             return  // Don't setup hotkeys yet, wait for onboarding completion
         }
@@ -174,7 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        print("[Vozcribe] App launched")
+        debugLog("[Vozcribe] App launched")
     }
 
     private func showOnboardingWindow() {
@@ -205,20 +205,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        print("[Vozcribe] Onboarding completed, app fully initialized")
+        debugLog("[Vozcribe] Onboarding completed, app fully initialized")
     }
 
     private func requestMicrophonePermission() {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .notDetermined:
-            print("[Vozcribe] Requesting microphone permission...")
+            debugLog("[Vozcribe] Requesting microphone permission...")
             AVCaptureDevice.requestAccess(for: .audio) { granted in
-                print("[Vozcribe] Microphone permission \(granted ? "granted" : "denied")")
+                debugLog("[Vozcribe] Microphone permission \(granted ? "granted" : "denied")")
             }
         case .denied, .restricted:
-            print("[Vozcribe] Microphone permission denied. Please enable in System Settings > Privacy & Security > Microphone")
+            debugLog("[Vozcribe] Microphone permission denied. Please enable in System Settings > Privacy & Security > Microphone")
         case .authorized:
-            print("[Vozcribe] Microphone permission already granted")
+            debugLog("[Vozcribe] Microphone permission already granted")
         @unknown default:
             break
         }
@@ -231,7 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             DispatchQueue.main.async { [weak self] in
                 let state = TranscriptionService.shared.state
-                NSLog("[VOXDEBUG] onRecordingStart: state=\(state)")
+                debugLog("[VOXDEBUG] onRecordingStart: state=\(state)")
 
                 // If in success/inserted/error state, dismiss overlay instead of starting new recording
                 if case .success = state {
@@ -260,7 +260,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeyManager.onRecordingStop = { [weak self] in
             DispatchQueue.main.async { [weak self] in
                 let state = TranscriptionService.shared.state
-                NSLog("[VOXDEBUG] onRecordingStop: state=\(state)")
+                debugLog("[VOXDEBUG] onRecordingStop: state=\(state)")
 
                 // If in success/inserted/error state, dismiss overlay
                 if case .success = state {
@@ -293,7 +293,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let next = current.next()
                 next.saveAsSelected()
                 ModelSwitchOverlayController.shared.show(model: next)
-                print("[Vozcribe] Model switched to \(next.shortName)")
+                debugLog("[Vozcribe] Model switched to \(next.shortName)")
             }
         }
 
@@ -303,7 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let prev = current.previous()
                 prev.saveAsSelected()
                 ModelSwitchOverlayController.shared.show(model: prev)
-                print("[Vozcribe] Model switched to \(prev.shortName)")
+                debugLog("[Vozcribe] Model switched to \(prev.shortName)")
             }
         }
 
@@ -367,7 +367,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // Also hide on error after showing error message
                     // But NOT if there's retryable audio — let user retry or save
                     if case .error(let msg) = state {
-                        NSLog("[VOXDEBUG] Error state: \(msg), hasRetryableAudio=\(TranscriptionService.shared.hasRetryableAudio)")
+                        debugLog("[VOXDEBUG] Error state: \(msg), hasRetryableAudio=\(TranscriptionService.shared.hasRetryableAudio)")
                         self?.wasProcessing = false
                         if !TranscriptionService.shared.hasRetryableAudio {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

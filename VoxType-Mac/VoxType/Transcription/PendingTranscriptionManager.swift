@@ -57,13 +57,19 @@ final class PendingTranscriptionManager: ObservableObject {
     // MARK: - Public API
 
     /// Save a failed audio recording for later retry.
+    /// Returns nil if the audio file could not be written to disk.
     @discardableResult
-    func save(audioData: Data, audioFormat: String, durationMs: Int, failedModel: TranscriptionModel, errorMessage: String) -> PendingTranscription {
+    func save(audioData: Data, audioFormat: String, durationMs: Int, failedModel: TranscriptionModel, errorMessage: String) -> PendingTranscription? {
         let id = UUID().uuidString
         let fileName = "audio_\(id).\(audioFormat)"
         let audioFileURL = audioDir.appendingPathComponent(fileName)
 
-        try? audioData.write(to: audioFileURL)
+        do {
+            try audioData.write(to: audioFileURL)
+        } catch {
+            debugLog("[PendingTxn] Failed to write audio file, skipping save: \(error)")
+            return nil
+        }
 
         let entry = PendingTranscription(
             id: id,
@@ -84,7 +90,7 @@ final class PendingTranscriptionManager: ObservableObject {
         }
         saveEntries()
 
-        print("[PendingTxn] Saved: \(id) (\(audioData.count) bytes)")
+        debugLog("[PendingTxn] Saved: \(id) (\(audioData.count) bytes)")
         return entry
     }
 
@@ -100,7 +106,7 @@ final class PendingTranscriptionManager: ObservableObject {
             entries[index].status = .completed
             entries[index].transcribedText = text
             saveEntries()
-            print("[PendingTxn] Completed: \(id)")
+            debugLog("[PendingTxn] Completed: \(id)")
         }
     }
 
@@ -112,7 +118,7 @@ final class PendingTranscriptionManager: ObservableObject {
             try? fileManager.removeItem(at: audioURL)
             entries.remove(at: index)
             saveEntries()
-            print("[PendingTxn] Deleted: \(id)")
+            debugLog("[PendingTxn] Deleted: \(id)")
         }
     }
 
@@ -126,7 +132,7 @@ final class PendingTranscriptionManager: ObservableObject {
     /// Retry a pending transcription with optional model override.
     func retry(entry: PendingTranscription, withModel model: TranscriptionModel? = nil) async {
         guard let audioData = loadAudioData(for: entry) else {
-            print("[PendingTxn] Audio file not found for: \(entry.id)")
+            debugLog("[PendingTxn] Audio file not found for: \(entry.id)")
             return
         }
 
@@ -148,7 +154,7 @@ final class PendingTranscriptionManager: ObservableObject {
                 markCompleted(id: entry.id, text: text)
             }
         } catch {
-            print("[PendingTxn] Retry failed for \(entry.id): \(error)")
+            debugLog("[PendingTxn] Retry failed for \(entry.id): \(error)")
         }
     }
 

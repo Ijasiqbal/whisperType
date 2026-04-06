@@ -20,7 +20,7 @@ final class AuthManager: NSObject, ObservableObject {
         super.init()
         // Don't touch Firebase here — it may not be configured yet.
         // Call configure() after FirebaseApp.configure().
-        print("[Auth] AuthManager created (Firebase not yet wired)")
+        debugLog("[Auth] AuthManager created (Firebase not yet wired)")
     }
 
     /// Must be called once AFTER FirebaseApp.configure().
@@ -33,7 +33,7 @@ final class AuthManager: NSObject, ObservableObject {
         self.isSignedIn = currentUser != nil
         self.userEmail = currentUser?.email
         self.userName = currentUser?.displayName
-        print("[Auth] configure() — current user: \(currentUser?.email ?? "none"), isSignedIn=\(currentUser != nil)")
+        debugLog("[Auth] configure() — current user: \(currentUser?.email ?? "none"), isSignedIn=\(currentUser != nil)")
 
         // Listen for future changes
         setupAuthStateListener()
@@ -50,7 +50,7 @@ final class AuthManager: NSObject, ObservableObject {
                 self?.userName = user?.displayName
 
                 if wasSignedIn != (user != nil) {
-                    print("[Auth] Auth state changed: \(user != nil ? "signed in as \(user?.email ?? "unknown")" : "signed out")")
+                    debugLog("[Auth] Auth state changed: \(user != nil ? "signed in as \(user?.email ?? "unknown")" : "signed out")")
                 }
             }
         }
@@ -69,25 +69,13 @@ final class AuthManager: NSObject, ObservableObject {
         Auth.auth().currentUser?.uid
     }
 
-    // MARK: - Sign In with Apple
-
-    func signInWithApple() {
-        isLoading = true
-        let request = ASAuthorizationAppleIDProvider().createRequest()
-        request.requestedScopes = [.fullName, .email]
-
-        let controller = ASAuthorizationController(authorizationRequests: [request])
-        controller.delegate = self
-        controller.performRequests()
-    }
-
     // MARK: - Sign In with Google (OAuth + PKCE)
 
     func signInWithGoogle() {
         isLoading = true
 
         guard let clientID = FirebaseApp.app()?.options.clientID else {
-            print("[Auth] Missing Firebase client ID")
+            debugLog("[Auth] Missing Firebase client ID")
             isLoading = false
             return
         }
@@ -103,7 +91,7 @@ final class AuthManager: NSObject, ObservableObject {
 
         // Build OAuth URL with PKCE
         guard var components = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth") else {
-            print("[Auth] Failed to create OAuth URL components")
+            debugLog("[Auth] Failed to create OAuth URL components")
             isLoading = false
             return
         }
@@ -118,12 +106,12 @@ final class AuthManager: NSObject, ObservableObject {
         ]
 
         guard let url = components.url else {
-            print("[Auth] Invalid Google OAuth URL")
+            debugLog("[Auth] Invalid Google OAuth URL")
             isLoading = false
             return
         }
 
-        print("[Auth] Starting Google sign-in with URL: \(url.absoluteString)")
+        debugLog("[Auth] Starting Google sign-in flow")
 
         let session = ASWebAuthenticationSession(
             url: url,
@@ -131,7 +119,7 @@ final class AuthManager: NSObject, ObservableObject {
         ) { [weak self] callbackURL, error in
             if let error {
                 DispatchQueue.main.async { self?.isLoading = false }
-                print("[Auth] Google sign-in cancelled/error: \(error.localizedDescription)")
+                debugLog("[Auth] Google sign-in cancelled/error: \(error.localizedDescription)")
                 return
             }
 
@@ -139,11 +127,11 @@ final class AuthManager: NSObject, ObservableObject {
                   let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
                   let code = components.queryItems?.first(where: { $0.name == "code" })?.value else {
                 DispatchQueue.main.async { self?.isLoading = false }
-                print("[Auth] No auth code received from Google")
+                debugLog("[Auth] No auth code received from Google")
                 return
             }
 
-            print("[Auth] Received Google auth code, exchanging for tokens...")
+            debugLog("[Auth] Received Google auth code, exchanging for tokens...")
             self?.exchangeGoogleCode(
                 code: code,
                 codeVerifier: codeVerifier,
@@ -161,7 +149,7 @@ final class AuthManager: NSObject, ObservableObject {
 
     private func exchangeGoogleCode(code: String, codeVerifier: String, clientID: String, redirectURI: String) {
         guard let tokenURL = URL(string: "https://oauth2.googleapis.com/token") else {
-            print("[Auth] Failed to create token exchange URL")
+            debugLog("[Auth] Failed to create token exchange URL")
             DispatchQueue.main.async { self.isLoading = false }
             return
         }
@@ -187,13 +175,13 @@ final class AuthManager: NSObject, ObservableObject {
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             if let error {
                 DispatchQueue.main.async { self?.isLoading = false }
-                print("[Auth] Token exchange error: \(error.localizedDescription)")
+                debugLog("[Auth] Token exchange error: \(error.localizedDescription)")
                 return
             }
 
             guard let data else {
                 DispatchQueue.main.async { self?.isLoading = false }
-                print("[Auth] No data from token exchange")
+                debugLog("[Auth] No data from token exchange")
                 return
             }
 
@@ -201,11 +189,11 @@ final class AuthManager: NSObject, ObservableObject {
                   let idToken = json["id_token"] as? String,
                   let accessToken = json["access_token"] as? String else {
                 DispatchQueue.main.async { self?.isLoading = false }
-                print("[Auth] Failed to parse token response")
+                debugLog("[Auth] Failed to parse token response")
                 return
             }
 
-            print("[Auth] Got Google tokens, signing into Firebase...")
+            debugLog("[Auth] Got Google tokens, signing into Firebase...")
 
             // Create Firebase Google credential and sign in
             let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: accessToken)
@@ -215,11 +203,11 @@ final class AuthManager: NSObject, ObservableObject {
                 }
 
                 if let error {
-                    print("[Auth] Firebase Google sign-in error: \(error.localizedDescription)")
+                    debugLog("[Auth] Firebase Google sign-in error: \(error.localizedDescription)")
                     return
                 }
 
-                print("[Auth] ✅ Signed in with Google as: \(result?.user.uid ?? "unknown") (\(result?.user.email ?? "no email"))")
+                debugLog("[Auth] ✅ Signed in with Google as: \(result?.user.uid ?? "unknown") (\(result?.user.email ?? "no email"))")
             }
         }.resume()
     }
@@ -250,56 +238,13 @@ final class AuthManager: NSObject, ObservableObject {
         do {
             try Auth.auth().signOut()
         } catch {
-            print("[Auth] Sign out error: \(error.localizedDescription)")
+            debugLog("[Auth] Sign out error: \(error.localizedDescription)")
         }
     }
 
     deinit {
         if let handle = authStateHandle {
             Auth.auth().removeStateDidChangeListener(handle)
-        }
-    }
-}
-
-// MARK: - ASAuthorizationControllerDelegate
-
-extension AuthManager: ASAuthorizationControllerDelegate {
-
-    func authorizationController(controller: ASAuthorizationController,
-                                 didCompleteWithAuthorization authorization: ASAuthorization) {
-        guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
-              let identityToken = appleIDCredential.identityToken,
-              let tokenString = String(data: identityToken, encoding: .utf8) else {
-            print("[Auth] Failed to get Apple ID token")
-            isLoading = false
-            return
-        }
-
-        let credential = OAuthProvider.appleCredential(
-            withIDToken: tokenString,
-            rawNonce: nil,
-            fullName: appleIDCredential.fullName
-        )
-
-        Auth.auth().signIn(with: credential) { [weak self] result, error in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-            }
-
-            if let error {
-                print("[Auth] Firebase sign-in error: \(error.localizedDescription)")
-                return
-            }
-
-            print("[Auth] Signed in as: \(result?.user.uid ?? "unknown")")
-        }
-    }
-
-    func authorizationController(controller: ASAuthorizationController,
-                                 didCompleteWithError error: Error) {
-        print("[Auth] Apple sign-in error: \(error.localizedDescription)")
-        DispatchQueue.main.async {
-            self.isLoading = false
         }
     }
 }

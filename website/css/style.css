@@ -2,15 +2,15 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --bg: #090b10;
-  --bg-card: #0e1118;
-  --bg-card-hover: #141820;
-  --text: #dce4ed;
-  --text-dim: #667080;
+  --bg: #0c0a09;
+  --bg-card: #1c1917;
+  --bg-card-hover: #292524;
+  --text: #f5f5f4;
+  --text-dim: #a8a29e;
   --brand: #c45d3e;
-  --accent: #5ba4cf;
-  --accent2: #94b8d4;
-  --gradient: linear-gradient(135deg, #5ba4cf, #94b8d4);
+  --accent: #c45d3e;
+  --accent2: #d4845a;
+  --gradient: linear-gradient(135deg, #c45d3e, #d4845a);
   --radius: 16px;
 }
 
@@ -41,6 +41,17 @@ a { color: inherit; text-decoration: none; }
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* ===== WEBGL PARALLAX SCENE ===== */
+#scene3dCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;           /* behind everything */
+}
+
 /* ===== AMBIENT PARTICLES ===== */
 #ambientParticles {
   position: absolute;
@@ -48,7 +59,7 @@ a { color: inherit; text-decoration: none; }
   left: 0;
   width: 100%;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;           /* above WebGL scene */
 }
 
 /* ===== NAV ===== */
@@ -62,11 +73,11 @@ nav {
   justify-content: space-between;
   align-items: center;
   backdrop-filter: blur(20px);
-  background: rgba(9,11,16,0.5);
+  background: rgba(12,10,9,0.5);
   border-bottom: 1px solid rgba(255,255,255,0.03);
   transition: background 0.4s;
 }
-nav.scrolled { background: rgba(9,11,16,0.92); }
+nav.scrolled { background: rgba(12,10,9,0.92); }
 
 .nav-logo {
   display: flex;
@@ -101,13 +112,13 @@ nav.scrolled { background: rgba(9,11,16,0.92); }
   padding: 0.45rem 1.3rem !important;
   background: var(--gradient);
   border-radius: 100px;
-  color: #090b10 !important;
+  color: #0c0a09 !important;
   font-weight: 500 !important;
   transition: transform 0.3s, box-shadow 0.3s !important;
 }
 .nav-cta:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(91,164,207,0.25);
+  box-shadow: 0 4px 20px rgba(196,93,62,0.25);
 }
 
 /* ===== SHARED SECTION STYLES ===== */
@@ -160,7 +171,7 @@ section { padding: 8rem 0; }
   background: var(--gradient);
   border: none;
   border-radius: 12px;
-  color: #090b10;
+  color: #0c0a09;
   font-family: inherit;
   font-size: 0.95rem;
   font-weight: 600;
@@ -169,7 +180,7 @@ section { padding: 8rem 0; }
 }
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(91,164,207,0.25);
+  box-shadow: 0 8px 30px rgba(196,93,62,0.25);
 }
 
 .btn-secondary {
@@ -253,8 +264,8 @@ section { padding: 8rem 0; }
   gap: 0.5rem;
   padding: 0.4rem 1rem;
   border-radius: 100px;
-  border: 1px solid rgba(91,164,207,0.25);
-  background: rgba(91,164,207,0.06);
+  border: 1px solid rgba(196,93,62,0.25);
+  background: rgba(196,93,62,0.06);
   font-size: 0.78rem;
   color: var(--accent);
   margin-bottom: 2rem;
@@ -323,30 +334,56 @@ section { padding: 8rem 0; }
   margin-top: 4rem;
 }
 
+/* ===== ANIMATED GRADIENT BORDER (improvement #4) ===== */
+/* Angle is driven by JS — see main.js initGradientBorders() */
+
 .step-card {
-  background: var(--bg-card);
-  border: 1px solid rgba(255,255,255,0.04);
+  background: transparent;
+  border: none;
   border-radius: var(--radius);
   padding: 2.2rem 1.8rem;
   position: relative;
-  overflow: hidden;
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.3s;
+  isolation: isolate;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s;
 }
 .step-card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(91,164,207,0.12);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 50px rgba(196,93,62,0.18);
 }
+
+/* Ring layer — JS updates --gba (gradient border angle) on each frame */
+.step-card::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: calc(var(--radius) + 2px);
+  background: rgba(255,255,255,0.06);
+  z-index: -1;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+.step-card.gb-active::before {
+  background: conic-gradient(
+    from var(--gba, 0deg),
+    transparent 0%,
+    #c45d3e 18%,
+    #d4845a 28%,
+    #facdb4 33%,
+    #d4845a 38%,
+    #c45d3e 48%,
+    transparent 66%
+  );
+}
+/* Inner fill — masks the gradient, leaving only the border strip */
 .step-card::after {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: var(--gradient);
-  opacity: 0;
-  transition: opacity 0.3s;
+  inset: 1.5px;
+  border-radius: calc(var(--radius) - 1px);
+  background: var(--bg-card);
+  z-index: -1;
+  pointer-events: none;
 }
-.step-card:hover::after { opacity: 1; }
 
 .step-num {
   font-family: 'JetBrains Mono', monospace;
@@ -359,7 +396,7 @@ section { padding: 8rem 0; }
 .step-icon {
   width: 48px; height: 48px;
   border-radius: 13px;
-  background: rgba(91,164,207,0.08);
+  background: rgba(196,93,62,0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -396,7 +433,7 @@ section { padding: 8rem 0; }
   transform: translate(-50%, -50%);
   width: min(600px, 90vw);
   height: 400px;
-  background: radial-gradient(ellipse, rgba(91,164,207,0.08) 0%, rgba(148,184,212,0.04) 50%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(196,93,62,0.08) 0%, rgba(212,132,90,0.04) 50%, transparent 70%);
   pointer-events: none;
 }
 
@@ -493,22 +530,53 @@ section { padding: 8rem 0; }
 }
 
 .feature-card {
-  background: var(--bg-card);
-  border: 1px solid rgba(255,255,255,0.04);
+  background: transparent;
+  border: none;
   border-radius: var(--radius);
   padding: 2.2rem;
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.3s;
+  position: relative;
+  isolation: isolate;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s;
 }
 .feature-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(148,184,212,0.15);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 50px rgba(196,93,62,0.18);
+}
+.feature-card::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: calc(var(--radius) + 2px);
+  background: rgba(255,255,255,0.06);
+  z-index: -1;
+  pointer-events: none;
+}
+.feature-card.gb-active::before {
+  background: conic-gradient(
+    from var(--gba, 0deg),
+    transparent 0%,
+    #c45d3e 18%,
+    #d4845a 28%,
+    #facdb4 33%,
+    #d4845a 38%,
+    #c45d3e 48%,
+    transparent 66%
+  );
+}
+.feature-card::after {
+  content: '';
+  position: absolute;
+  inset: 1.5px;
+  border-radius: calc(var(--radius) - 1px);
+  background: var(--bg-card);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .feature-icon {
   width: 42px; height: 42px;
   border-radius: 11px;
-  background: rgba(148,184,212,0.08);
+  background: rgba(212,132,90,0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -644,11 +712,11 @@ section { padding: 8rem 0; }
 }
 .dl-btn.android {
   background: var(--gradient);
-  color: #090b10;
+  color: #0c0a09;
 }
 .dl-btn.android:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(91,164,207,0.25);
+  box-shadow: 0 8px 30px rgba(196,93,62,0.25);
 }
 .dl-btn.mac {
   background: rgba(255,255,255,0.05);

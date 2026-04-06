@@ -11,12 +11,17 @@ struct TranscriptionRequest: Encodable {
     let audioDurationMs: Int
 }
 
-struct TwoStageRequest: Encodable {
+struct EnhancedTranscriptionRequest: Encodable {
     let audioBase64: String
     let audioFormat: String
     let audioDurationMs: Int
-    let llmModel: String?
+    let processingVariant: String?
     let tier: String?
+
+    enum CodingKeys: String, CodingKey {
+        case audioBase64, audioFormat, audioDurationMs, tier
+        case processingVariant = "llmModel"
+    }
 }
 
 struct TranscriptionResult: Decodable {
@@ -95,13 +100,13 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Whether this model uses the standard pipeline
-    var isTwoStage: Bool {
+    /// Whether this model uses the enhanced pipeline
+    var usesEnhancedPipeline: Bool {
         self == .standard
     }
 
-    /// LLM tier for standard pipeline cleanup
-    var llmModel: String? {
+    /// Processing variant for enhanced pipeline
+    var processingVariant: String? {
         switch self {
         case .standard: return "standard_v2"
         default: return nil

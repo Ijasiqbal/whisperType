@@ -147,6 +147,33 @@ function initParallax() {
   setTimeout(update, HERO_ANIM_DONE_MS);
 }
 
+// ===== GRADIENT BORDER (improvement #4) =====
+function initGradientBorders() {
+  const cards = document.querySelectorAll('.step-card, .feature-card');
+  if (!cards.length) return;
+
+  cards.forEach(card => {
+    let rafId = null;
+    let angle = Math.random() * 360; // each card starts at different angle
+
+    function spin() {
+      angle = (angle + 1.2) % 360;
+      card.style.setProperty('--gba', angle + 'deg');
+      rafId = requestAnimationFrame(spin);
+    }
+
+    card.addEventListener('mouseenter', () => {
+      card.classList.add('gb-active');
+      if (!rafId) spin();
+    });
+
+    card.addEventListener('mouseleave', () => {
+      card.classList.remove('gb-active');
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    });
+  });
+}
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
   initReveal();
@@ -154,4 +181,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initAccuracy();
   initBars();
   initParallax();
+  initGradientBorders();
 });

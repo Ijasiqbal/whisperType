@@ -9,7 +9,6 @@ struct SettingsView: View {
 
     @AppStorage(Constants.selectedModelKey) private var selectedModel = TranscriptionModel.auto.rawValue
     @AppStorage(Constants.launchAtLoginKey) private var launchAtLogin = false
-    @AppStorage(Constants.selectedRegionKey) private var selectedRegion = ""
     @EnvironmentObject var hotkeyManager: HotkeyManager
     @AppStorage(Constants.selectedHotkeyKey) private var selectedHotkeyRaw = HotkeyOption.ctrlOption.rawValue
 
@@ -20,17 +19,12 @@ struct SettingsView: View {
                     Label("General", systemImage: "gear")
                 }
 
-            transcriptionTab
-                .tabItem {
-                    Label("Transcription", systemImage: "waveform")
-                }
-
             accountTab
                 .tabItem {
                     Label("Account", systemImage: "person.circle")
                 }
         }
-        .frame(width: 450, height: 300)
+        .frame(width: 450, height: 420)
         .onAppear {
             // Ensure Settings window comes to front when opened
             activateSettingsWindow()
@@ -125,15 +119,7 @@ struct SettingsView: View {
                     }
                 }
             }
-        }
-        .formStyle(.grouped)
-        .padding()
-    }
 
-    // MARK: - Transcription Tab
-
-    private var transcriptionTab: some View {
-        Form {
             Section("Model") {
                 Picker("Transcription model:", selection: $selectedModel) {
                     ForEach(TranscriptionModel.allCases) { model in
@@ -143,19 +129,6 @@ struct SettingsView: View {
                 .pickerStyle(.radioGroup)
 
                 Text("Auto is fastest and free. Standard uses enhanced processing for better accuracy (1x credits). Premium is highest quality (2x credits).")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Section("Region") {
-                Picker("Server region:", selection: $selectedRegion) {
-                    Text("Auto (based on timezone)").tag("")
-                    ForEach(RegionSelector.allRegions, id: \.id) { region in
-                        Text(region.name).tag(region.id)
-                    }
-                }
-
-                Text("Current: \(RegionSelector.bestRegion())")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -200,8 +173,8 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
 
-                        Button("Sign in with Apple") {
-                            auth.signInWithApple()
+                        Button("Sign in with Google") {
+                            auth.signInWithGoogle()
                         }
                         .buttonStyle(.borderedProminent)
                     }
@@ -224,7 +197,7 @@ struct SettingsView: View {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            print("[Settings] Launch at login error: \(error)")
+            debugLog("[Settings] Launch at login error: \(error)")
         }
     }
 }

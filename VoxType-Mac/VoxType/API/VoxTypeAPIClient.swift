@@ -30,12 +30,12 @@ final class VoxTypeAPIClient {
         let token = try await AuthManager.shared.getIDToken()
 
         let bodyData: Data
-        if model.isTwoStage {
-            let body = TwoStageRequest(
+        if model.usesEnhancedPipeline {
+            let body = EnhancedTranscriptionRequest(
                 audioBase64: audioData.base64EncodedString(),
                 audioFormat: format,
                 audioDurationMs: audioDurationMs,
-                llmModel: model.llmModel,
+                processingVariant: model.processingVariant,
                 tier: model.tier
             )
             bodyData = try JSONEncoder().encode(body)

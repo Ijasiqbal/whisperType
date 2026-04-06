@@ -173,16 +173,16 @@ final class AudioRecorder: ObservableObject {
             if savingsPercent >= Constants.minSavingsPercent && extracted.count >= Constants.minAudioSizeBytes {
                 trimmedPCM = extracted
                 silenceTrimmingApplied = true
-                print("[AudioRecorder] Silence trimming: \(rawPCM.count) -> \(extracted.count) bytes (\(savingsPercent)% saved)")
+                debugLog("[AudioRecorder] Silence trimming: \(rawPCM.count) -> \(extracted.count) bytes (\(savingsPercent)% saved)")
             } else {
                 trimmedPCM = rawPCM
                 silenceTrimmingApplied = false
-                print("[AudioRecorder] Trimming skipped: only \(savingsPercent)% savings")
+                debugLog("[AudioRecorder] Trimming skipped: only \(savingsPercent)% savings")
             }
         } else {
             trimmedPCM = rawPCM
             silenceTrimmingApplied = false
-            print("[AudioRecorder] No speech segments detected, using full audio")
+            debugLog("[AudioRecorder] No speech segments detected, using full audio")
         }
 
         let speechDurMs = silenceTrimmingApplied
@@ -196,17 +196,17 @@ final class AudioRecorder: ObservableObject {
             silenceTrimmingApplied: silenceTrimmingApplied
         )
 
-        print("[AudioRecorder] Segments: \(speechSegments.count), Speech: \(speechDurMs)ms of \(originalDurationMs)ms")
+        debugLog("[AudioRecorder] Segments: \(speechSegments.count), Speech: \(speechDurMs)ms of \(originalDurationMs)ms")
 
         // Try AAC compression
         if let m4aData = compressToAAC(from: trimmedPCM) {
             let ratio = String(format: "%.1f", Float(trimmedPCM.count) / Float(m4aData.count))
-            print("[AudioRecorder] Compressed: \(trimmedPCM.count) bytes PCM -> \(m4aData.count) bytes M4A (\(ratio)x reduction)")
+            debugLog("[AudioRecorder] Compressed: \(trimmedPCM.count) bytes PCM -> \(m4aData.count) bytes M4A (\(ratio)x reduction)")
             return AudioResult(data: m4aData, format: "m4a", metadata: metadata)
         }
 
         // Fallback to uncompressed WAV
-        print("[AudioRecorder] AAC unavailable, using WAV fallback: \(trimmedPCM.count) bytes")
+        debugLog("[AudioRecorder] AAC unavailable, using WAV fallback: \(trimmedPCM.count) bytes")
         return AudioResult(data: createWAVData(from: trimmedPCM), format: "wav", metadata: metadata)
     }
 
@@ -485,7 +485,7 @@ final class AudioRecorder: ObservableObject {
                 try outputFile.write(from: buffer)
                 return true
             } catch {
-                print("[AudioRecorder] AAC compression failed: \(error)")
+                debugLog("[AudioRecorder] AAC compression failed: \(error)")
                 return false
             }
         }

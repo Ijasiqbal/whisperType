@@ -106,12 +106,6 @@ struct MenuBarView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
-
-            Button("Sign in with Apple") {
-                auth.signInWithApple()
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 4)

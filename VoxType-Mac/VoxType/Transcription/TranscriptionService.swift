@@ -10,11 +10,15 @@ final class TranscriptionService: ObservableObject {
     @Published var state: RecordingState = .idle
     @Published var lastTranscription: String?
     @Published var lastError: String?
+    @Published var isShowingRecordingWarning = false
+    @Published var warningSecondsLeft = 60
 
     @Published var audioRecorder = AudioRecorder()  // MUST be @Published so amplitude updates trigger view refresh
     private let apiClient = VoxTypeAPIClient.shared
     private let textInsertion = TextInsertionService.shared
     private let usageManager = UsageManager.shared
+
+    private var recordingLimitTask: Task<Void, Never>?
 
     // Retained audio data for retry after error
     var lastFailedAudioData: Data?
@@ -52,9 +56,9 @@ final class TranscriptionService: ObservableObject {
             Task {
                 do {
                     _ = try await AuthManager.shared.getIDToken()
-                    print("[Transcription] Auth token pre-fetched")
+                    debugLog("[Transcription] Auth token pre-fetched")
                 } catch {
-                    print("[Transcription] Auth warmup failed (non-critical): \(error.localizedDescription)")
+                    debugLog("[Transcription] Auth warmup failed (non-critical): \(error.localizedDescription)")
                 }
             }
 
@@ -63,17 +67,19 @@ final class TranscriptionService: ObservableObject {
                 await VoxTypeAPIClient.shared.warmAllEndpoints()
             }
 
-            print("[Transcription] Recording started")
+            scheduleRecordingLimit()
+            debugLog("[Transcription] Recording started")
         } catch {
             state = .error(error.localizedDescription)
             lastError = error.localizedDescription
-            print("[Transcription] Failed to start recording: \(error)")
+            debugLog("[Transcription] Failed to start recording: \(error)")
         }
     }
 
     func stopRecordingAndTranscribe() {
         guard case .recording = state else { return }
 
+        cancelRecordingLimit()
         state = .processing
 
         guard let audioResult = audioRecorder.stopRecording() else {
@@ -87,7 +93,7 @@ final class TranscriptionService: ObservableObject {
         let durationMs = meta.silenceTrimmingApplied ? meta.speechDurationMs : meta.originalDurationMs
         let model = selectedModel
 
-        print("[Transcription] Audio: \(audioResult.data.count) bytes (\(audioResult.format)), speech: \(meta.speechDurationMs)ms of \(meta.originalDurationMs)ms, segments: \(meta.speechSegmentCount), trimmed: \(meta.silenceTrimmingApplied)")
+        debugLog("[Transcription] Audio: \(audioResult.data.count) bytes (\(audioResult.format)), speech: \(meta.speechDurationMs)ms of \(meta.originalDurationMs)ms, segments: \(meta.speechSegmentCount), trimmed: \(meta.silenceTrimmingApplied)")
 
         Task {
             await transcribeAndInsert(audioData: audioResult.data, format: audioResult.format, durationMs: durationMs, model: model)
@@ -124,7 +130,7 @@ final class TranscriptionService: ObservableObject {
             lastFailedAudioData = nil
             lastFailedModel = nil
 
-            NSLog("[VOXDEBUG] Transcription complete: \(text.prefix(50))...")
+            debugLog("[VOXDEBUG] Transcription complete: \(text.prefix(50))...")
 
             // Paste and confirm via cursor shift detection
             // Returns true if cursor advanced (paste confirmed), false if unconfirmed
@@ -132,10 +138,10 @@ final class TranscriptionService: ObservableObject {
 
             if pasteConfirmed {
                 state = .inserted(text)  // auto-closes in 1.5s
-                NSLog("[VOXDEBUG] Paste confirmed — auto-closing overlay")
+                debugLog("[VOXDEBUG] Paste confirmed — auto-closing overlay")
             } else {
                 state = .success(text)   // shows copy button for 6s
-                NSLog("[VOXDEBUG] Paste unconfirmed — showing copy button")
+                debugLog("[VOXDEBUG] Paste unconfirmed — showing copy button")
             }
 
         } catch {
@@ -148,7 +154,7 @@ final class TranscriptionService: ObservableObject {
             state = .error(error.localizedDescription)
             lastError = error.localizedDescription
             // Do NOT auto-dismiss - let user retry or save
-            print("[Transcription] Error (retryable): \(error)")
+            debugLog("[Transcription] Error (retryable): \(error)")
         }
     }
 
@@ -157,7 +163,7 @@ final class TranscriptionService: ObservableObject {
     /// Retry the last failed transcription with an optional different model.
     func retryWithModel(_ model: TranscriptionModel? = nil) {
         guard let audioData = lastFailedAudioData, !audioData.isEmpty else {
-            print("[Transcription] No audio data to retry")
+            debugLog("[Transcription] No audio data to retry")
             return
         }
 
@@ -175,14 +181,14 @@ final class TranscriptionService: ObservableObject {
     /// Save the last failed audio to local storage for later retry.
     func saveForLater() {
         guard let audioData = lastFailedAudioData, !audioData.isEmpty else {
-            print("[Transcription] No audio data to save")
+            debugLog("[Transcription] No audio data to save")
             return
         }
 
         let model = lastFailedModel ?? selectedModel
         let errorMsg = lastError ?? "Unknown error"
 
-        PendingTranscriptionManager.shared.save(
+        let saved = PendingTranscriptionManager.shared.save(
             audioData: audioData,
             audioFormat: lastFailedAudioFormat,
             durationMs: lastFailedDurationMs,
@@ -190,7 +196,12 @@ final class TranscriptionService: ObservableObject {
             errorMessage: errorMsg
         )
 
-        // Clear retained audio
+        guard saved != nil else {
+            state = .error("Could not save recording. Check available disk space.")
+            return
+        }
+
+        // Clear retained audio only after confirmed write
         lastFailedAudioData = nil
         lastFailedModel = nil
 
@@ -220,9 +231,49 @@ final class TranscriptionService: ObservableObject {
     /// Cancel an in-progress recording without transcribing
     func cancelRecording() {
         guard case .recording = state else { return }
+        cancelRecordingLimit()
         _ = audioRecorder.stopRecording() // discard audio
         state = .idle
-        print("[Transcription] Recording cancelled by user")
+        debugLog("[Transcription] Recording cancelled by user")
+    }
+
+    /// Extend the current recording by another 5 minutes, resetting the warning.
+    func extendRecording() {
+        isShowingRecordingWarning = false
+        scheduleRecordingLimit()
+        debugLog("[Transcription] Recording extended by 5 minutes")
+    }
+
+    // MARK: - Recording Limit
+
+    private func scheduleRecordingLimit() {
+        recordingLimitTask?.cancel()
+        recordingLimitTask = nil
+        recordingLimitTask = Task {
+            // Wait 5 minutes before warning
+            try? await Task.sleep(nanoseconds: 5 * 60 * 1_000_000_000)
+            guard !Task.isCancelled else { return }
+
+            isShowingRecordingWarning = true
+            warningSecondsLeft = 60
+
+            for i in stride(from: 59, through: 0, by: -1) {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                warningSecondsLeft = i
+            }
+
+            guard !Task.isCancelled else { return }
+            isShowingRecordingWarning = false
+            stopRecordingAndTranscribe()
+            debugLog("[Transcription] Recording auto-stopped after limit reached")
+        }
+    }
+
+    private func cancelRecordingLimit() {
+        recordingLimitTask?.cancel()
+        recordingLimitTask = nil
+        isShowingRecordingWarning = false
     }
 
     /// Manually dismiss the overlay (reset to idle)
@@ -248,7 +299,7 @@ final class TranscriptionService: ObservableObject {
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(text, forType: .string)
-            print("[Transcription] Copied to clipboard: \(text.prefix(50))...")
+            debugLog("[Transcription] Copied to clipboard: \(text.prefix(50))...")
         }
     }
 }

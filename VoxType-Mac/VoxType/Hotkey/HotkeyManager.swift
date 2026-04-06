@@ -62,7 +62,7 @@ final class HotkeyManager: ObservableObject {
             callback: hotkeyEventCallback,
             userInfo: userInfo
         ) else {
-            print("[HotkeyManager] Failed to create event tap. Check Accessibility permissions.")
+            debugLog("[HotkeyManager] Failed to create event tap. Check Accessibility permissions.")
             return false
         }
 
@@ -74,7 +74,7 @@ final class HotkeyManager: ObservableObject {
         }
 
         CGEvent.tapEnable(tap: tap, enable: true)
-        print("[HotkeyManager] Global hotkey registered (\(selectedHotkey.displayName), toggle mode)")
+        debugLog("[HotkeyManager] Global hotkey registered (\(selectedHotkey.displayName), toggle mode)")
         return true
     }
 
@@ -89,7 +89,7 @@ final class HotkeyManager: ObservableObject {
         runLoopSource = nil
         isRecording = false
         modifierFlagsActive = false
-        print("[HotkeyManager] Global hotkey unregistered")
+        debugLog("[HotkeyManager] Global hotkey unregistered")
     }
 
     /// Change the active hotkey. Restarts the event tap if running.
@@ -99,7 +99,7 @@ final class HotkeyManager: ObservableObject {
         selectedHotkey = option
         modifierFlagsActive = false
         if wasRunning { _ = start() }
-        print("[HotkeyManager] Hotkey changed to \(option.displayName)")
+        debugLog("[HotkeyManager] Hotkey changed to \(option.displayName)")
     }
 
     // MARK: - Permission
@@ -222,11 +222,11 @@ private func hotkeyEventCallback(
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
         }
-        return Unmanaged.passRetained(event)
+        return Unmanaged.passUnretained(event)
     }
 
     guard let userInfo else {
-        return Unmanaged.passRetained(event)
+        return Unmanaged.passUnretained(event)
     }
 
     let manager = Unmanaged<HotkeyManager>.fromOpaque(userInfo).takeUnretainedValue()
@@ -246,5 +246,5 @@ private func hotkeyEventCallback(
     }
 
     // Pass the event through (don't consume it)
-    return Unmanaged.passRetained(event)
+    return Unmanaged.passUnretained(event)
 }

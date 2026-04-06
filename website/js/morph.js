@@ -14,8 +14,8 @@
   renderer.setSize(canvas.clientWidth, canvas.clientHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-  const purple = new THREE.Color('#5ba4cf');
-  const cyan = new THREE.Color('#94b8d4');
+  const purple = new THREE.Color('#c45d3e');
+  const cyan = new THREE.Color('#d4845a');
 
   // ----- STREAM CURVE -----
   // S-curve path across the screen
@@ -127,7 +127,7 @@
     offY2[i] = (Math.random() - 0.5) * 0.25;
     speed2[i] = 0.06 + Math.random() * 0.08;
 
-    const c = new THREE.Color().lerpColors(new THREE.Color('#94b8d4'), new THREE.Color('#dce4f0'), 0.3 + Math.random() * 0.3);
+    const c = new THREE.Color().lerpColors(new THREE.Color('#d4845a'), new THREE.Color('#facdb4'), 0.3 + Math.random() * 0.3);
     col2[i * 3] = c.r;
     col2[i * 3 + 1] = c.g;
     col2[i * 3 + 2] = c.b;

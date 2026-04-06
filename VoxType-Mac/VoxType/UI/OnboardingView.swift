@@ -114,22 +114,12 @@ struct OnboardingView: View {
             } else {
                 VStack(spacing: 10) {
                     Button {
-                        auth.signInWithApple()
-                    } label: {
-                        Label("Sign in with Apple", systemImage: "apple.logo")
-                            .frame(width: 220)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .tint(.black)
-
-                    Button {
                         auth.signInWithGoogle()
                     } label: {
                         Label("Sign in with Google", systemImage: "globe")
                             .frame(width: 220)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                 }
                 .padding(.top, 8)

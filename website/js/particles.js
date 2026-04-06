@@ -16,9 +16,9 @@
   const COUNT = isMobile ? 40 : 80;
 
   const COLORS = [
-    { r: 91, g: 164, b: 207 },  // steel blue
-    { r: 148, g: 184, b: 212 }, // silver blue
-    { r: 180, g: 195, b: 210 }, // soft blue white
+    { r: 196, g: 93, b: 62 },  // Rust
+    { r: 212, g: 132, b: 90 }, // RustLight
+    { r: 139, g: 58, b: 34 }, // RustDeep
   ];
 
   // 3 depth layers: far (slow), mid, near (fast)

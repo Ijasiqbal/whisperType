@@ -58,7 +58,7 @@ final class UsageManager: ObservableObject {
             let status = try await VoxTypeAPIClient.shared.getTrialStatus()
             updateFromTrialStatus(status)
         } catch {
-            print("[UsageManager] Failed to refresh: \(error.localizedDescription)")
+            debugLog("[UsageManager] Failed to refresh: \(error.localizedDescription)")
         }
     }
 
