@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "whispertype-1de9f"
+  },
+  "targets": {
+    "whispertype-1de9f": {
+      "hosting": {
+        "vozcribe": [
+          "vozcribe"
+        ]
+      }
+    }
+  }
+}

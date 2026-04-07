@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vozcribe for macOS — Install</title>
+  <meta name="description" content="Install Vozcribe on macOS via Homebrew. Voice to text, perfected.">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/mac.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+
+<div class="grain"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <svg class="nav-logo-mark" width="32" height="32" viewBox="0 0 80 80" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <span class="nav-logo-text"><span class="nav-logo-voz">Voz</span>cribe</span>
+  </a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/#features">Features</a>
+    <a href="/#pricing">Pricing</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="mac-hero">
+  <div class="mac-hero-glow"></div>
+  <div class="container">
+    <div class="mac-badge reveal">
+      <img src="https://cdn.simpleicons.org/apple/f5f5f4" width="14" height="14" alt="" aria-hidden="true">
+      macOS
+    </div>
+    <h1 class="reveal">Vozcribe for <span class="gradient-text">Mac</span></h1>
+    <p class="mac-subtitle reveal">Speak naturally. Get perfectly transcribed text — right where your cursor is.</p>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section class="mac-install">
+  <div class="container">
+
+    <!-- Homebrew Method -->
+    <div class="install-card install-card-primary reveal">
+      <div class="install-card-glow"></div>
+      <div class="install-header">
+        <div class="install-icon">
+          <img src="https://cdn.simpleicons.org/homebrew/FBB040" width="28" height="28" alt="" aria-hidden="true">
+        </div>
+        <div>
+          <h2>Install via Homebrew</h2>
+          <p class="install-rec">Recommended</p>
+        </div>
+      </div>
+      <div class="brew-terminal">
+        <div class="brew-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="brew-commands">
+          <code class="brew-line"><span class="brew-prompt">$</span> brew tap Ijasiqbal/vozcribe</code>
+          <code class="brew-line"><span class="brew-prompt">$</span> brew install --cask vozcribe</code>
+        </div>
+        <button class="brew-copy" onclick="copyBrewCommand()" aria-label="Copy to clipboard">
+          <i data-lucide="copy" aria-hidden="true"></i>
+          <span class="brew-copy-text">Copy</span>
+        </button>
+      </div>
+      <div class="install-note">
+        <i data-lucide="info" aria-hidden="true"></i>
+        Requires <a href="https://brew.sh" target="_blank" rel="noopener">Homebrew</a>. If you don't have it, paste this in Terminal first:
+      </div>
+      <div class="brew-terminal brew-terminal-sm">
+        <code class="brew-line"><span class="brew-prompt">$</span> /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"</code>
+      </div>
+    </div>
+
+    <!-- Steps after install -->
+    <div class="mac-steps reveal">
+      <h3>After installing</h3>
+      <div class="mac-steps-grid">
+        <div class="mac-step">
+          <div class="mac-step-num">1</div>
+          <div>
+            <h4>Open Vozcribe</h4>
+            <p>Find it in your Applications folder or search with Spotlight (<kbd>Cmd</kbd> + <kbd>Space</kbd>).</p>
+          </div>
+        </div>
+        <div class="mac-step">
+          <div class="mac-step-num">2</div>
+          <div>
+            <h4>Grant permissions</h4>
+            <p>Allow Microphone access and Accessibility when prompted.</p>
+          </div>
+        </div>
+        <div class="mac-step">
+          <div class="mac-step-num">3</div>
+          <div>
+            <h4>Start speaking</h4>
+            <p>Use your hotkey to record. Transcribed text appears where your cursor is.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Requirements -->
+    <div class="mac-req reveal">
+      <h3>Requirements</h3>
+      <div class="mac-req-grid">
+        <div class="mac-req-item">
+          <i data-lucide="monitor" aria-hidden="true"></i>
+          <span>macOS Ventura (13.0) or later</span>
+        </div>
+        <div class="mac-req-item">
+          <i data-lucide="cpu" aria-hidden="true"></i>
+          <span>Apple Silicon or Intel Mac</span>
+        </div>
+        <div class="mac-req-item">
+          <i data-lucide="wifi" aria-hidden="true"></i>
+          <span>Internet connection for transcription</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>&copy; 2026 Vozcribe. Built for people who'd rather talk than type.</p>
+</footer>
+
+<script>
+lucide.createIcons();
+
+// Reveal animation
+const els = document.querySelectorAll('.reveal');
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+els.forEach(el => obs.observe(el));
+
+// Nav scroll
+const nav = document.querySelector('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 20);
+});
+
+// Copy
+function copyBrewCommand() {
+  const cmd = 'brew tap Ijasiqbal/vozcribe && brew install --cask vozcribe';
+  navigator.clipboard.writeText(cmd).then(() => {
+    const btn = document.querySelector('.brew-copy');
+    const txt = btn.querySelector('.brew-copy-text');
+    txt.textContent = 'Copied!';
+    btn.style.borderColor = 'rgba(196,93,62,0.4)';
+    btn.style.color = '#c45d3e';
+    setTimeout(() => {
+      txt.textContent = 'Copy';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>

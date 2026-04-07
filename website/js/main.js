@@ -24,6 +24,46 @@ function initNav() {
   }, { passive: true });
 }
 
+function initMobileNav() {
+  const toggle = document.querySelector('.menu-toggle');
+  const close = document.querySelector('.menu-close');
+  const mobileNav = document.querySelector('.mobile-nav');
+  const links = document.querySelectorAll('.mobile-nav-links a');
+
+  if (!toggle || !mobileNav) return;
+
+  const backdrop = document.querySelector('.mobile-nav-backdrop');
+
+  let savedScrollY = 0;
+
+  toggle.addEventListener('click', () => {
+    savedScrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${savedScrollY}px`;
+    document.body.style.width = '100%';
+    mobileNav.classList.add('open');
+  });
+
+  const closeMenu = () => {
+    mobileNav.classList.remove('open');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    window.scrollTo(0, savedScrollY);
+  };
+
+  if (close) close.addEventListener('click', closeMenu);
+  if (backdrop) backdrop.addEventListener('click', closeMenu);
+
+  links.forEach(link => {
+    link.addEventListener('click', closeMenu);
+  });
+
+  // Also close from CTA button
+  const cta = mobileNav.querySelector('.mobile-nav-cta');
+  if (cta) cta.addEventListener('click', closeMenu);
+}
+
 // ===== ACCURACY SECTION =====
 function initAccuracy() {
   const section = document.querySelector('.accuracy-section');
@@ -102,6 +142,8 @@ function initParallax() {
     el,
     speed: parseFloat(el.dataset.parallax),
     isHero: !!el.closest('.hero'),
+    current: 0,
+    target: 0,
   }));
 
   // Wait for hero animations to finish before applying parallax to hero elements
@@ -109,42 +151,53 @@ function initParallax() {
   let heroReady = false;
   setTimeout(() => { heroReady = true; }, HERO_ANIM_DONE_MS);
 
-  let ticking = false;
+  const LERP_FACTOR = 0.08;
+  let running = false;
 
-  function update() {
+  function tick() {
     const viewH = window.innerHeight;
+    let needsUpdate = false;
 
-    items.forEach(({ el, speed, isHero }) => {
-      // Skip hero elements until their entrance animation is done
+    items.forEach(item => {
+      const { el, speed, isHero } = item;
+
       if (!heroReady && isHero) return;
-
-      // Skip reveal elements that haven't become visible yet
       if (el.classList.contains('reveal') && !el.classList.contains('visible')) return;
 
       const rect = el.getBoundingClientRect();
       const elCenterY = rect.top + rect.height / 2;
-
-      // How far the element center is from viewport center, normalized to -1..1
       const offset = (elCenterY - viewH / 2) / viewH;
 
-      // Clamp max shift to 80px
-      const shift = Math.max(-80, Math.min(80, offset * speed * viewH * 0.5));
+      item.target = Math.max(-80, Math.min(80, offset * speed * viewH * 0.5));
+      item.current += (item.target - item.current) * LERP_FACTOR;
 
-      el.style.transform = `translate3d(0, ${shift.toFixed(1)}px, 0)`;
+      if (Math.abs(item.target - item.current) > 0.1) {
+        needsUpdate = true;
+      } else {
+        item.current = item.target;
+      }
+
+      el.style.transform = `translate3d(0, ${item.current.toFixed(1)}px, 0)`;
     });
 
-    ticking = false;
+    if (needsUpdate) {
+      requestAnimationFrame(tick);
+    } else {
+      running = false;
+    }
   }
 
-  window.addEventListener('scroll', () => {
-    if (!ticking) {
-      requestAnimationFrame(update);
-      ticking = true;
+  function startLoop() {
+    if (!running) {
+      running = true;
+      requestAnimationFrame(tick);
     }
-  }, { passive: true });
+  }
+
+  window.addEventListener('scroll', startLoop, { passive: true });
 
   // Run initial update after hero animations complete
-  setTimeout(update, HERO_ANIM_DONE_MS);
+  setTimeout(startLoop, HERO_ANIM_DONE_MS);
 }
 
 // ===== GRADIENT BORDER (improvement #4) =====
@@ -174,12 +227,34 @@ function initGradientBorders() {
   });
 }
 
+// ===== PRICING TOGGLE =====
+function setRegion(region) {
+  document.querySelectorAll('.toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.region === region);
+  });
+  document.querySelectorAll('.india-price').forEach(el => {
+    el.classList.toggle('hidden', region !== 'india');
+  });
+  document.querySelectorAll('.intl-price').forEach(el => {
+    el.classList.toggle('hidden', region !== 'intl');
+  });
+}
+
+function initPricingToggle() {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  const isIndia = tz === 'Asia/Kolkata' || tz === 'Asia/Calcutta';
+  setRegion(isIndia ? 'india' : 'intl');
+}
+
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
   initReveal();
   initNav();
+  initMobileNav();
   initAccuracy();
   initBars();
   initParallax();
   initGradientBorders();
+  initPricingToggle();
 });

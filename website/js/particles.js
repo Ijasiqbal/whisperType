@@ -1,5 +1,5 @@
 // ===== AMBIENT PARALLAX PARTICLES =====
-// Scattered across the full page height, in depth layers that scroll at different speeds.
+// Viewport-sized canvas repositioned via CSS — avoids painting a full-page canvas.
 
 (function () {
   const canvas = document.getElementById('ambientParticles');
@@ -7,13 +7,17 @@
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const ctx = canvas.getContext('2d');
-  let W, docH;
+  let W, VH, docH;
   let particles = [];
   let scrollY = 0;
-  let ticking = false;
+  let rafId = null;
+  let hidden = false;
 
-  const isMobile = window.innerWidth <= 640;
-  const COUNT = isMobile ? 40 : 80;
+  const isMobile = window.innerWidth <= 768;
+  // Fewer particles on mobile — viewport-only rendering means less overdraw
+  const COUNT = isMobile ? 25 : 80;
+  // Slow down twinkle on mobile to reduce per-frame CPU work
+  const TWINKLE_SCALE = isMobile ? 0.4 : 1;
 
   const COLORS = [
     { r: 196, g: 93, b: 62 },  // Rust
@@ -30,10 +34,13 @@
 
   function resize() {
     W = window.innerWidth;
+    VH = window.innerHeight;
     docH = document.documentElement.scrollHeight;
+    // Canvas is only viewport-sized — much cheaper to paint
     canvas.width = W;
-    canvas.height = docH;
-    canvas.style.height = docH + 'px';
+    canvas.height = VH;
+    canvas.style.width = W + 'px';
+    canvas.style.height = VH + 'px';
   }
 
   function rand(min, max) {
@@ -52,31 +59,32 @@
         const color = COLORS[Math.floor(Math.random() * COLORS.length)];
         particles.push({
           x: Math.random() * W,
+          // y is in document space (0..docH)
           y: Math.random() * docH,
           r: rand(layer.sizeRange[0], layer.sizeRange[1]),
           opacity: rand(layer.opacityRange[0], layer.opacityRange[1]),
-          color: color,
+          color,
           speed: layer.speed,
           phase: Math.random() * Math.PI * 2,
-          twinkleSpeed: 0.008 + Math.random() * 0.02,
+          twinkleSpeed: (0.008 + Math.random() * 0.02) * TWINKLE_SCALE,
         });
       }
     }
   }
 
   function draw() {
-    ctx.clearRect(0, 0, W, docH);
+    ctx.clearRect(0, 0, W, VH);
 
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
 
-      // Parallax offset: each layer shifts by a different amount based on scroll
-      // speed < 1 means it moves less than scroll = appears to lag behind (farther away)
+      // Parallax: layer moves at `speed` relative to scroll
       const parallaxShift = scrollY * (1 - p.speed);
-      const drawY = p.y - parallaxShift;
+      // Convert document-space y to viewport-space
+      const drawY = p.y - scrollY - parallaxShift;
 
-      // Skip if off screen
-      if (drawY < scrollY - 20 || drawY > scrollY + window.innerHeight + 20) continue;
+      // Skip particles outside the viewport
+      if (drawY < -20 || drawY > VH + 20) continue;
 
       // Twinkle
       p.phase += p.twinkleSpeed;
@@ -88,23 +96,30 @@
       ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, ${alpha.toFixed(3)})`;
       ctx.fill();
     }
-
-    ticking = false;
   }
 
-  function onScroll() {
+  const FRAME_INTERVAL = 1000 / 30; // ~30fps is plenty for subtle twinkle
+  let lastFrame = 0;
+
+  function loop(now) {
+    rafId = requestAnimationFrame(loop);
+    if (now - lastFrame < FRAME_INTERVAL) return;
+    lastFrame = now;
     scrollY = window.scrollY;
-    if (!ticking) {
-      requestAnimationFrame(draw);
-      ticking = true;
-    }
+    draw();
   }
 
-  // Animate twinkle continuously
-  function loop() {
-    draw();
-    requestAnimationFrame(loop);
+  function start() {
+    if (!rafId) rafId = requestAnimationFrame(loop);
   }
+
+  function stop() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stop(); else start();
+  });
 
   // Debounced resize
   let resizeTimer;
@@ -112,12 +127,9 @@
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       init();
-      draw();
     }, 200);
   });
 
-  window.addEventListener('scroll', onScroll, { passive: true });
-
   init();
-  loop();
+  start();
 })();
