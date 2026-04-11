@@ -175,12 +175,15 @@ struct OnboardingView: View {
                             AVCaptureDevice.requestAccess(for: .audio) { granted in
                                 DispatchQueue.main.async {
                                     microphoneGranted = granted
-                                    // Bring onboarding window back to front after system dialog dismisses
-                                    NSApplication.shared.activate(ignoringOtherApps: true)
-                                    if let window = NSApplication.shared.windows.first(where: {
-                                        $0.identifier?.rawValue.contains("onboarding") == true
-                                    }) {
-                                        window.makeKeyAndOrderFront(nil)
+                                    // Delay slightly so the system dialog fully dismisses before
+                                    // we steal focus back — without the delay macOS ignores activate()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        NSApplication.shared.activate(ignoringOtherApps: true)
+                                        if let window = NSApplication.shared.windows.first(where: {
+                                            $0.identifier?.rawValue.contains("onboarding") == true
+                                        }) {
+                                            window.makeKeyAndOrderFront(nil)
+                                        }
                                     }
                                     if !granted {
                                         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {

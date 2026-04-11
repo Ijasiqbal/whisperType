@@ -13,6 +13,7 @@ whisperType/
 ├── WhisperType- frontend/     # Android app (Kotlin, Jetpack Compose)
 ├── WhisperType-Backend/       # Firebase Cloud Functions (TypeScript)
 ├── VoxType-Mac/               # macOS app (Swift, SwiftUI)
+├── Vozcribe-Windows/          # Windows app (C#, .NET solution)
 ├── whispertype-admin/         # Admin dashboard (Next.js, React)
 └── website/                   # Marketing landing page (static HTML/CSS/JS)
 ```
@@ -112,6 +113,21 @@ All functions are defined in `functions/src/index.ts`. Key groups:
 - API client: `VoxType/API/VoxTypeAPIClient.swift`
 - Models/enums (TranscriptionModel): `VoxType/Models.swift`
 - Constants (endpoints, tier codes): `VoxType/Constants.swift`
+
+### Core Components
+| Component | Path | Purpose |
+|-----------|------|---------|
+| Hotkey Manager | `VoxType/Hotkey/HotkeyManager.swift` | NSEvent-based Ctrl+Space/Ctrl+D; Accessibility path for Ctrl+Option |
+| Auth Manager | `VoxType/Auth/AuthManager.swift` | Firebase sign-in state |
+| Transcription | `VoxType/Transcription/TranscriptionService.swift` | Upload + result handling |
+| Text Insertion | `VoxType/TextInsertion/TextInsertionService.swift` | Paste transcribed text into focused field |
+| Audio | `VoxType/Audio/AudioRecorder.swift` | Recording pipeline |
+
+### Logging
+Use `DebugLog` from `VoxType/Utilities/DebugLog.swift` — not `print`. Release builds strip verbose output.
+
+### Releasing
+Use the `mac-publish` skill to cut a new Vozcribe macOS release and update the Homebrew cask.
 
 ## Admin Dashboard
 

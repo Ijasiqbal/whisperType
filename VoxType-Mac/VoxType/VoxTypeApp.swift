@@ -405,4 +405,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func hideOverlay() {
         overlayWindow?.hideOverlay()
     }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            AuthManager.shared.handleCallbackURL(url)
+        }
+    }
 }

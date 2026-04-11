@@ -81,4 +81,15 @@ enum Constants {
     static let launchAtLoginKey = "launchAtLogin"
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     static let selectedHotkeyKey = "selectedHotkey"
+
+    // MARK: - REST Auth Token Storage Keys
+
+    static let restFirebaseIDToken = "vozcribe_firebase_id_token"
+    static let restFirebaseRefreshToken = "vozcribe_firebase_refresh_token"
+    static let restFirebaseTokenExpiry = "vozcribe_firebase_token_expiry"
+    static let restUserEmail = "vozcribe_user_email"
+    static let restUserName = "vozcribe_user_name"
+    static let restUserUID = "vozcribe_user_uid"
+
+    static let firebaseTokenLifetime: TimeInterval = 3600
 }

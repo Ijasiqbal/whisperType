@@ -26,5 +26,16 @@
     <string>Vozcribe needs microphone access to record your voice for transcription.</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>Vozcribe needs permission to insert transcribed text into other applications.</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>Google Sign-In</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>com.googleusercontent.apps.133972345346-1jan50p13uffln8r6qodm5iopbfahcs5</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

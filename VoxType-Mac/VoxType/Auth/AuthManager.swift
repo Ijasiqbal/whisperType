@@ -15,6 +15,8 @@ final class AuthManager: NSObject, ObservableObject {
 
     private var authStateHandle: AuthStateDidChangeListenerHandle?
     private var isConfigured = false
+    private var pendingCodeVerifier: String?
+    private var pendingRedirectURI: String?
 
     private override init() {
         super.init()
@@ -28,12 +30,33 @@ final class AuthManager: NSObject, ObservableObject {
         guard !isConfigured else { return }
         isConfigured = true
 
-        // Read persisted session immediately
+        // Use the app's default keychain instead of a shared access group.
+        do {
+            try Auth.auth().useUserAccessGroup(nil)
+        } catch {
+            debugLog("[Auth] Failed to set keychain access group: \(error.localizedDescription)")
+        }
+
+        // Read persisted session — try SDK first, then REST fallback
         let currentUser = Auth.auth().currentUser
-        self.isSignedIn = currentUser != nil
-        self.userEmail = currentUser?.email
-        self.userName = currentUser?.displayName
-        debugLog("[Auth] configure() — current user: \(currentUser?.email ?? "none"), isSignedIn=\(currentUser != nil)")
+        if let user = currentUser {
+            self.isSignedIn = true
+            self.userEmail = user.email
+            self.userName = user.displayName
+            debugLog("[Auth] configure() — SDK user: \(user.email ?? "none")")
+        } else {
+            let defaults = UserDefaults.standard
+            let uid = defaults.string(forKey: Constants.restUserUID) ?? ""
+            if !uid.isEmpty {
+                self.isSignedIn = true
+                self.userEmail = defaults.string(forKey: Constants.restUserEmail)
+                self.userName = defaults.string(forKey: Constants.restUserName)
+                debugLog("[Auth] configure() — REST user: \(self.userEmail ?? "none")")
+            } else {
+                self.isSignedIn = false
+                debugLog("[Auth] configure() — no user session found")
+            }
+        }
 
         // Listen for future changes
         setupAuthStateListener()
@@ -44,13 +67,22 @@ final class AuthManager: NSObject, ObservableObject {
     private func setupAuthStateListener() {
         authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             DispatchQueue.main.async {
-                let wasSignedIn = self?.isSignedIn ?? false
-                self?.isSignedIn = user != nil
-                self?.userEmail = user?.email
-                self?.userName = user?.displayName
-
-                if wasSignedIn != (user != nil) {
-                    debugLog("[Auth] Auth state changed: \(user != nil ? "signed in as \(user?.email ?? "unknown")" : "signed out")")
+                guard let self else { return }
+                if let user {
+                    self.isSignedIn = true
+                    self.userEmail = user.email
+                    self.userName = user.displayName
+                    debugLog("[Auth] Auth state changed: signed in as \(user.email ?? "unknown")")
+                } else {
+                    // Only clear state if there is no REST session — otherwise the SDK
+                    // firing with user=nil on startup would override a valid REST session.
+                    let hasRESTSession = !(UserDefaults.standard.string(forKey: Constants.restUserUID) ?? "").isEmpty
+                    if !hasRESTSession {
+                        self.isSignedIn = false
+                        self.userEmail = nil
+                        self.userName = nil
+                        debugLog("[Auth] Auth state changed: signed out")
+                    }
                 }
             }
         }
@@ -59,14 +91,28 @@ final class AuthManager: NSObject, ObservableObject {
     // MARK: - Token
 
     func getIDToken() async throws -> String {
-        guard let user = Auth.auth().currentUser else {
+        // Prefer SDK user if available
+        if let user = Auth.auth().currentUser {
+            return try await user.getIDToken()
+        }
+
+        // Fall back to REST-persisted token
+        let defaults = UserDefaults.standard
+        guard let storedToken = defaults.string(forKey: Constants.restFirebaseIDToken),
+              defaults.string(forKey: Constants.restUserUID) != nil else {
             throw VoxTypeError.notAuthenticated
         }
-        return try await user.getIDToken()
+
+        let expiry = defaults.double(forKey: Constants.restFirebaseTokenExpiry)
+        if expiry == 0 || Date().timeIntervalSince1970 > expiry - 300 {
+            return try await refreshFirebaseToken()
+        }
+
+        return storedToken
     }
 
     var currentUID: String? {
-        Auth.auth().currentUser?.uid
+        Auth.auth().currentUser?.uid ?? UserDefaults.standard.string(forKey: Constants.restUserUID)
     }
 
     // MARK: - Sign In with Google (OAuth + PKCE)
@@ -111,6 +157,8 @@ final class AuthManager: NSObject, ObservableObject {
             return
         }
 
+        pendingCodeVerifier = codeVerifier
+        pendingRedirectURI = redirectURI
         debugLog("[Auth] Starting Google sign-in flow")
 
         let session = ASWebAuthenticationSession(
@@ -131,6 +179,8 @@ final class AuthManager: NSObject, ObservableObject {
                 return
             }
 
+            self?.pendingCodeVerifier = nil
+            self?.pendingRedirectURI = nil
             debugLog("[Auth] Received Google auth code, exchanging for tokens...")
             self?.exchangeGoogleCode(
                 code: code,
@@ -143,6 +193,19 @@ final class AuthManager: NSObject, ObservableObject {
         session.prefersEphemeralWebBrowserSession = false
         session.presentationContextProvider = self
         session.start()
+    }
+
+    // MARK: - URL Handler Fallback
+
+    func handleCallbackURL(_ url: URL) {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
+              let clientID = FirebaseApp.app()?.options.clientID,
+              let codeVerifier = pendingCodeVerifier,
+              let redirectURI = pendingRedirectURI else { return }
+        pendingCodeVerifier = nil
+        pendingRedirectURI = nil
+        exchangeGoogleCode(code: code, codeVerifier: codeVerifier, clientID: clientID, redirectURI: redirectURI)
     }
 
     // MARK: - Google Code Exchange
@@ -195,21 +258,133 @@ final class AuthManager: NSObject, ObservableObject {
 
             debugLog("[Auth] Got Google tokens, signing into Firebase...")
 
-            // Create Firebase Google credential and sign in
+            // Try SDK sign-in first; fall back to REST API on keychain error
             let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: accessToken)
             Auth.auth().signIn(with: credential) { [weak self] result, error in
-                DispatchQueue.main.async {
-                    self?.isLoading = false
-                }
-
                 if let error {
-                    debugLog("[Auth] Firebase Google sign-in error: \(error.localizedDescription)")
+                    debugLog("[Auth] SDK sign-in failed (keychain?): \(error.localizedDescription)")
+                    // Fall back to REST API — bypasses Keychain entirely
+                    self?.signInViaFirebaseREST(googleIDToken: idToken)
                     return
                 }
 
-                debugLog("[Auth] ✅ Signed in with Google as: \(result?.user.uid ?? "unknown") (\(result?.user.email ?? "no email"))")
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                }
+                debugLog("[Auth] SDK sign-in succeeded: \(result?.user.email ?? "no email")")
             }
         }.resume()
+    }
+
+    // MARK: - Firebase REST API Fallback
+
+    private var firebaseAPIKey: String? { FirebaseApp.app()?.options.apiKey }
+
+    /// Signs in via Firebase REST API, bypassing the SDK's Keychain usage.
+    /// Used when SDK sign-in fails due to missing provisioning profile (ad-hoc builds).
+    private func signInViaFirebaseREST(googleIDToken: String) {
+        guard let apiKey = firebaseAPIKey,
+              let url = URL(string: "https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=\(apiKey)") else {
+            debugLog("[Auth] No Firebase API key available for REST fallback")
+            DispatchQueue.main.async { self.isLoading = false }
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "postBody": "id_token=\(googleIDToken)&providerId=google.com",
+            "requestUri": "http://localhost",
+            "returnSecureToken": true,
+            "returnIdpCredential": true,
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+            DispatchQueue.main.async { self?.isLoading = false }
+
+            if let error {
+                debugLog("[Auth] REST sign-in error: \(error.localizedDescription)")
+                return
+            }
+            let json = try? JSONSerialization.jsonObject(with: data ?? Data()) as? [String: Any]
+            guard let data,
+                  let firebaseIDToken = json?["idToken"] as? String,
+                  let refreshToken = json?["refreshToken"] as? String else {
+                let errorMsg = (json?["error"] as? [String: Any])?["message"] as? String ?? "unexpected response"
+                debugLog("[Auth] REST sign-in failed: \(errorMsg)")
+                return
+            }
+
+            let email = json?["email"] as? String
+            let displayName = json?["displayName"] as? String
+            let uid = json?["localId"] as? String ?? ""
+
+            let defaults = UserDefaults.standard
+            defaults.set(firebaseIDToken, forKey: Constants.restFirebaseIDToken)
+            defaults.set(refreshToken, forKey: Constants.restFirebaseRefreshToken)
+            defaults.set(Date().timeIntervalSince1970 + Constants.firebaseTokenLifetime, forKey: Constants.restFirebaseTokenExpiry)
+            defaults.set(email, forKey: Constants.restUserEmail)
+            defaults.set(displayName, forKey: Constants.restUserName)
+            defaults.set(uid, forKey: Constants.restUserUID)
+
+            debugLog("[Auth] REST sign-in succeeded: \(email ?? "no email"), uid=\(uid)")
+
+            DispatchQueue.main.async {
+                self?.isSignedIn = true
+                self?.userEmail = email
+                self?.userName = displayName
+            }
+        }.resume()
+    }
+
+    /// Refreshes the Firebase ID token using the stored refresh token.
+    private func refreshFirebaseToken() async throws -> String {
+        guard let apiKey = firebaseAPIKey,
+              let refreshToken = UserDefaults.standard.string(forKey: Constants.restFirebaseRefreshToken) else {
+            throw VoxTypeError.notAuthenticated
+        }
+
+        guard let url = URL(string: "https://securetoken.googleapis.com/v1/token?key=\(apiKey)") else {
+            throw VoxTypeError.notAuthenticated
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = "grant_type=refresh_token&refresh_token=\(refreshToken)".data(using: .utf8)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            let errorMsg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
+                .flatMap { ($0["error"] as? [String: Any])?["message"] as? String }
+                ?? "HTTP \(http.statusCode)"
+            debugLog("[Auth] Token refresh failed: \(errorMsg)")
+            // Refresh token is expired or revoked — clear the session so user is prompted to sign in
+            clearRESTSession()
+            await MainActor.run { self.isSignedIn = false }
+            throw VoxTypeError.notAuthenticated
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let newIDToken = json["id_token"] as? String else {
+            debugLog("[Auth] Token refresh failed: unexpected response format")
+            throw VoxTypeError.notAuthenticated
+        }
+
+        let defaults = UserDefaults.standard
+        defaults.set(newIDToken, forKey: Constants.restFirebaseIDToken)
+        defaults.set(Date().timeIntervalSince1970 + Constants.firebaseTokenLifetime, forKey: Constants.restFirebaseTokenExpiry)
+
+        if let newRefresh = json["refresh_token"] as? String {
+            defaults.set(newRefresh, forKey: Constants.restFirebaseRefreshToken)
+        }
+
+        debugLog("[Auth] Token refreshed successfully")
+        return newIDToken
     }
 
     // MARK: - PKCE Helpers
@@ -240,6 +415,17 @@ final class AuthManager: NSObject, ObservableObject {
         } catch {
             debugLog("[Auth] Sign out error: \(error.localizedDescription)")
         }
+        clearRESTSession()
+    }
+
+    private func clearRESTSession() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: Constants.restFirebaseIDToken)
+        defaults.removeObject(forKey: Constants.restFirebaseRefreshToken)
+        defaults.removeObject(forKey: Constants.restFirebaseTokenExpiry)
+        defaults.removeObject(forKey: Constants.restUserEmail)
+        defaults.removeObject(forKey: Constants.restUserName)
+        defaults.removeObject(forKey: Constants.restUserUID)
     }
 
     deinit {
