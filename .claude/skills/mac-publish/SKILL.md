@@ -7,7 +7,7 @@ description: Use when releasing a new version of the Vozcribe macOS app via Home
 
 ## Overview
 
-Build, ad-hoc sign, package, and release Vozcribe macOS app so users can install/upgrade via `brew tap Ijasiqbal/vozcribe && brew install --cask vozcribe`.
+Build, ad-hoc sign, package, and release Vozcribe macOS app so users can install/upgrade via `brew tap ijasiqbal/vozcribe && brew install --cask vozcribe`.
 
 ## Prerequisites
 
@@ -35,7 +35,7 @@ cd /Users/ijas/Documents/whisperType/VoxType-Mac
 bash build-release.sh <VERSION>    # e.g. bash build-release.sh 1.14
 ```
 
-The script produces the `.app` in `build/Vozcribe.xcarchive/Products/Applications/Vozcribe.app`. Without a Developer ID certificate, the app will be signed with an Apple Development certificate which only works on your machine.
+The script produces the `.app` in `build/Vozcribe.xcarchive/Products/Applications/Vozcribe.app`.
 
 ### 2. Ad-hoc sign the app
 
@@ -57,8 +57,8 @@ codesign -dvv build/Vozcribe.xcarchive/Products/Applications/Vozcribe.app 2>&1 |
 The Homebrew cask expects a ZIP containing `Vozcribe.app` directly (not a DMG inside a ZIP). GitHub Releases also doesn't accept `.dmg` uploads — only `.zip`.
 
 ```bash
-cd build/Vozcribe.xcarchive/Products/Applications
-zip -r /tmp/Vozcribe-<VERSION>.zip Vozcribe.app
+(cd /Users/ijas/Documents/whisperType/VoxType-Mac/build/Vozcribe.xcarchive/Products/Applications && \
+  zip -r /tmp/Vozcribe-<VERSION>.zip Vozcribe.app)
 shasum -a 256 /tmp/Vozcribe-<VERSION>.zip
 ```
 
@@ -89,6 +89,8 @@ gh release upload v<VERSION> /tmp/Vozcribe-<VERSION>.zip \
 
 ```bash
 CASK_PATH="$(brew --repository ijasiqbal/vozcribe)/Casks/vozcribe.rb"
+# Show current values so you know exactly what to replace
+grep -E '^  (version|sha256)' "$CASK_PATH"
 ```
 
 Update `version` and `sha256` in the cask file. **Do not remove the `preflight` block** — it strips the quarantine flag so Gatekeeper doesn't block the unsigned app:
@@ -113,8 +115,8 @@ git push
 
 ```bash
 brew uninstall --cask vozcribe
-brew untap Ijasiqbal/vozcribe
-brew tap Ijasiqbal/vozcribe
+brew untap ijasiqbal/vozcribe
+brew tap ijasiqbal/vozcribe
 brew install --cask vozcribe
 ```
 
