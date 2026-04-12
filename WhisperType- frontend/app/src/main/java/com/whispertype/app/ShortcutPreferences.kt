@@ -12,6 +12,7 @@ object ShortcutPreferences {
     private const val KEY_SHORTCUT_MODE = "shortcut_mode"
     private const val KEY_WHISPER_MODEL = "whisper_model"
     private const val KEY_AUTO_SEND_ENABLED = "auto_send_enabled"
+    private const val KEY_AUTO_SHOW_ICON_ENABLED = "auto_show_icon_enabled"
     private const val KEY_AUTO_SEND_WARNING_SHOWN = "auto_send_warning_shown"
     private const val KEY_MODEL_TIER = "model_tier"
     
@@ -99,6 +100,21 @@ object ShortcutPreferences {
      */
     fun setAutoSendEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_AUTO_SEND_ENABLED, enabled).apply()
+    }
+
+    /**
+     * Check if the auto-show mic icon feature is enabled.
+     * When enabled, a floating mic icon appears whenever a text field is focused.
+     */
+    fun isAutoShowIconEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_AUTO_SHOW_ICON_ENABLED, false)
+    }
+
+    /**
+     * Enable or disable the auto-show mic icon feature.
+     */
+    fun setAutoShowIconEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_AUTO_SHOW_ICON_ENABLED, enabled).apply()
     }
 
     /**

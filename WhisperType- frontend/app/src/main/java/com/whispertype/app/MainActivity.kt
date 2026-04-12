@@ -941,16 +941,56 @@ fun MainScreen(
                 
                 Text(
                     text = when (selectedMode) {
-                        ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_UP -> 
+                        ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_UP ->
                             "Press volume up twice quickly"
-                        ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_DOWN -> 
+                        ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_DOWN ->
                             "Press volume down twice quickly"
-                        ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS -> 
+                        ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS ->
                             "Press both volume buttons together"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = Slate400
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Divider(color = Slate200)
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Auto-show mic icon toggle
+                var autoShowIconEnabled by remember {
+                    mutableStateOf(ShortcutPreferences.isAutoShowIconEnabled(context))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Show mic on text field focus",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Slate800
+                        )
+                        Text(
+                            text = "A small mic icon appears when you tap a text field. Tap it to start dictation.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
+                        )
+                    }
+                    Switch(
+                        checked = autoShowIconEnabled,
+                        onCheckedChange = { newValue ->
+                            autoShowIconEnabled = newValue
+                            ShortcutPreferences.setAutoShowIconEnabled(context, newValue)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Rust,
+                            checkedTrackColor = IndigoLight
+                        )
+                    )
+                }
             }
         }
 

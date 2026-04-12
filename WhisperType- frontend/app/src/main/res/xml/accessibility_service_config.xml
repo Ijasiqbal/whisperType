@@ -31,7 +31,7 @@ for text insertion. It does not read or log any user content.
 -->
 <accessibility-service
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeViewFocused|typeWindowContentChanged"
+    android:accessibilityEventTypes="typeViewFocused|typeWindowContentChanged|typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRequestAccessibilityButton|flagDefault|flagRequestFilterKeyEvents"
     android:canRequestFilterKeyEvents="true"

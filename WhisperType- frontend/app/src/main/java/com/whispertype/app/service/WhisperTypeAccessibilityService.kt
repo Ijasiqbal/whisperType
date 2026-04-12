@@ -11,12 +11,18 @@ import android.content.pm.PackageManager
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
+import android.view.Gravity
 import android.view.KeyEvent
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
@@ -89,6 +95,28 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     // Accessibility button controller (API 26+)
     private var accessibilityButtonController: AccessibilityButtonController? = null
     private var accessibilityButtonCallback: AccessibilityButtonController.AccessibilityButtonCallback? = null
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    // Auto-show mic icon: debounce and dispatch state
+    private var lastFocusEventTime: Long = 0
+    private val focusDebounceMs: Long = 150
+    private var lastContentChangedTime: Long = 0
+    private val contentChangedDebounceMs: Long = 400
+    private var lastDispatchedShown: Boolean = false
+
+    // Floating mic icon overlay (TYPE_ACCESSIBILITY_OVERLAY)
+    private var floatingMicView: ImageView? = null
+    private var floatingMicParams: WindowManager.LayoutParams? = null
+    private var isMicIconShown = false
+
+    // Drag tracking for floating icon
+    private var initialTouchX = 0f
+    private var initialTouchY = 0f
+    private var initialParamX = 0
+    private var initialParamY = 0
+    private var isDragging = false
+    private val dragThreshold = 10
     
     override fun onCreate() {
         super.onCreate()
@@ -153,6 +181,10 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
             accessibilityButtonController?.unregisterAccessibilityButtonCallback(accessibilityButtonCallback!!)
         }
         
+        // Ensure the floating mic icon is removed when the service is torn down
+        removeFloatingMicIcon()
+        lastDispatchedShown = false
+
         isConnected = false
         instance = null
         Log.d(TAG, "AccessibilityService destroyed")
@@ -167,14 +199,295 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     }
     
     /**
-     * We don't actively process accessibility events, but this callback
-     * is required by the service. We keep it minimal to reduce overhead.
+     * Processes accessibility events for focus-field detection to drive the
+     * auto-show floating mic icon feature. Gated by [ShortcutPreferences.isAutoShowIconEnabled]
+     * so there is zero cost when the feature is off.
+     *
+     * - TYPE_VIEW_FOCUSED: evaluates whether the focused node is a dictatable text
+     *   field (editable, visible, non-password, non-sensitive input type). If so,
+     *   shows a floating mic icon via TYPE_ACCESSIBILITY_OVERLAY; otherwise hides it.
+     *   Debounced to 150 ms to suppress burst events from a single user tap.
+     * - TYPE_WINDOW_STATE_CHANGED: user switched apps/activities — hides the icon.
+     * - TYPE_WINDOW_CONTENT_CHANGED: checks if editable focus is lost (debounced 400ms).
+     * - All other event types are ignored.
+     *
+     * Privacy: no content from event.source (text, contentDescription, etc.) is logged.
      */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // We only listen for events to maintain service state
-        // We don't actively process them to minimize battery/CPU impact
+        // Master gate — feature disabled means zero cost
+        if (!ShortcutPreferences.isAutoShowIconEnabled(this)) return
+        if (event == null) return
+
+        try {
+            when (event.eventType) {
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                    // Ignore events from our own package — adding the accessibility
+                    // overlay fires this event, which would immediately hide the icon.
+                    if (event.packageName?.toString() == packageName) return
+
+                    // Only hide if there is no longer an editable field focused.
+                    // A blind hide causes flicker when switching between fields.
+                    val focused = findFocusedEditableNode()
+                    if (focused == null) {
+                        dispatchHideIcon()
+                    } else {
+                        focused.recycle()
+                    }
+                    return
+                }
+                AccessibilityEvent.TYPE_VIEW_FOCUSED -> {
+                    val now = System.currentTimeMillis()
+                    if (now - lastFocusEventTime < focusDebounceMs) return
+                    lastFocusEventTime = now
+
+                    val source = event.source ?: run {
+                        dispatchHideIcon()
+                        return
+                    }
+                    try {
+                        val isDictatable = source.isEditable &&
+                            source.isVisibleToUser &&
+                            !source.isPassword &&
+                            isDictatableInputType(source.inputType)
+                        if (isDictatable) {
+                            dispatchShowIcon()
+                        } else {
+                            dispatchHideIcon()
+                        }
+                    } finally {
+                        source.recycle()
+                    }
+                }
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                    // When window content changes and we're currently showing the icon,
+                    // check if an editable field still has focus. If not, hide the icon.
+                    // Debounced at 400ms because this event fires very frequently
+                    // (every keystroke, scroll, layout change).
+                    if (lastDispatchedShown) {
+                        val now = System.currentTimeMillis()
+                        if (now - lastContentChangedTime < contentChangedDebounceMs) return
+                        lastContentChangedTime = now
+
+                        val focusedNode = findFocusedEditableNode()
+                        if (focusedNode == null) {
+                            dispatchHideIcon()
+                        } else {
+                            focusedNode.recycle()
+                        }
+                    }
+                }
+                else -> {
+                    // Ignore other event types
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "onAccessibilityEvent error", t)
+        }
     }
     
+    /**
+     * Returns true if the given inputType is one we're willing to dictate into.
+     * Uses a blacklist approach: allow everything EXCEPT known non-dictatable types.
+     * Many apps (especially Compose-based UIs) report inputType=0 (TYPE_NULL),
+     * so a whitelist requiring TYPE_CLASS_TEXT misses most real-world fields.
+     */
+    private fun isDictatableInputType(inputType: Int): Boolean {
+        val cls = inputType and android.text.InputType.TYPE_MASK_CLASS
+        val variation = inputType and android.text.InputType.TYPE_MASK_VARIATION
+
+        // Reject phone and datetime classes — nobody dictates into these
+        if (cls == android.text.InputType.TYPE_CLASS_PHONE) return false
+        if (cls == android.text.InputType.TYPE_CLASS_DATETIME) return false
+
+        // For text class, reject password variations
+        if (cls == android.text.InputType.TYPE_CLASS_TEXT) {
+            return when (variation) {
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD,
+                android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
+                android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD -> false
+                else -> true
+            }
+        }
+
+        // TYPE_NULL (0), TYPE_CLASS_NUMBER, and anything else: allow if the node
+        // is editable (the isEditable check in the caller already gates this).
+        // Many real text fields report TYPE_NULL — we must not reject them.
+        return true
+    }
+
+    // ── Floating mic icon overlay (TYPE_ACCESSIBILITY_OVERLAY) ──────────
+
+    private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
+
+    private fun getSavedMicX(): Int =
+        getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt("auto_show_mic_x", 16.dp())
+
+    private fun getSavedMicY(): Int =
+        getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt("auto_show_mic_y", 140.dp())
+
+    private fun saveMicPosition(x: Int, y: Int) {
+        getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putInt("auto_show_mic_x", x)
+            .putInt("auto_show_mic_y", y)
+            .apply()
+    }
+
+    /**
+     * Show the floating mic icon only if it is not already shown.
+     */
+    private fun dispatchShowIcon() {
+        if (lastDispatchedShown) return
+        lastDispatchedShown = true
+        mainHandler.post { showFloatingMicIcon() }
+    }
+
+    /**
+     * Hide the floating mic icon only if it is currently shown.
+     */
+    private fun dispatchHideIcon() {
+        if (!lastDispatchedShown) return
+        lastDispatchedShown = false
+        mainHandler.post { removeFloatingMicIcon() }
+    }
+
+    /**
+     * Add floating mic icon to WindowManager using TYPE_ACCESSIBILITY_OVERLAY.
+     * This window type is trusted (no untrusted-touch blocking on Android 12+),
+     * doesn't need SYSTEM_ALERT_WINDOW, and doesn't require a separate service.
+     */
+    private fun showFloatingMicIcon() {
+        if (isMicIconShown) return
+
+        val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
+        val view = buildFloatingMicView()
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.END
+            x = getSavedMicX()
+            y = getSavedMicY()
+        }
+
+        try {
+            wm.addView(view, params)
+            floatingMicView = view
+            floatingMicParams = params
+            isMicIconShown = true
+
+            // Entrance animation
+            view.scaleX = 0.6f
+            view.scaleY = 0.6f
+            view.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(150)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show floating mic icon", e)
+        }
+    }
+
+    /**
+     * Remove floating mic icon from WindowManager.
+     */
+    private fun removeFloatingMicIcon() {
+        val view = floatingMicView ?: return
+        try {
+            val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+            wm?.removeView(view)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to remove floating mic icon", e)
+        } finally {
+            floatingMicView = null
+            floatingMicParams = null
+            isMicIconShown = false
+        }
+    }
+
+    @Suppress("ClickableViewAccessibility")
+    private fun buildFloatingMicView(): ImageView {
+        val size = 56.dp()
+        val padding = 12.dp()
+
+        val bg = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(androidx.core.content.ContextCompat.getColor(this@WhisperTypeAccessibilityService, R.color.primary))
+        }
+
+        return ImageView(this).apply {
+            layoutParams = android.view.ViewGroup.LayoutParams(size, size)
+            background = bg
+            setPadding(padding, padding, padding, padding)
+            setImageResource(R.drawable.ic_microphone)
+            imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
+            contentDescription = "Dictate with Vozcribe"
+            isClickable = true
+            isFocusable = true
+            elevation = 8f
+
+            setOnTouchListener { _, event ->
+                when (event.action) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        isDragging = false
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        initialParamX = floatingMicParams?.x ?: 0
+                        initialParamY = floatingMicParams?.y ?: 0
+                        true
+                    }
+                    android.view.MotionEvent.ACTION_MOVE -> {
+                        val dx = event.rawX - initialTouchX
+                        val dy = event.rawY - initialTouchY
+                        if (!isDragging && (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold)) {
+                            isDragging = true
+                        }
+                        if (isDragging) {
+                            val params = floatingMicParams ?: return@setOnTouchListener true
+                            params.x = initialParamX - dx.toInt()
+                            params.y = initialParamY - dy.toInt()
+                            try {
+                                val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+                                wm?.updateViewLayout(floatingMicView, params)
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed to update view during drag", e)
+                            }
+                        }
+                        true
+                    }
+                    android.view.MotionEvent.ACTION_UP -> {
+                        if (isDragging) {
+                            val params = floatingMicParams
+                            if (params != null) saveMicPosition(params.x, params.y)
+                        } else {
+                            onFloatingMicTapped()
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
+    }
+
+    /**
+     * Handle tap on floating mic icon: trigger the recording overlay and hide the icon.
+     */
+    private fun onFloatingMicTapped() {
+        Log.d(TAG, "Floating mic tapped, triggering overlay")
+        removeFloatingMicIcon()
+        lastDispatchedShown = false
+        toggleOverlay()
+    }
+
     override fun onInterrupt() {
         Log.d(TAG, "AccessibilityService interrupted")
     }

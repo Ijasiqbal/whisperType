@@ -236,7 +236,8 @@ class TextInsertionService {
         keyUp?.post(tap: .cghidEventTap)
 
         // 4. Restore previous clipboard after brief delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        DispatchQueue.main.asyncAfter(deadli
+        ne: .now() + 0.5) {
             if let prev = previousContents {
                 pasteboard.clearContents()
                 pasteboard.setString(prev, forType: .string)
