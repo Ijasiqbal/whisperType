@@ -2,6 +2,7 @@ package com.whispertype.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.whispertype.app.BuildConfig
 import com.whispertype.app.auth.AuthState
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.repository.AuthRepository
@@ -53,17 +54,21 @@ class MainViewModel @Inject constructor(
         .map { it.isLoading }
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     
+    // Track the last UID we recorded presence for to avoid duplicate Firestore
+    // writes when StateFlow replays Authenticated on ViewModel recreation.
+    private var lastPresenceUid: String? = null
+
     init {
         // Set up auth token provider for billing verification
         billingRepository.setAuthTokenProvider { authRepository.getCachedIdToken() }
-        
+
         // Initialize billing when created
         billingRepository.initialize {
             viewModelScope.launch {
                 billingRepository.querySubscription()
             }
         }
-        
+
         // CRITICAL FIX: Refresh user status immediately when authentication state changes to Authenticated
         // This ensures Pro status is fetched from backend right after login, not just after transcription
         viewModelScope.launch {
@@ -73,6 +78,13 @@ class MainViewModel @Inject constructor(
                     val token = authRepository.getIdToken()
                     if (token != null) {
                         userRepository.refreshStatus(token)
+                    }
+                    if (state.user.uid != lastPresenceUid) {
+                        lastPresenceUid = state.user.uid
+                        userRepository.updatePlatformPresence(
+                            uid = state.user.uid,
+                            appVersion = BuildConfig.VERSION_NAME
+                        )
                     }
                 }
             }

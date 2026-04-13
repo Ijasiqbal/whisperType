@@ -20,6 +20,11 @@ export interface ProSubscription {
   currentPeriodEnd: number;
 }
 
+export interface PlatformPresence {
+  lastSeen: number;
+  appVersion: string;
+}
+
 export interface UserDetail {
   uid: string;
   email: string | null;
@@ -37,6 +42,7 @@ export interface UserDetail {
   freeTierCredits: number;
   trialExpiryDate: number;
   freeTrialStart: number;
+  platforms: Record<string, PlatformPresence>;
   proSubscription?: ProSubscription;
 }
 

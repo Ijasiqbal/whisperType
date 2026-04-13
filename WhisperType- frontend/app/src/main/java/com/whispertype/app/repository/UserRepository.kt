@@ -47,6 +47,15 @@ interface UserRepository {
      * Clear all user data (call on sign out)
      */
     fun clearData()
+
+    /**
+     * Record that this device is active on Android platform.
+     * Writes lastSeen timestamp and app version to Firestore.
+     *
+     * @param uid Firebase user UID
+     * @param appVersion App version string (e.g. "1.0.20")
+     */
+    fun updatePlatformPresence(uid: String, appVersion: String)
 }
 
 /**

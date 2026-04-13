@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getUserDetails } from "@/lib/api/admin-api";
+import { getUserDetails, deleteUser } from "@/lib/api/admin-api";
 import { useSuspendUser } from "@/hooks/use-suspend-user";
 import { GetUserDetailsResponse } from "@/types/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -18,6 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AdjustCreditsDialog } from "@/components/users/adjust-credits-dialog";
 import { ChangePlanDialog } from "@/components/users/change-plan-dialog";
 import {
@@ -28,8 +37,11 @@ import {
   RefreshCw,
   ShieldBan,
   ShieldCheck,
+  Trash2,
+  Smartphone,
+  Monitor,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { Suspense } from "react";
 
 function UserDetailContent({ uid }: { uid: string | null }) {
@@ -39,6 +51,10 @@ function UserDetailContent({ uid }: { uid: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [adjustCreditsOpen, setAdjustCreditsOpen] = useState(false);
   const [changePlanOpen, setChangePlanOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchUser = useCallback(async () => {
     if (!uid) return;
@@ -56,6 +72,20 @@ function UserDetailContent({ uid }: { uid: string | null }) {
   }, [uid]);
 
   const handleSuspend = useSuspendUser(fetchUser);
+
+  const handleDelete = useCallback(async () => {
+    if (!uid || !deleteReason.trim()) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteUser(uid, deleteReason.trim());
+      router.push("/users");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete user");
+    } finally {
+      setDeleting(false);
+    }
+  }, [uid, deleteReason, router]);
 
   useEffect(() => {
     fetchUser();
@@ -151,9 +181,19 @@ function UserDetailContent({ uid }: { uid: string | null }) {
             </div>
           </div>
         </div>
-        <Button variant="outline" size="icon" onClick={fetchUser}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={fetchUser}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete User
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -310,6 +350,48 @@ function UserDetailContent({ uid }: { uid: string | null }) {
 
       <Card>
         <CardHeader>
+          <CardTitle>Active Platforms</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {Object.keys(user.platforms ?? {}).length === 0 ? (
+            <p className="text-muted-foreground text-center py-4 text-sm">
+              No platform activity recorded yet
+            </p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {Object.entries(user.platforms).map(([platform, info]) => (
+                <div
+                  key={platform}
+                  className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg"
+                >
+                  {platform === "android" ? (
+                    <Smartphone className="h-5 w-5 mt-0.5 text-green-500 shrink-0" />
+                  ) : (
+                    <Monitor className="h-5 w-5 mt-0.5 text-blue-500 shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-medium capitalize">{platform}</p>
+                    <p className="text-sm text-muted-foreground">
+                      v{info.appVersion}
+                    </p>
+                    {info.lastSeen > 0 && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Last seen{" "}
+                        {formatDistanceToNow(new Date(info.lastSeen), {
+                          addSuffix: true,
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Usage Statistics</CardTitle>
         </CardHeader>
         <CardContent>
@@ -410,6 +492,58 @@ function UserDetailContent({ uid }: { uid: string | null }) {
         currentPlan={user.plan}
         onSuccess={fetchUser}
       />
+
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) { setDeleteReason(""); setDeleteError(null); }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              This will permanently delete the Firebase Auth record and all
+              Firestore data for:
+              <br />
+              <strong>{user.displayName || "Anonymous"}</strong>
+              {user.email && (
+                <span className="text-muted-foreground"> ({user.email})</span>
+              )}
+              <br />
+              This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Reason</label>
+            <Input
+              placeholder="Why is this account being deleted?"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+            />
+          </div>
+          {deleteError && (
+            <p className="text-sm text-destructive">{deleteError}</p>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={!deleteReason.trim() || deleting}
+            >
+              {deleting ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

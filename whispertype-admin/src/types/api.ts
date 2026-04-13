@@ -77,3 +77,7 @@ export interface DeleteAnonymousUsersResponse {
   deletedCount: number;
   failedCount: number;
 }
+
+export interface DeleteUserResponse {
+  success: boolean;
+}

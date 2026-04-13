@@ -418,6 +418,11 @@ interface UserDocument {
   suspendedReason?: string;
   warningCount?: number;
   warningMessage?: string;
+  // Cross-platform presence tracking
+  platforms?: Record<string, {
+    lastSeen?: admin.firestore.Timestamp;
+    appVersion?: string;
+  }>;
   // Legacy fields (for migration - will be reset to 0)
   freeMinutesRemaining?: number;
   freeSecondsUsed?: number; // Old field, migrated to freeCreditsUsed
@@ -2835,6 +2840,8 @@ export const verifySubscription = onRequest(
  * @param {string} uid - The user ID to delete
  */
 async function deleteUserData(uid: string): Promise<void> {
+  // NOTE: keep this list in sync with any new subcollections added under
+  // per-user parent docs — Firestore does not auto-delete subcollections.
   const refs = [
     db.collection("usage_logs").doc(uid).collection("entries"),
     db.collection("transcription_requests").doc(uid).collection("requests"),
@@ -3248,6 +3255,23 @@ export const adminGetUserDetails = onRequest(
       const totalCreditsUsed = await getTotalLifetimeUsage(uid);
       const creditsThisMonth = await getTotalUsageThisPeriod(uid);
 
+      const rawPlatforms = userData?.platforms as Record<
+        string,
+        {lastSeen?: FirebaseFirestore.Timestamp; appVersion?: string}
+      > | undefined;
+      const platforms: Record<
+        string,
+        {lastSeen: number; appVersion: string}
+      > = {};
+      if (rawPlatforms) {
+        for (const [key, val] of Object.entries(rawPlatforms)) {
+          platforms[key] = {
+            lastSeen: val.lastSeen?.toMillis() ?? 0,
+            appVersion: val.appVersion ?? "",
+          };
+        }
+      }
+
       const user = {
         uid: userRecord.uid,
         email: userRecord.email || null,
@@ -3266,6 +3290,7 @@ export const adminGetUserDetails = onRequest(
         suspended: userData?.suspended || false,
         suspendedReason: userData?.suspendedReason || null,
         warningCount: userData?.warningCount ?? 0,
+        platforms,
         proSubscription: userData?.proSubscription ? {
           status: userData.proSubscription.status,
           productId: userData.proSubscription.productId,
@@ -4130,6 +4155,71 @@ export const adminDeleteAnonymousUsers = onRequest(
     } catch (error) {
       logger.error("[Admin] Error deleting anonymous users", error);
       response.status(500).json({error: "Failed to delete anonymous users"});
+    }
+  }
+);
+
+/**
+ * Delete a specific user account and all associated data
+ * POST /adminDeleteUser
+ * Body: { uid: string, reason: string }
+ * @param {object} request - The HTTP request object.
+ * @param {object} response - The HTTP response object.
+ * @return {Promise<void>}
+ */
+export const adminDeleteUser = onRequest(
+  {region: ["asia-south1"]},
+  async (request, response) => {
+    const origin = request.headers.origin;
+    setAdminCorsHeaders(response, origin);
+
+    if (request.method === "OPTIONS") {
+      response.status(204).send("");
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.status(405).send("Method Not Allowed");
+      return;
+    }
+
+    try {
+      const decodedToken = await verifyAdminToken(
+        request.headers.authorization
+      );
+      if (!decodedToken) {
+        response.status(403).json({error: "Admin access required"});
+        return;
+      }
+
+      const {uid, reason} = request.body;
+      if (!uid || typeof uid !== "string") {
+        response.status(400).json({error: "Missing uid"});
+        return;
+      }
+      if (!reason || typeof reason !== "string" || !reason.trim()) {
+        response.status(400).json({error: "A reason is required"});
+        return;
+      }
+
+      logger.info(`[Admin] Deleting user ${uid}, reason: ${reason}`);
+
+      // Write audit log before deleting — ensures a record exists even if
+      // the delete operation throws partway through.
+      await db.collection("admin_audit_logs").add({
+        action: "delete_user",
+        adminUid: decodedToken.uid,
+        targetUid: uid,
+        reason: reason.trim(),
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await deleteUserData(uid);
+      logger.info(`[Admin] Deleted user ${uid}`);
+      response.status(200).json({success: true});
+    } catch (error) {
+      logger.error("[Admin] Error deleting user", error);
+      response.status(500).json({error: "Failed to delete user"});
     }
   }
 );
