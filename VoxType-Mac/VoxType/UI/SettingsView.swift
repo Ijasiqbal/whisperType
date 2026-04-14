@@ -11,6 +11,8 @@ struct SettingsView: View {
     @AppStorage(Constants.launchAtLoginKey) private var launchAtLogin = false
     @EnvironmentObject var hotkeyManager: HotkeyManager
     @AppStorage(Constants.selectedHotkeyKey) private var selectedHotkeyRaw = HotkeyOption.ctrlOption.rawValue
+    @State private var accessibilityGranted = PermissionChecker.isAccessibilityGranted
+    @State private var accessibilityPollingTimer: Timer?
 
     var body: some View {
         TabView {
@@ -26,9 +28,31 @@ struct SettingsView: View {
         }
         .frame(width: 450, height: 420)
         .onAppear {
-            // Ensure Settings window comes to front when opened
             activateSettingsWindow()
+            startAccessibilityPolling()
         }
+        .onDisappear {
+            accessibilityPollingTimer?.invalidate()
+            accessibilityPollingTimer = nil
+        }
+    }
+
+    // MARK: - Accessibility Polling
+
+    private func startAccessibilityPolling() {
+        accessibilityPollingTimer?.invalidate()
+        let t = Timer(timeInterval: 1.0, repeats: true) { [self] timer in
+            let granted = PermissionChecker.isAccessibilityGranted
+            if granted != accessibilityGranted {
+                accessibilityGranted = granted
+            }
+            if granted {
+                timer.invalidate()
+                accessibilityPollingTimer = nil
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        accessibilityPollingTimer = t
     }
 
     // MARK: - Window Activation
@@ -84,13 +108,13 @@ struct SettingsView: View {
                 HStack {
                     Text("Accessibility")
                     Spacer()
-                    if HotkeyManager.isAccessibilityGranted {
+                    if accessibilityGranted {
                         Label("Granted", systemImage: "checkmark.circle.fill")
                             .foregroundColor(.green)
                             .font(.system(size: 12))
                     } else {
                         Button("Grant Access") {
-                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                            PermissionChecker.promptAndOpenAccessibilitySettings()
                         }
                         .controlSize(.small)
                     }

@@ -6,7 +6,8 @@ struct OnboardingView: View {
     @EnvironmentObject var auth: AuthManager
     @SceneStorage("onboarding_step") private var currentStep = 0
     @State private var microphoneGranted = PermissionChecker.isMicrophoneGranted
-    @State private var accessibilityGranted = HotkeyManager.isAccessibilityGranted
+    @State private var accessibilityGranted = PermissionChecker.isAccessibilityGranted
+    @State private var permissionPollingTimer: Timer?
     @State private var selectedHotkey: HotkeyOption = {
         let raw = UserDefaults.standard.string(forKey: Constants.selectedHotkeyKey) ?? ""
         return HotkeyOption(rawValue: raw) ?? .ctrlOption
@@ -201,9 +202,7 @@ struct OnboardingView: View {
 
                 if !accessibilityGranted {
                     Button("Open Accessibility Settings") {
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                            NSWorkspace.shared.open(url)
-                        }
+                        PermissionChecker.promptAndOpenAccessibilitySettings()
                     }
                     .controlSize(.large)
                 }
@@ -218,10 +217,10 @@ struct OnboardingView: View {
         }
         .padding(40)
         .onAppear {
-            // Start polling for permission changes
-            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            permissionPollingTimer?.invalidate()
+            let t = Timer(timeInterval: 1.0, repeats: true) { [self] timer in
                 let newMicStatus = PermissionChecker.isMicrophoneGranted
-                let newAccessStatus = HotkeyManager.isAccessibilityGranted
+                let newAccessStatus = PermissionChecker.isAccessibilityGranted
 
                 if newMicStatus != microphoneGranted {
                     microphoneGranted = newMicStatus
@@ -229,12 +228,13 @@ struct OnboardingView: View {
                 if newAccessStatus != accessibilityGranted {
                     accessibilityGranted = newAccessStatus
                 }
-
-                // Stop timer if we move away from permissions step
-                if currentStep != 2 {
-                    timer.invalidate()
-                }
             }
+            RunLoop.main.add(t, forMode: .common)
+            permissionPollingTimer = t
+        }
+        .onDisappear {
+            permissionPollingTimer?.invalidate()
+            permissionPollingTimer = nil
         }
     }
 
