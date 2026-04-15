@@ -88,9 +88,7 @@ final class AuthManager: NSObject, ObservableObject {
                     // firing with user=nil on startup would override a valid REST session.
                     let hasRESTSession = !(UserDefaults.standard.string(forKey: Constants.restUserUID) ?? "").isEmpty
                     if !hasRESTSession {
-                        self.isSignedIn = false
-                        self.userEmail = nil
-                        self.userName = nil
+                        self.clearAuthState()
                         debugLog("[Auth] Auth state changed: signed out")
                     }
                 }
@@ -481,6 +479,16 @@ final class AuthManager: NSObject, ObservableObject {
             debugLog("[Auth] Sign out error: \(error.localizedDescription)")
         }
         clearRESTSession()
+        DispatchQueue.main.async {
+            self.clearAuthState()
+            debugLog("[Auth] Signed out")
+        }
+    }
+
+    private func clearAuthState() {
+        isSignedIn = false
+        userEmail = nil
+        userName = nil
     }
 
     private func clearRESTSession() {

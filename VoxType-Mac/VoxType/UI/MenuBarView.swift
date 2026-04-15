@@ -340,6 +340,7 @@ struct ModelPickerMenuSection: View {
             )
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
     }
 }
 

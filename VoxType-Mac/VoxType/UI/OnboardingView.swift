@@ -283,6 +283,7 @@ struct OnboardingView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .contentShape(Rectangle())
                     }
                 }
             }
