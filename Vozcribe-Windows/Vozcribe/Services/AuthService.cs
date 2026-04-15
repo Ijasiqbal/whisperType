@@ -164,9 +164,10 @@ public class AuthService : INotifyPropertyChanged
         });
 
         var response = await Http.PostAsync("https://oauth2.googleapis.com/token", content);
-        if (!response.IsSuccessStatusCode) return null;
-
         var json = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"Google token exchange failed ({response.StatusCode}): {json}");
+
         return JsonSerializer.Deserialize<GoogleTokenResponse>(json);
     }
 
