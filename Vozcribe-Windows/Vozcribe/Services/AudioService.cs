@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using Vozcribe.Models;
 

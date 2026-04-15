@@ -3,12 +3,17 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon>Resources\Icons\tray-icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
-    <PackageReference Include="Concentus" Version="2.2.0" />
+    <PackageReference Include="Concentus" Version="1.1.7" />
     <PackageReference Include="Concentus.OggFile" Version="1.0.4" />
     <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />

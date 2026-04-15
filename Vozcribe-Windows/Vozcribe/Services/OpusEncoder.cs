@@ -1,5 +1,6 @@
-using Concentus;
+using System.IO;
 using Concentus.Enums;
+using Concentus.Structs;
 using Concentus.Oggfile;
 using Vozcribe.Models;
 
@@ -16,21 +17,21 @@ public static class OpusEncoderService
         encoder.Bitrate = Constants.OpusBitrate;
 
         using var outputStream = new MemoryStream();
-        var oggWriter = new OpusOggWriteStream(encoder, outputStream, sampleRate, Constants.Channels);
+        var oggWriter = new OpusOggWriteStream(encoder, outputStream);
 
         int offset = 0;
         while (offset + frameSizeSamples <= samples.Length)
         {
-            var frame = new ReadOnlySpan<short>(samples, offset, frameSizeSamples);
-            oggWriter.WriteSamples(frame);
+            oggWriter.WriteSamples(samples, offset, frameSizeSamples);
             offset += frameSizeSamples;
         }
 
         if (offset < samples.Length)
         {
-            var remaining = new short[frameSizeSamples];
-            Array.Copy(samples, offset, remaining, 0, samples.Length - offset);
-            oggWriter.WriteSamples(remaining.AsSpan());
+            int remainingCount = samples.Length - offset;
+            var remaining = new short[remainingCount];
+            Array.Copy(samples, offset, remaining, 0, remainingCount);
+            oggWriter.WriteSamples(remaining, 0, remainingCount);
         }
 
         oggWriter.Finish();

@@ -107,8 +107,8 @@ public class HotkeyService : IDisposable
         if (msg != Win32Interop.WM_KEYDOWN && msg != Win32Interop.WM_SYSKEYDOWN)
             return;
 
-        int wpfKey = KeyInterop.KeyFromVirtualKey((int)hookStruct.vkCode);
-        if ((Key)wpfKey != _currentHotkey.Key)
+        Key wpfKey = KeyInterop.KeyFromVirtualKey((int)hookStruct.vkCode);
+        if (wpfKey != _currentHotkey.Key)
             return;
 
         if (_currentHotkey.Modifiers != ModifierKeys.None && !AreModifiersPressed())
