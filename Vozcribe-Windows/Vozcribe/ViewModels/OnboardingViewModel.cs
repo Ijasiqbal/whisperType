@@ -37,11 +37,8 @@ public class OnboardingViewModel : ViewModelBase
 
         try
         {
-            var success = await _auth.SignInWithGoogleAsync(googleClientId, firebaseApiKey);
-            if (!success)
-                SignInError = "Sign-in was cancelled or failed. Please try again.";
-            else
-                OnPropertyChanged(nameof(IsSignedIn));
+            await _auth.SignInWithGoogleAsync(googleClientId, firebaseApiKey, Constants.GoogleClientSecret);
+            OnPropertyChanged(nameof(IsSignedIn));
         }
         catch (Exception ex)
         {

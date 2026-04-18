@@ -65,6 +65,8 @@ public partial class App : Application
             {
                 Constants.FirebaseApiKey = firebase.GetProperty("ApiKey").GetString() ?? "";
                 Constants.GoogleClientId = firebase.GetProperty("GoogleClientId").GetString() ?? "";
+                if (firebase.TryGetProperty("GoogleClientSecret", out var secret))
+                    Constants.GoogleClientSecret = secret.GetString() ?? "";
             }
         }
         catch { }

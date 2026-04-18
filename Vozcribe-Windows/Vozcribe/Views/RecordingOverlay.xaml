@@ -6,83 +6,167 @@
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
+        ShowActivated="False"
         ShowInTaskbar="False"
+        Focusable="False"
         SizeToContent="WidthAndHeight"
         ResizeMode="NoResize"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
         MouseLeftButtonUp="Window_MouseLeftButtonUp">
 
-    <Border CornerRadius="24" Padding="16,10"
-            MinWidth="240" MinHeight="48">
-        <Border.Background>
-            <SolidColorBrush Color="#1E1E2E" Opacity="0.95"/>
-        </Border.Background>
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="20" Opacity="0.3" ShadowDepth="4"/>
-        </Border.Effect>
+    <!-- outer shadow wrapper so the glow isn't clipped -->
+    <Grid Margin="24">
+        <Border x:Name="Shell" MinWidth="260" MinHeight="54"
+                CornerRadius="14" Padding="14,10"
+                Background="#F20B0B0F"
+                BorderBrush="{StaticResource EdgeBrush}"
+                BorderThickness="1"
+                SnapsToDevicePixels="True">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="32" Opacity="0.55" ShadowDepth="8" Color="Black"/>
+            </Border.Effect>
 
-        <Grid>
-            <!-- Recording State -->
-            <StackPanel Orientation="Horizontal"
-                        Visibility="{Binding IsRecording, Converter={StaticResource BoolToVis}}">
-                <Ellipse Width="10" Height="10" Fill="#FF4444" Margin="0,0,10,0">
-                    <Ellipse.Triggers>
-                        <EventTrigger RoutedEvent="Loaded">
-                            <BeginStoryboard>
-                                <Storyboard RepeatBehavior="Forever">
-                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                     From="1" To="0.3" Duration="0:0:0.8"
-                                                     AutoReverse="True"/>
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </EventTrigger>
-                    </Ellipse.Triggers>
-                </Ellipse>
+            <Grid>
+                <!-- ═══════ RECORDING ═══════ -->
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding IsRecording, Converter={StaticResource BoolToVis}}">
 
-                <TextBlock Text="{Binding DurationText}" Foreground="White"
-                           FontSize="14" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <!-- Amber status dot with breathing glow -->
+                    <Grid Width="12" Height="12" Margin="2,0,12,0" VerticalAlignment="Center">
+                        <Ellipse Width="22" Height="22" Fill="{StaticResource AmberGlowBrush}">
+                            <Ellipse.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                             From="0.9" To="0.15" Duration="0:0:1.1"
+                                                             AutoReverse="True">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <SineEase EasingMode="EaseInOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Ellipse.Triggers>
+                        </Ellipse>
+                        <Ellipse Width="10" Height="10" Fill="{StaticResource AmberBrush}"/>
+                    </Grid>
 
-                <Border CornerRadius="8" Background="#333355" Padding="8,3">
-                    <TextBlock Text="{Binding Orchestrator.CurrentTier.ShortName}"
-                               Foreground="#AAAACC" FontSize="11"/>
-                </Border>
-            </StackPanel>
+                    <!-- Waveform — 8 bars driven by AmplitudeBars[n] -->
+                    <Grid VerticalAlignment="Center" Margin="0,0,14,0" Height="22" Width="74">
+                        <Grid.Resources>
+                            <Style TargetType="Rectangle">
+                                <Setter Property="Width" Value="3"/>
+                                <Setter Property="Fill" Value="{StaticResource AmberBrush}"/>
+                                <Setter Property="RadiusX" Value="1.5"/>
+                                <Setter Property="RadiusY" Value="1.5"/>
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="Margin" Value="2,0"/>
+                            </Style>
+                        </Grid.Resources>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Rectangle Height="{Binding AmplitudeBars[0], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Height="{Binding AmplitudeBars[1], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Height="{Binding AmplitudeBars[2], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Height="{Binding AmplitudeBars[3], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Height="{Binding AmplitudeBars[4], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Height="{Binding AmplitudeBars[5], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Height="{Binding AmplitudeBars[6], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Height="{Binding AmplitudeBars[7], Converter={StaticResource AmpToHeight}}"/>
+                        </StackPanel>
+                    </Grid>
 
-            <!-- Processing State -->
-            <StackPanel Orientation="Horizontal"
-                        Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="⏳" FontSize="14" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                <TextBlock Text="Transcribing..." Foreground="White" FontSize="14"
-                           VerticalAlignment="Center"/>
-            </StackPanel>
+                    <!-- Timer — mono caption -->
+                    <TextBlock Text="{Binding DurationText}"
+                               FontFamily="{StaticResource MonoFont}" FontSize="13"
+                               Foreground="{StaticResource InkBrush}"
+                               VerticalAlignment="Center" Margin="0,0,14,0"/>
 
-            <!-- Success State -->
-            <StackPanel Visibility="{Binding IsSuccess, Converter={StaticResource BoolToVis}}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✓" Foreground="#44BB44" FontSize="16"
-                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock Text="{Binding Orchestrator.State.Text}"
-                               Foreground="White" FontSize="13"
-                               MaxWidth="280" TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center"/>
+                    <!-- Tier chip -->
+                    <Border Style="{StaticResource Keycap}" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Orchestrator.CurrentTier.ShortName}"
+                                   FontFamily="{StaticResource MonoFont}" FontSize="10"
+                                   Foreground="{StaticResource InkMutedBrush}"
+                                   Typography.Capitals="AllSmallCaps"/>
+                    </Border>
                 </StackPanel>
-                <Button Content="Copy" Click="CopyButton_Click"
-                        Visibility="{Binding ShowCopyButton, Converter={StaticResource BoolToVis}}"
-                        Style="{StaticResource OverlayButton}" Margin="0,6,0,0"/>
-            </StackPanel>
 
-            <!-- Error State -->
-            <StackPanel Visibility="{Binding IsError, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="{Binding Orchestrator.State.Text}"
-                           Foreground="#FF6666" FontSize="13"
-                           MaxWidth="280" TextWrapping="Wrap"/>
-                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                    <Button Content="Retry" Click="RetryButton_Click"
-                            Style="{StaticResource OverlayButton}" Margin="0,0,8,0"/>
-                    <Button Content="Save" Click="SaveButton_Click"
-                            Style="{StaticResource OverlayButton}"/>
+                <!-- ═══════ PROCESSING ═══════ -->
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}">
+                    <!-- Rotating arc -->
+                    <Grid Width="14" Height="14" Margin="2,0,12,0" VerticalAlignment="Center">
+                        <Path Stroke="{StaticResource AmberBrush}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 7 0.5 A 6.5 6.5 0 0 1 13.5 7" RenderTransformOrigin="0.5,0.5">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="SpinnerRotate" Angle="0"/>
+                            </Path.RenderTransform>
+                            <Path.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="SpinnerRotate"
+                                                             Storyboard.TargetProperty="Angle"
+                                                             From="0" To="360" Duration="0:0:0.9"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Path.Triggers>
+                        </Path>
+                    </Grid>
+                    <TextBlock Text="Transcribing"
+                               FontFamily="{StaticResource DisplayFont}" FontStyle="Italic" FontSize="16"
+                               Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="…" FontFamily="{StaticResource DisplayFont}" FontStyle="Italic" FontSize="16"
+                               Foreground="{StaticResource AmberBrush}" VerticalAlignment="Center" Margin="2,0,0,0"/>
                 </StackPanel>
-            </StackPanel>
-        </Grid>
-    </Border>
+
+                <!-- ═══════ SUCCESS ═══════ -->
+                <StackPanel Visibility="{Binding IsSuccess, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <Grid Width="16" Height="16" Margin="0,0,10,0" VerticalAlignment="Center">
+                            <Ellipse Fill="#224FB8A8"/>
+                            <Path Data="M 4 8 L 7 11 L 12 5" Stroke="{StaticResource TealBrush}"
+                                  StrokeThickness="1.6" StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Grid>
+                        <TextBlock Text="{Binding Orchestrator.State.Text}"
+                                   FontFamily="{StaticResource BodyFont}" FontSize="13"
+                                   Foreground="{StaticResource InkBrush}"
+                                   MaxWidth="280" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button Content="Copy" Click="CopyButton_Click"
+                            Visibility="{Binding ShowCopyButton, Converter={StaticResource BoolToVis}}"
+                            Style="{StaticResource GhostButton}" Margin="0,8,0,0"
+                            HorizontalAlignment="Left" Padding="12,5" FontSize="12"/>
+                </StackPanel>
+
+                <!-- ═══════ ERROR ═══════ -->
+                <StackPanel Visibility="{Binding IsError, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Border Background="#22E05D5D" CornerRadius="3" Padding="5,1" Margin="0,0,8,0"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="ERR" FontFamily="{StaticResource MonoFont}" FontSize="9"
+                                       Foreground="{StaticResource RedBrush}"
+                                       Typography.Capitals="AllSmallCaps"/>
+                        </Border>
+                        <TextBlock Text="{Binding Orchestrator.State.Text}"
+                                   Foreground="{StaticResource InkBrush}"
+                                   FontFamily="{StaticResource BodyFont}" FontSize="12"
+                                   MaxWidth="260" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Retry" Click="RetryButton_Click"
+                                Style="{StaticResource GhostButton}" Margin="0,0,6,0"
+                                Padding="12,5" FontSize="12"/>
+                        <Button Content="Save for later" Click="SaveButton_Click"
+                                Style="{StaticResource QuietButton}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
 </Window>

@@ -14,8 +14,6 @@ public class SettingsViewModel : ViewModelBase
 
     public HotkeyOption[] HotkeyPresets => HotkeyOption.Presets;
     public ModelTier[] ModelTiers => ModelTier.All;
-    public string[] Regions => Constants.Regions;
-    public string[] RegionDisplayNames => Constants.RegionDisplayNames;
 
     public HotkeyOption SelectedHotkey
     {
@@ -48,16 +46,6 @@ public class SettingsViewModel : ViewModelBase
     {
         get => ModelTier.FromTierCode(_settings.Settings.ModelTierCode);
         set { _settings.Settings.ModelTierCode = value.TierCode; _settings.Save(); OnPropertyChanged(); }
-    }
-
-    public int SelectedRegionIndex
-    {
-        get => Array.IndexOf(Constants.Regions, _settings.Settings.Region);
-        set
-        {
-            if (value >= 0 && value < Constants.Regions.Length)
-            { _settings.Settings.Region = Constants.Regions[value]; _settings.Save(); OnPropertyChanged(); }
-        }
     }
 
     public bool LaunchAtStartup

@@ -5,8 +5,16 @@ public static class Constants
     // API
     public const string FirebaseProjectId = "whispertype-1de9f";
     public const string BaseUrlPattern = "https://{0}-whispertype-1de9f.cloudfunctions.net";
-    public static readonly string[] Regions = ["us-central1", "asia-south1", "europe-west1"];
-    public static readonly string[] RegionDisplayNames = ["US Central", "Asia South", "Europe West"];
+
+    public static readonly string DetectedRegion = ComputeRegion();
+
+    private static string ComputeRegion()
+    {
+        var offset = TimeZoneInfo.Local.GetUtcOffset(DateTime.UtcNow).TotalHours;
+        if (offset >= 4.5) return "asia-south1";
+        if (offset <= -3) return "us-central1";
+        return "europe-west1";
+    }
 
     // Endpoints
     public const string TrialStatusPath = "/getTrialStatus";
@@ -61,5 +69,6 @@ public static class Constants
     // Auth - loaded from appsettings.json at runtime
     public static string FirebaseApiKey { get; set; } = "";
     public static string GoogleClientId { get; set; } = "";
+    public static string GoogleClientSecret { get; set; } = "";
     public const string CredentialTarget = "Vozcribe_Auth";
 }

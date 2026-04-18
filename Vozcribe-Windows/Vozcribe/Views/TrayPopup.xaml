@@ -1,79 +1,159 @@
 <UserControl x:Class="Vozcribe.Views.TrayPopup"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Width="300">
+             Width="320"
+             FontFamily="{StaticResource BodyFont}">
 
-    <Border Background="#1E1E2E" CornerRadius="12" Padding="16"
-            BorderBrush="#333355" BorderThickness="1">
+    <Border Background="{StaticResource CanvasBrush}" CornerRadius="14" Padding="18"
+            BorderBrush="{StaticResource EdgeBrush}" BorderThickness="1"
+            SnapsToDevicePixels="True">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="20" Opacity="0.4" ShadowDepth="4"/>
+            <DropShadowEffect BlurRadius="28" Opacity="0.55" ShadowDepth="6" Color="Black"/>
         </Border.Effect>
 
         <StackPanel>
-            <!-- Status -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                <Ellipse Width="8" Height="8" Fill="#44BB44" Margin="0,0,8,0"/>
-                <TextBlock Text="{Binding StatusText}" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
-            </StackPanel>
 
-            <!-- Model Selection -->
-            <TextBlock Text="Model" Foreground="#888899" FontSize="11" Margin="0,0,0,4"/>
+            <!-- Brand + status -->
+            <Grid Margin="0,0,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Rectangle Width="3" Height="14" Fill="{StaticResource AmberBrush}" Margin="0,0,8,0"/>
+                    <TextBlock Text="VOZCRIBE" FontFamily="{StaticResource MonoFont}"
+                               FontSize="10" Foreground="{StaticResource InkBrush}"
+                               Typography.Capitals="AllSmallCaps" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="6" Height="6" Fill="{StaticResource TealBrush}" Margin="0,0,7,0"/>
+                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource MonoCaption}"
+                               Foreground="{StaticResource InkBrush}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- MODEL -->
+            <TextBlock Style="{StaticResource EyebrowLabel}" Text="MODEL" Margin="0,0,0,6"/>
             <ComboBox ItemsSource="{Binding AllTiers}"
-                      SelectedItem="{Binding CurrentTier}"
+                      SelectedItem="{Binding CurrentTier, Mode=OneWay}"
                       DisplayMemberPath="DisplayName"
                       SelectionChanged="ModelComboBox_SelectionChanged"
-                      Margin="0,0,0,12"
-                      Background="#2A2A3E" Foreground="White" BorderBrush="#444466"/>
+                      Style="{StaticResource StudioComboBox}"
+                      Margin="0,0,0,16"/>
 
-            <!-- Credits -->
-            <TextBlock Text="Credits" Foreground="#888899" FontSize="11" Margin="0,0,0,4"/>
-            <ProgressBar Value="{Binding CreditsProgress}" Maximum="1"
-                         Height="6" Margin="0,0,0,4"
-                         Foreground="#7777FF" Background="#333355"/>
-            <TextBlock Text="{Binding CreditsDisplay}" Foreground="#AAAACC"
-                       FontSize="12" Margin="0,0,0,12"/>
+            <!-- CREDITS — segmented bar + numeric readout -->
+            <Grid Margin="0,0,0,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Style="{StaticResource EyebrowLabel}" Text="CREDITS"/>
+                    <TextBlock Grid.Column="1" Text="{Binding CreditsDisplay}"
+                               FontFamily="{StaticResource MonoFont}" FontSize="11"
+                               Foreground="{StaticResource InkBrush}"/>
+                </Grid>
+                <ProgressBar Grid.Row="1" Value="{Binding CreditsProgress, Mode=OneWay}" Maximum="1"
+                             Style="{StaticResource StudioProgressBar}" Margin="0,0,0,4"/>
+                <!-- Mixer tick marks -->
+                <Grid Grid.Row="2" Height="3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/><ColumnDefinition/><ColumnDefinition/>
+                        <ColumnDefinition/><ColumnDefinition/><ColumnDefinition/>
+                        <ColumnDefinition/><ColumnDefinition/><ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Rectangle Grid.Column="0" Width="1" Height="3" HorizontalAlignment="Left"
+                               Fill="{StaticResource EdgeBrush}"/>
+                    <Rectangle Grid.Column="1" Width="1" Height="3" HorizontalAlignment="Left"
+                               Fill="{StaticResource EdgeBrush}"/>
+                    <Rectangle Grid.Column="2" Width="1" Height="3" HorizontalAlignment="Left"
+                               Fill="{StaticResource EdgeBrush}"/>
+                    <Rectangle Grid.Column="3" Width="1" Height="3" HorizontalAlignment="Left"
+                               Fill="{StaticResource EdgeBrush}"/>
+                    <Rectangle Grid.Column="4" Width="1" Height="3" HorizontalAlignment="Left"
+                               Fill="{StaticResource EdgeBrush}"/>
+                    <Rectangle Grid.Column="5" Width="1" Height="3" HorizontalAlignment="Left"
+                               Fill="{StaticResource EdgeBrush}"/>
+                    <Rectangle Grid.Column="6" Width="1" Height="3" HorizontalAlignment="Left"
+                               Fill="{StaticResource EdgeBrush}"/>
+                    <Rectangle Grid.Column="7" Width="1" Height="3" HorizontalAlignment="Left"
+                               Fill="{StaticResource EdgeBrush}"/>
+                    <Rectangle Grid.Column="8" Width="1" Height="3" HorizontalAlignment="Left"
+                               Fill="{StaticResource EdgeBrush}"/>
+                    <Rectangle Grid.Column="9" Width="1" Height="3" HorizontalAlignment="Right"
+                               Fill="{StaticResource EdgeBrush}"/>
+                </Grid>
+            </Grid>
 
-            <!-- Hotkey Reminder -->
-            <Border Background="#2A2A3E" CornerRadius="8" Padding="10,6" Margin="0,0,0,12">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Hotkey: " Foreground="#888899" FontSize="12"/>
-                    <TextBlock Text="{Binding HotkeyDisplay}" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
-                </StackPanel>
+            <!-- HOTKEY — keycap display -->
+            <TextBlock Style="{StaticResource EyebrowLabel}" Text="HOTKEY" Margin="0,0,0,6"/>
+            <Border Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource EdgeBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusMd}" Padding="12,8" Margin="0,0,0,16">
+                <TextBlock Text="{Binding HotkeyDisplay}"
+                           FontFamily="{StaticResource MonoFont}" FontSize="12"
+                           Foreground="{StaticResource InkBrush}"/>
             </Border>
 
-            <!-- Pending Transcriptions -->
+            <!-- PENDING -->
             <StackPanel Visibility="{Binding HasPending, Converter={StaticResource BoolToVis}}"
-                        Margin="0,0,0,12">
-                <TextBlock Foreground="#FFAA44" FontSize="12" Margin="0,0,0,6">
-                    <Run Text="{Binding PendingCount, Mode=OneWay}"/>
-                    <Run Text=" pending transcription(s)"/>
-                </TextBlock>
+                        Margin="0,0,0,16">
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Style="{StaticResource EyebrowLabel}" Text="PENDING"/>
+                    <TextBlock Grid.Column="1" FontFamily="{StaticResource MonoFont}" FontSize="10"
+                               Foreground="{StaticResource AmberBrush}">
+                        <Run Text="{Binding PendingCount, Mode=OneWay}"/>
+                        <Run Text=" queued"/>
+                    </TextBlock>
+                </Grid>
                 <ItemsControl ItemsSource="{Binding PendingItems}" MaxHeight="120">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="#2A2A3E" CornerRadius="6" Padding="8,4" Margin="0,2">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Error}" Foreground="#AAAACC"
-                                               FontSize="11" MaxWidth="180" TextTrimming="CharacterEllipsis"
+                            <Border Background="{StaticResource PanelBrush}"
+                                    BorderBrush="{StaticResource EdgeSoftBrush}" BorderThickness="1"
+                                    CornerRadius="{StaticResource RadiusSm}"
+                                    Padding="10,6" Margin="0,0,0,4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Error}"
+                                               Foreground="{StaticResource InkMutedBrush}"
+                                               FontFamily="{StaticResource BodyFont}" FontSize="11"
+                                               MaxWidth="190" TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center"/>
-                                    <Button Content="Retry" Click="RetryPending_Click"
-                                            Tag="{Binding}" Style="{StaticResource OverlayButton}"
-                                            FontSize="11" Margin="8,0,0,0" Padding="8,2"/>
-                                </StackPanel>
+                                    <Button Grid.Column="1" Content="Retry" Click="RetryPending_Click"
+                                            Tag="{Binding}" Style="{StaticResource GhostButton}"
+                                            FontSize="11" Padding="8,3" Margin="8,0,0,0"/>
+                                </Grid>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </StackPanel>
 
-            <Separator Background="#333355" Margin="0,0,0,8"/>
+            <Rectangle Height="1" Fill="{StaticResource EdgeSoftBrush}" Margin="0,0,0,12"/>
 
             <!-- Actions -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Settings" Click="Settings_Click"
-                        Style="{StaticResource OverlayButton}" Margin="0,0,8,0"/>
+                        Style="{StaticResource GhostButton}" Margin="0,0,6,0"
+                        Padding="12,6" FontSize="12"/>
                 <Button Content="Quit" Click="Quit_Click"
-                        Style="{StaticResource OverlayButton}"/>
+                        Style="{StaticResource QuietButton}"/>
             </StackPanel>
         </StackPanel>
     </Border>

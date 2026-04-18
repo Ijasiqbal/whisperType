@@ -22,11 +22,16 @@ public class SettingsService
 
     private AppSettings Load()
     {
+        AppSettings settings;
         if (!File.Exists(_filePath))
-            return new AppSettings();
-
-        var json = File.ReadAllText(_filePath);
-        return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+            settings = new AppSettings();
+        else
+        {
+            var json = File.ReadAllText(_filePath);
+            settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+        }
+        settings.Region = Constants.DetectedRegion;
+        return settings;
     }
 
     public void Save()

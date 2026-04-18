@@ -67,7 +67,7 @@ public class AuthService : INotifyPropertyChanged
             + "&code_challenge_method=S256";
     }
 
-    public async Task<bool> SignInWithGoogleAsync(string googleClientId, string firebaseApiKey)
+    public async Task<bool> SignInWithGoogleAsync(string googleClientId, string firebaseApiKey, string clientSecret = "")
     {
         var codeVerifier = GenerateCodeVerifier();
         var codeChallenge = GenerateCodeChallenge(codeVerifier);
@@ -93,19 +93,19 @@ public class AuthService : INotifyPropertyChanged
         listener.Stop();
 
         if (string.IsNullOrEmpty(code))
-            return false;
+            throw new Exception("No authorization code received from Google");
 
         var googleTokens = await ExchangeCodeForGoogleTokensAsync(
-            code, googleClientId, codeVerifier, redirectUri);
+            code, googleClientId, clientSecret, codeVerifier, redirectUri);
 
         if (googleTokens == null)
-            return false;
+            throw new Exception("Google token exchange returned null");
 
         var firebaseResult = await ExchangeGoogleTokenForFirebaseAsync(
             googleTokens.IdToken, firebaseApiKey);
 
         if (firebaseResult == null)
-            return false;
+            throw new Exception("Firebase token exchange returned null");
 
         _idToken = firebaseResult.IdToken;
         _refreshToken = firebaseResult.RefreshToken;
@@ -152,16 +152,19 @@ public class AuthService : INotifyPropertyChanged
     }
 
     private async Task<GoogleTokenResponse?> ExchangeCodeForGoogleTokensAsync(
-        string code, string clientId, string codeVerifier, string redirectUri)
+        string code, string clientId, string clientSecret, string codeVerifier, string redirectUri)
     {
-        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        var fields = new Dictionary<string, string>
         {
             ["code"] = code,
             ["client_id"] = clientId,
             ["redirect_uri"] = redirectUri,
             ["grant_type"] = "authorization_code",
             ["code_verifier"] = codeVerifier
-        });
+        };
+        if (!string.IsNullOrEmpty(clientSecret))
+            fields["client_secret"] = clientSecret;
+        var content = new FormUrlEncodedContent(fields);
 
         var response = await Http.PostAsync("https://oauth2.googleapis.com/token", content);
         var json = await response.Content.ReadAsStringAsync();
@@ -186,10 +189,11 @@ public class AuthService : INotifyPropertyChanged
         var json = JsonSerializer.Serialize(body);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
         var response = await Http.PostAsync(url, content);
-
-        if (!response.IsSuccessStatusCode) return null;
-
         var responseJson = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"Firebase sign-in failed ({response.StatusCode}): {responseJson}");
+
         return JsonSerializer.Deserialize<FirebaseSignInResponse>(responseJson);
     }
 

@@ -14,14 +14,15 @@ public class HotkeyService : IDisposable
     private bool _modifiersPressed;
     private bool _isActive;
 
+    private bool _ctrlDown;
+    private bool _altDown;
+    private bool _shiftDown;
+    private bool _winDown;
+
     public event Action? HotkeyTriggered;
     public event Action? ModelNextTriggered;
     public event Action? ModelPreviousTriggered;
 
-    /// <summary>
-    /// Set to true when recording/overlay is active so Shift+Arrow model cycling is enabled.
-    /// When false, Shift+Arrow passes through to other apps normally.
-    /// </summary>
     public bool IsActive
     {
         get => _isActive;
@@ -56,39 +57,58 @@ public class HotkeyService : IDisposable
             var hookStruct = Marshal.PtrToStructure<Win32Interop.KBDLLHOOKSTRUCT>(lParam);
             int msg = wParam.ToInt32();
 
-            if (msg == Win32Interop.WM_KEYDOWN || msg == Win32Interop.WM_SYSKEYDOWN)
+            bool isKeyDown = msg == Win32Interop.WM_KEYDOWN || msg == Win32Interop.WM_SYSKEYDOWN;
+            bool isKeyUp = msg == Win32Interop.WM_KEYUP || msg == Win32Interop.WM_SYSKEYUP;
+
+            UpdateModifierState(hookStruct.vkCode, isKeyDown, isKeyUp);
+
+            if (isKeyDown && _isActive)
             {
-                if (_isActive)
+                if (_shiftDown && hookStruct.vkCode == Win32Interop.VK_UP)
                 {
-                    bool shiftHeld = (Win32Interop.GetAsyncKeyState(Win32Interop.VK_SHIFT) & 0x8000) != 0;
-                    if (shiftHeld && hookStruct.vkCode == Win32Interop.VK_UP)
-                    {
-                        ModelNextTriggered?.Invoke();
-                        return (IntPtr)1;
-                    }
-                    if (shiftHeld && hookStruct.vkCode == Win32Interop.VK_DOWN)
-                    {
-                        ModelPreviousTriggered?.Invoke();
-                        return (IntPtr)1;
-                    }
+                    ModelNextTriggered?.Invoke();
+                    return (IntPtr)1;
+                }
+                if (_shiftDown && hookStruct.vkCode == Win32Interop.VK_DOWN)
+                {
+                    ModelPreviousTriggered?.Invoke();
+                    return (IntPtr)1;
                 }
             }
 
             if (_currentHotkey.IsModifierOnly)
-                HandleModifierOnlyHotkey(msg, hookStruct);
+                HandleModifierOnlyHotkey(isKeyDown, isKeyUp);
             else
-                HandleKeyBasedHotkey(msg, hookStruct);
+                HandleKeyBasedHotkey(isKeyDown, hookStruct);
         }
 
         return Win32Interop.CallNextHookEx(_hookId, nCode, wParam, lParam);
     }
 
-    private void HandleModifierOnlyHotkey(int msg, Win32Interop.KBDLLHOOKSTRUCT hookStruct)
+    private void UpdateModifierState(uint vkCode, bool isKeyDown, bool isKeyUp)
     {
-        bool isKeyDown = msg == Win32Interop.WM_KEYDOWN || msg == Win32Interop.WM_SYSKEYDOWN;
-        bool isKeyUp = msg == Win32Interop.WM_KEYUP || msg == Win32Interop.WM_SYSKEYUP;
+        if (!isKeyDown && !isKeyUp) return;
+        bool pressed = isKeyDown;
 
-        if (isKeyDown && AreModifiersPressed())
+        switch (vkCode)
+        {
+            case Win32Interop.VK_CONTROL:
+            case Win32Interop.VK_LCONTROL:
+            case Win32Interop.VK_RCONTROL: _ctrlDown = pressed; break;
+            case Win32Interop.VK_MENU:
+            case Win32Interop.VK_LMENU:
+            case Win32Interop.VK_RMENU: _altDown = pressed; break;
+            case Win32Interop.VK_SHIFT:
+            case Win32Interop.VK_LSHIFT:
+            case Win32Interop.VK_RSHIFT: _shiftDown = pressed; break;
+            case Win32Interop.VK_LWIN:
+            case Win32Interop.VK_RWIN: _winDown = pressed; break;
+        }
+    }
+
+    private void HandleModifierOnlyHotkey(bool isKeyDown, bool isKeyUp)
+    {
+        if (isKeyDown && AreRequiredModifiersDown())
         {
             if (!_modifiersPressed)
             {
@@ -96,48 +116,33 @@ public class HotkeyService : IDisposable
                 HotkeyTriggered?.Invoke();
             }
         }
-        else if (isKeyUp)
+        else if (isKeyUp && !AreRequiredModifiersDown())
         {
             _modifiersPressed = false;
         }
     }
 
-    private void HandleKeyBasedHotkey(int msg, Win32Interop.KBDLLHOOKSTRUCT hookStruct)
+    private void HandleKeyBasedHotkey(bool isKeyDown, Win32Interop.KBDLLHOOKSTRUCT hookStruct)
     {
-        if (msg != Win32Interop.WM_KEYDOWN && msg != Win32Interop.WM_SYSKEYDOWN)
-            return;
+        if (!isKeyDown) return;
 
         Key wpfKey = KeyInterop.KeyFromVirtualKey((int)hookStruct.vkCode);
         if (wpfKey != _currentHotkey.Key)
             return;
 
-        if (_currentHotkey.Modifiers != ModifierKeys.None && !AreModifiersPressed())
+        if (_currentHotkey.Modifiers != ModifierKeys.None && !AreRequiredModifiersDown())
             return;
 
         HotkeyTriggered?.Invoke();
     }
 
-    private bool AreModifiersPressed()
+    private bool AreRequiredModifiersDown()
     {
         var required = _currentHotkey.Modifiers;
-
-        if (required.HasFlag(ModifierKeys.Control) &&
-            (Win32Interop.GetAsyncKeyState(Win32Interop.VK_CONTROL) & 0x8000) == 0)
-            return false;
-
-        if (required.HasFlag(ModifierKeys.Alt) &&
-            (Win32Interop.GetAsyncKeyState(Win32Interop.VK_MENU) & 0x8000) == 0)
-            return false;
-
-        if (required.HasFlag(ModifierKeys.Shift) &&
-            (Win32Interop.GetAsyncKeyState(Win32Interop.VK_SHIFT) & 0x8000) == 0)
-            return false;
-
-        if (required.HasFlag(ModifierKeys.Windows) &&
-            ((Win32Interop.GetAsyncKeyState(Win32Interop.VK_LWIN) & 0x8000) == 0 &&
-             (Win32Interop.GetAsyncKeyState(Win32Interop.VK_RWIN) & 0x8000) == 0))
-            return false;
-
+        if (required.HasFlag(ModifierKeys.Control) && !_ctrlDown) return false;
+        if (required.HasFlag(ModifierKeys.Alt) && !_altDown) return false;
+        if (required.HasFlag(ModifierKeys.Shift) && !_shiftDown) return false;
+        if (required.HasFlag(ModifierKeys.Windows) && !_winDown) return false;
         return true;
     }
 

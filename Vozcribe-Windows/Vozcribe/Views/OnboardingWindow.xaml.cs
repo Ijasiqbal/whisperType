@@ -17,6 +17,22 @@ public partial class OnboardingWindow : Window
         DataContext = viewModel;
     }
 
+    private void SetActiveStep(int n)
+    {
+        var amber = (SolidColorBrush)FindResource("AmberBrush");
+        var ink = (SolidColorBrush)FindResource("InkBrush");
+        var dim = (SolidColorBrush)FindResource("InkDimBrush");
+
+        void Apply(StackPanel row, bool active)
+        {
+            if (row.Children[0] is TextBlock num) num.Foreground = active ? amber : dim;
+            if (row.Children[1] is TextBlock label) label.Foreground = active ? ink : dim;
+        }
+        Apply(StepRow1, n == 1);
+        Apply(StepRow2, n == 2);
+        Apply(StepRow3, n == 3);
+    }
+
     private async void SignIn_Click(object sender, RoutedEventArgs e)
     {
         await ViewModel.SignInAsync(Constants.GoogleClientId, Constants.FirebaseApiKey);
@@ -24,6 +40,7 @@ public partial class OnboardingWindow : Window
         {
             Step1.Visibility = Visibility.Collapsed;
             Step2.Visibility = Visibility.Visible;
+            SetActiveStep(2);
             ViewModel.CheckMicPermission();
             UpdateMicStatus();
         }
@@ -33,13 +50,13 @@ public partial class OnboardingWindow : Window
     {
         if (ViewModel.MicPermissionGranted)
         {
-            MicStatus.Text = "Microphone detected";
-            MicStatus.Foreground = new SolidColorBrush(Color.FromRgb(0x44, 0xBB, 0x44));
+            MicStatus.Text = "● Microphone detected";
+            MicStatus.Foreground = new SolidColorBrush(Color.FromRgb(0x4F, 0xB8, 0xA8));
         }
         else
         {
-            MicStatus.Text = "No microphone found. Please connect one.";
-            MicStatus.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x66, 0x66));
+            MicStatus.Text = "● No microphone found. Please connect one.";
+            MicStatus.Foreground = new SolidColorBrush(Color.FromRgb(0xE0, 0x5D, 0x5D));
         }
     }
 
@@ -47,6 +64,7 @@ public partial class OnboardingWindow : Window
     {
         Step2.Visibility = Visibility.Collapsed;
         Step3.Visibility = Visibility.Visible;
+        SetActiveStep(3);
     }
 
     private void Hotkey_SelectionChanged(object sender, SelectionChangedEventArgs e)
