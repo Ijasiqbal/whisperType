@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, Settings, Infinity } from "lucide-react";
+import { LayoutDashboard, Users, Settings, Infinity, Gauge } from "lucide-react";
 
 const navItems = [
   {
@@ -20,6 +20,11 @@ const navItems = [
     title: "Unlimited Monitor",
     href: "/unlimited",
     icon: Infinity,
+  },
+  {
+    title: "Model Speed",
+    href: "/model-speed",
+    icon: Gauge,
   },
   {
     title: "Settings",
