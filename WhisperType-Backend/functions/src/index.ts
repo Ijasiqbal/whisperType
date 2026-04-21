@@ -1706,7 +1706,9 @@ export const transcribePremium = onRequest(
       const validFormats = [
         "wav", "m4a", "mp3", "webm", "mp4", "mpeg", "mpga", "ogg",
       ];
-      const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
+      const format = audioFormat === "opus" ?
+        "ogg" :
+        validFormats.includes(audioFormat) ? audioFormat : "m4a";
 
       // Resolve model from tier code or legacy model name
       const validOpenAIModels = [
@@ -1928,7 +1930,9 @@ export const transcribeAuto = onRequest(
       const validFormats = [
         "wav", "m4a", "mp3", "webm", "mp4", "mpeg", "mpga", "ogg",
       ];
-      const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
+      const format = audioFormat === "opus" ?
+        "ogg" :
+        validFormats.includes(audioFormat) ? audioFormat : "m4a";
 
       // Resolve model from tier code or legacy model name
       const validGroqModels = [
@@ -2160,7 +2164,9 @@ export const transcribeStandard = onRequest(
       const validFormats = [
         "wav", "m4a", "mp3", "webm", "mp4", "mpeg", "mpga", "ogg",
       ];
-      const format = validFormats.includes(audioFormat) ? audioFormat : "m4a";
+      const format = audioFormat === "opus" ?
+        "ogg" :
+        validFormats.includes(audioFormat) ? audioFormat : "m4a";
 
       // Resolve STT model from opaque tier code. Legacy clients may still
       // send Groq Whisper model names; treat any of those as "standard"
