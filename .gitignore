@@ -71,7 +71,7 @@ node_modules/
 .env.*.local
 
 # Firebase Functions build
-lib/
+WhisperType-Backend/functions/lib/
 
 # Crash reports
 crashlytics-build.properties

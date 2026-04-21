@@ -43,7 +43,7 @@ const GROQ_TIER_MAP: Record<string, string> = {
 };
 
 const VENICE_TIER_MAP: Record<string, string> = {
-  "standard": "elevenlabs/scribe-v2",
+  "standard": "stt-xai-v1",
 };
 
 const VENICE_BASE_URL = "https://api.venice.ai/api/v1";
@@ -2173,7 +2173,7 @@ export const transcribeStandard = onRequest(
         "standard" :
         (model || "standard");
       const selectedModel = resolveModel(
-        tierKey, VENICE_TIER_MAP, [], "elevenlabs/scribe-v2"
+        tierKey, VENICE_TIER_MAP, [], "stt-xai-v1"
       );
       // llmModel is ignored in single-stage Venice pipeline but kept in the
       // request shape for legacy clients.
