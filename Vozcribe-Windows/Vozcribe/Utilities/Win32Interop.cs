@@ -24,6 +24,7 @@ public static class Win32Interop
     public const int VK_UP = 0x26;
     public const int VK_DOWN = 0x28;
     public const int VK_END = 0x23;
+    public const int VK_ESCAPE = 0x1B;
 
     public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 

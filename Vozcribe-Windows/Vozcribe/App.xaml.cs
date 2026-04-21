@@ -115,6 +115,8 @@ public partial class App : Application
             Dispatcher.Invoke(() => _orchestrator.CycleModelNext());
         _hotkey.ModelPreviousTriggered += () =>
             Dispatcher.Invoke(() => _orchestrator.CycleModelPrevious());
+        _hotkey.EscapeTriggered += () =>
+            Dispatcher.Invoke(() => _orchestrator.Cancel());
         _hotkey.Start();
 
         var overlayVm = new RecordingOverlayViewModel(_orchestrator, _settings);

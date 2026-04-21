@@ -22,6 +22,7 @@ public class HotkeyService : IDisposable
     public event Action? HotkeyTriggered;
     public event Action? ModelNextTriggered;
     public event Action? ModelPreviousTriggered;
+    public event Action? EscapeTriggered;
 
     public bool IsActive
     {
@@ -61,6 +62,11 @@ public class HotkeyService : IDisposable
             bool isKeyUp = msg == Win32Interop.WM_KEYUP || msg == Win32Interop.WM_SYSKEYUP;
 
             UpdateModifierState(hookStruct.vkCode, isKeyDown, isKeyUp);
+
+            if (isKeyDown && hookStruct.vkCode == Win32Interop.VK_ESCAPE)
+            {
+                EscapeTriggered?.Invoke();
+            }
 
             if (isKeyDown && _isActive)
             {

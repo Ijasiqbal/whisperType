@@ -159,6 +159,22 @@ public class TranscriptionOrchestrator : ViewModelBase
         }
     }
 
+    public void Cancel()
+    {
+        if (State.Type == RecordingStateType.Recording)
+        {
+            _durationTimer?.Stop();
+            _durationTimer?.Dispose();
+            try { _audio.StopRecording(); } catch { }
+        }
+
+        if (State.Type == RecordingStateType.Idle)
+            return;
+
+        _lastAudioData = null;
+        State = RecordingState.Idle;
+    }
+
     public void SaveForLater()
     {
         if (_lastAudioData != null)

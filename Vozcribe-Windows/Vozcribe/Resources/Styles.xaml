@@ -179,6 +179,36 @@
         </Setter>
     </Style>
 
+    <!-- Close icon — small round X for dismissing overlays -->
+    <Style x:Key="CloseIconButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="Height" Value="20"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root" Background="{TemplateBinding Background}"
+                            CornerRadius="10">
+                        <Path x:Name="Icon" Data="M 5 5 L 11 11 M 11 5 L 5 11"
+                              Stroke="{StaticResource InkMutedBrush}"
+                              StrokeThickness="1.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource PanelRaisedBrush}"/>
+                            <Setter TargetName="Icon" Property="Stroke" Value="{StaticResource InkBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Quiet — text-only link-ish -->
     <Style x:Key="QuietButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>

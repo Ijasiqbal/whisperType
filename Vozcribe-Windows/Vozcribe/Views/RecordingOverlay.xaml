@@ -27,6 +27,12 @@
             </Border.Effect>
 
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0">
                 <!-- ═══════ RECORDING ═══════ -->
                 <StackPanel Orientation="Horizontal"
                             Visibility="{Binding IsRecording, Converter={StaticResource BoolToVis}}">
@@ -166,6 +172,13 @@
                                 Style="{StaticResource QuietButton}"/>
                     </StackPanel>
                 </StackPanel>
+                </Grid>
+
+                <Button Grid.Column="1" Style="{StaticResource CloseIconButton}"
+                        Click="CloseButton_Click"
+                        ToolTip="Dismiss (Esc)"
+                        Margin="10,0,0,0"
+                        VerticalAlignment="Top"/>
             </Grid>
         </Border>
     </Grid>
