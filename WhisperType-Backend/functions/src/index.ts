@@ -43,7 +43,7 @@ const GROQ_TIER_MAP: Record<string, string> = {
 };
 
 const VENICE_TIER_MAP: Record<string, string> = {
-  "standard": "stt-xai-v1",
+  "standard": "elevenlabs/scribe-v2",
 };
 
 const VENICE_BASE_URL = "https://api.venice.ai/api/v1";
@@ -2258,6 +2258,9 @@ export const transcribeStandard = onRequest(
         const transcription = await venice.audio.transcriptions.create({
           file: audioFile,
           model: selectedModel,
+          // @ts-expect-error — ElevenLabs-specific params passed through Venice
+          tag_audio_events: false,
+          timestamps_granularity: "none",
         });
         const stage1Ms = Date.now() - stage1Start;
         const finalText = transcription.text || "";
