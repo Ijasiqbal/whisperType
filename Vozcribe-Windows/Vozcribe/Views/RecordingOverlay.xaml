@@ -168,6 +168,30 @@
                         <Button Content="Retry" Click="RetryButton_Click"
                                 Style="{StaticResource GhostButton}" Margin="0,0,6,0"
                                 Padding="12,5" FontSize="12"/>
+                        <Button x:Name="RetryWithButton" Click="RetryWithButton_Click"
+                                Style="{StaticResource QuietButton}" Margin="0,0,6,0"
+                                Padding="10,5" FontSize="12">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding LastFailedTier.ShortName, FallbackValue=Model}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text=" ▾" VerticalAlignment="Center" FontSize="10"/>
+                            </StackPanel>
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="RetryWithMenu"
+                                             ItemsSource="{Binding AllTiers}">
+                                    <ContextMenu.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayName}"/>
+                                        </DataTemplate>
+                                    </ContextMenu.ItemTemplate>
+                                    <ContextMenu.ItemContainerStyle>
+                                        <Style TargetType="MenuItem">
+                                            <EventSetter Event="Click" Handler="RetryWithTier_Click"/>
+                                        </Style>
+                                    </ContextMenu.ItemContainerStyle>
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
                         <Button Content="Save for later" Click="SaveButton_Click"
                                 Style="{StaticResource QuietButton}"/>
                     </StackPanel>

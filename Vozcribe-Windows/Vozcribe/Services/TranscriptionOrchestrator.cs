@@ -17,7 +17,17 @@ public class TranscriptionOrchestrator : ViewModelBase
     private float _currentAmplitude;
     private int _recordingDurationMs;
     private byte[]? _lastAudioData;
+    private int _lastAudioDurationMs;
+    private ModelTier? _lastFailedTier;
     private System.Timers.Timer? _durationTimer;
+
+    public ModelTier? LastFailedTier
+    {
+        get => _lastFailedTier;
+        private set => SetField(ref _lastFailedTier, value);
+    }
+
+    public bool HasRetryableAudio => _lastAudioData != null && _lastAudioData.Length > 0;
 
     public RecordingState State
     {
@@ -77,8 +87,7 @@ public class TranscriptionOrchestrator : ViewModelBase
                 if (t.Exception != null)
                     State = RecordingState.Failed($"Unexpected error: {t.Exception.InnerException?.Message}");
             }, TaskContinuationOptions.OnlyOnFaulted);
-        else if (State.Type == RecordingStateType.Idle || State.Type == RecordingStateType.Success
-            || State.Type == RecordingStateType.Error)
+        else if (State.Type == RecordingStateType.Idle || State.Type == RecordingStateType.Success)
             StartRecording();
     }
 
@@ -116,7 +125,9 @@ public class TranscriptionOrchestrator : ViewModelBase
         var trimResult = SilenceDetector.TrimAudio(result.Samples, Constants.SampleRate);
 
         var opusData = OpusEncoderService.Encode(trimResult.Samples, Constants.SampleRate);
+        var durationMs = trimResult.SpeechDurationMs > 0 ? trimResult.SpeechDurationMs : result.DurationMs;
         _lastAudioData = opusData;
+        _lastAudioDurationMs = durationMs;
 
         if (opusData.Length < Constants.MinAudioSizeBytes)
         {
@@ -124,11 +135,14 @@ public class TranscriptionOrchestrator : ViewModelBase
             return;
         }
 
+        await TranscribeAudioAsync(opusData, durationMs, CurrentTier);
+    }
+
+    private async Task TranscribeAudioAsync(byte[] opusData, int durationMs, ModelTier tier)
+    {
         try
         {
-            var transcription = await _api.TranscribeAsync(
-                opusData, trimResult.SpeechDurationMs > 0 ? trimResult.SpeechDurationMs : result.DurationMs,
-                CurrentTier);
+            var transcription = await _api.TranscribeAsync(opusData, durationMs, tier);
 
             if (string.IsNullOrWhiteSpace(transcription.Text))
             {
@@ -148,15 +162,27 @@ public class TranscriptionOrchestrator : ViewModelBase
             };
 
             _lastAudioData = null;
+            LastFailedTier = null;
         }
         catch (QuotaExceededException ex)
         {
+            LastFailedTier = tier;
             State = RecordingState.Failed(ex.Message);
         }
         catch (Exception ex)
         {
+            LastFailedTier = tier;
             State = RecordingState.Failed($"Transcription failed: {ex.Message}");
         }
+    }
+
+    public async Task RetryLastAsync(ModelTier? targetTier = null)
+    {
+        if (_lastAudioData == null || _lastAudioData.Length == 0) return;
+
+        var tier = targetTier ?? LastFailedTier ?? CurrentTier;
+        State = RecordingState.Processing;
+        await TranscribeAudioAsync(_lastAudioData, _lastAudioDurationMs, tier);
     }
 
     public void Cancel()

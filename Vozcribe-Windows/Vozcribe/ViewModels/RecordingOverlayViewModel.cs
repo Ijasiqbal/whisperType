@@ -26,6 +26,10 @@ public class RecordingOverlayViewModel : ViewModelBase
     public bool IsError => _orchestrator.State.Type == RecordingStateType.Error;
     public bool ShowCopyButton => IsSuccess && !_orchestrator.State.WasDirectInsert;
 
+    public ModelTier[] AllTiers => ModelTier.All;
+    public ModelTier? LastFailedTier => _orchestrator.LastFailedTier;
+    public bool HasRetryableAudio => _orchestrator.HasRetryableAudio;
+
     public string DurationText
     {
         get
@@ -54,7 +58,11 @@ public class RecordingOverlayViewModel : ViewModelBase
                     OnPropertyChanged(nameof(IsSuccess));
                     OnPropertyChanged(nameof(IsError));
                     OnPropertyChanged(nameof(ShowCopyButton));
+                    OnPropertyChanged(nameof(HasRetryableAudio));
                     HandleStateChange();
+                    break;
+                case nameof(TranscriptionOrchestrator.LastFailedTier):
+                    OnPropertyChanged(nameof(LastFailedTier));
                     break;
                 case nameof(TranscriptionOrchestrator.RecordingDurationMs):
                     OnPropertyChanged(nameof(DurationText));
@@ -128,6 +136,7 @@ public class RecordingOverlayViewModel : ViewModelBase
     }
 
     public void SaveForLater() => _orchestrator.SaveForLater();
+    public void Retry(ModelTier? tier = null) => _ = _orchestrator.RetryLastAsync(tier);
     public void Dismiss() => IsVisible = false;
 
     public (double x, double y) GetSavedPosition()

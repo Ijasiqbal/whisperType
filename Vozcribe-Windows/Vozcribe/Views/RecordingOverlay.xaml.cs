@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using Vozcribe.Models;
 using Vozcribe.ViewModels;
 
 namespace Vozcribe.Views;
@@ -52,7 +54,22 @@ public partial class RecordingOverlay : Window
 
     private void RetryButton_Click(object sender, RoutedEventArgs e)
     {
-        ViewModel.Orchestrator.ToggleRecording();
+        ViewModel.Retry();
+    }
+
+    private void RetryWithButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.ContextMenu != null)
+        {
+            btn.ContextMenu.PlacementTarget = btn;
+            btn.ContextMenu.IsOpen = true;
+        }
+    }
+
+    private void RetryWithTier_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.DataContext is ModelTier tier)
+            ViewModel.Retry(tier);
     }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)

@@ -128,9 +128,15 @@ public partial class App : Application
         _trayPopup.SettingsRequested += ShowSettings;
         _trayPopup.QuitRequested += () => Shutdown();
 
+        var iconUri = new Uri(
+            "pack://application:,,,/Resources/Icons/tray-icon.ico",
+            UriKind.Absolute);
+        using var iconStream = System.Windows.Application
+            .GetResourceStream(iconUri)!.Stream;
         _trayIcon = new TaskbarIcon
         {
             ToolTipText = "Vozcribe",
+            Icon = new System.Drawing.Icon(iconStream, 16, 16),
             TrayPopup = _trayPopup
         };
 
