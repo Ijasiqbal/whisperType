@@ -2263,7 +2263,9 @@ export const transcribeStandard = onRequest(
           timestamps_granularity: "none",
         });
         const stage1Ms = Date.now() - stage1Start;
-        const finalText = transcription.text || "";
+        const finalText = (transcription.text || "")
+          .replace(/\[[^\]]*\]/g, "")
+          .trim();
         logger.info(
           `[Standard] Venice complete in ${stage1Ms}ms`
         );
