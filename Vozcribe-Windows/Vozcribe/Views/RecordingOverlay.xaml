@@ -19,7 +19,7 @@
         <Border x:Name="Shell" MinWidth="260" MinHeight="54"
                 CornerRadius="14" Padding="14,10"
                 Background="#F20B0B0F"
-                BorderBrush="{StaticResource EdgeBrush}"
+                BorderBrush="{Binding Orchestrator.CurrentTier.GlowBrush}"
                 BorderThickness="1"
                 SnapsToDevicePixels="True">
             <Border.Effect>
@@ -37,9 +37,9 @@
                 <StackPanel Orientation="Horizontal"
                             Visibility="{Binding IsRecording, Converter={StaticResource BoolToVis}}">
 
-                    <!-- Amber status dot with breathing glow -->
+                    <!-- Status dot with breathing glow — tinted to current tier color -->
                     <Grid Width="12" Height="12" Margin="2,0,12,0" VerticalAlignment="Center">
-                        <Ellipse Width="22" Height="22" Fill="{StaticResource AmberGlowBrush}">
+                        <Ellipse Width="22" Height="22" Fill="{Binding Orchestrator.CurrentTier.GlowBrush}">
                             <Ellipse.Triggers>
                                 <EventTrigger RoutedEvent="Loaded">
                                     <BeginStoryboard>
@@ -56,15 +56,14 @@
                                 </EventTrigger>
                             </Ellipse.Triggers>
                         </Ellipse>
-                        <Ellipse Width="10" Height="10" Fill="{StaticResource AmberBrush}"/>
+                        <Ellipse Width="10" Height="10" Fill="{Binding Orchestrator.CurrentTier.ColorBrush}"/>
                     </Grid>
 
-                    <!-- Waveform — 8 bars driven by AmplitudeBars[n] -->
+                    <!-- Waveform — 8 bars tinted to current tier color -->
                     <Grid VerticalAlignment="Center" Margin="0,0,14,0" Height="22" Width="74">
                         <Grid.Resources>
                             <Style TargetType="Rectangle">
                                 <Setter Property="Width" Value="3"/>
-                                <Setter Property="Fill" Value="{StaticResource AmberBrush}"/>
                                 <Setter Property="RadiusX" Value="1.5"/>
                                 <Setter Property="RadiusY" Value="1.5"/>
                                 <Setter Property="VerticalAlignment" Value="Center"/>
@@ -72,14 +71,14 @@
                             </Style>
                         </Grid.Resources>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Rectangle Height="{Binding AmplitudeBars[0], Converter={StaticResource AmpToHeight}}"/>
-                            <Rectangle Height="{Binding AmplitudeBars[1], Converter={StaticResource AmpToHeight}}"/>
-                            <Rectangle Height="{Binding AmplitudeBars[2], Converter={StaticResource AmpToHeight}}"/>
-                            <Rectangle Height="{Binding AmplitudeBars[3], Converter={StaticResource AmpToHeight}}"/>
-                            <Rectangle Height="{Binding AmplitudeBars[4], Converter={StaticResource AmpToHeight}}"/>
-                            <Rectangle Height="{Binding AmplitudeBars[5], Converter={StaticResource AmpToHeight}}"/>
-                            <Rectangle Height="{Binding AmplitudeBars[6], Converter={StaticResource AmpToHeight}}"/>
-                            <Rectangle Height="{Binding AmplitudeBars[7], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Fill="{Binding Orchestrator.CurrentTier.ColorBrush}" Height="{Binding AmplitudeBars[0], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Fill="{Binding Orchestrator.CurrentTier.ColorBrush}" Height="{Binding AmplitudeBars[1], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Fill="{Binding Orchestrator.CurrentTier.ColorBrush}" Height="{Binding AmplitudeBars[2], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Fill="{Binding Orchestrator.CurrentTier.ColorBrush}" Height="{Binding AmplitudeBars[3], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Fill="{Binding Orchestrator.CurrentTier.ColorBrush}" Height="{Binding AmplitudeBars[4], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Fill="{Binding Orchestrator.CurrentTier.ColorBrush}" Height="{Binding AmplitudeBars[5], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Fill="{Binding Orchestrator.CurrentTier.ColorBrush}" Height="{Binding AmplitudeBars[6], Converter={StaticResource AmpToHeight}}"/>
+                            <Rectangle Fill="{Binding Orchestrator.CurrentTier.ColorBrush}" Height="{Binding AmplitudeBars[7], Converter={StaticResource AmpToHeight}}"/>
                         </StackPanel>
                     </Grid>
 
@@ -89,11 +88,14 @@
                                Foreground="{StaticResource InkBrush}"
                                VerticalAlignment="Center" Margin="0,0,14,0"/>
 
-                    <!-- Tier chip -->
-                    <Border Style="{StaticResource Keycap}" VerticalAlignment="Center">
+                    <!-- Tier chip — bordered with current tier color -->
+                    <Border Background="{StaticResource PanelRaisedBrush}"
+                            BorderBrush="{Binding Orchestrator.CurrentTier.ColorBrush}"
+                            BorderThickness="1" CornerRadius="4" Padding="7,3"
+                            VerticalAlignment="Center" SnapsToDevicePixels="True">
                         <TextBlock Text="{Binding Orchestrator.CurrentTier.ShortName}"
                                    FontFamily="{StaticResource MonoFont}" FontSize="10"
-                                   Foreground="{StaticResource InkMutedBrush}"
+                                   Foreground="{Binding Orchestrator.CurrentTier.ColorBrush}"
                                    Typography.Capitals="AllSmallCaps"/>
                     </Border>
                 </StackPanel>
@@ -101,9 +103,9 @@
                 <!-- ═══════ PROCESSING ═══════ -->
                 <StackPanel Orientation="Horizontal"
                             Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}">
-                    <!-- Rotating arc -->
+                    <!-- Rotating arc — tinted to current tier color -->
                     <Grid Width="14" Height="14" Margin="2,0,12,0" VerticalAlignment="Center">
-                        <Path Stroke="{StaticResource AmberBrush}" StrokeThickness="1.6"
+                        <Path Stroke="{Binding Orchestrator.CurrentTier.ColorBrush}" StrokeThickness="1.6"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                               Data="M 7 0.5 A 6.5 6.5 0 0 1 13.5 7" RenderTransformOrigin="0.5,0.5">
                             <Path.RenderTransform>
@@ -126,7 +128,7 @@
                                FontFamily="{StaticResource DisplayFont}" FontStyle="Italic" FontSize="16"
                                Foreground="{StaticResource InkBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="…" FontFamily="{StaticResource DisplayFont}" FontStyle="Italic" FontSize="16"
-                               Foreground="{StaticResource AmberBrush}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                               Foreground="{Binding Orchestrator.CurrentTier.ColorBrush}" VerticalAlignment="Center" Margin="2,0,0,0"/>
                 </StackPanel>
 
                 <!-- ═══════ SUCCESS ═══════ -->

@@ -148,13 +148,31 @@
             <Rectangle Height="1" Fill="{StaticResource EdgeSoftBrush}" Margin="0,0,0,12"/>
 
             <!-- Actions -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Settings" Click="Settings_Click"
-                        Style="{StaticResource GhostButton}" Margin="0,0,6,0"
-                        Padding="12,6" FontSize="12"/>
-                <Button Content="Quit" Click="Quit_Click"
-                        Style="{StaticResource QuietButton}"/>
-            </StackPanel>
+            <Grid Margin="0,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Secondary actions -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button Content="Check for Update" Click="CheckForUpdate_Click"
+                            Style="{StaticResource GhostButton}"
+                            Padding="10,4" FontSize="11" Margin="0,0,6,0"/>
+                    <Button Content="Report an Issue" Click="ReportIssue_Click"
+                            Style="{StaticResource GhostButton}"
+                            Padding="10,4" FontSize="11"/>
+                </StackPanel>
+
+                <!-- Primary actions -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Settings" Click="Settings_Click"
+                            Style="{StaticResource GhostButton}" Margin="0,0,6,0"
+                            Padding="12,6" FontSize="12"/>
+                    <Button Content="Quit" Click="Quit_Click"
+                            Style="{StaticResource QuietButton}"/>
+                </StackPanel>
+            </Grid>
         </StackPanel>
     </Border>
 </UserControl>

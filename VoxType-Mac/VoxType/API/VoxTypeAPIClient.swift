@@ -89,6 +89,101 @@ final class VoxTypeAPIClient {
         return try JSONDecoder().decode(TrialStatus.self, from: data)
     }
 
+    // MARK: - Version Check
+
+    struct VersionCheckResult {
+        enum Status { case ok, updateAvailable, blocked }
+        let status: Status
+        let latestVersion: String?
+        let downloadUrl: String?
+        let message: String?
+    }
+
+    func checkVersion() async -> VersionCheckResult {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+        let region = RegionSelector.bestRegion()
+        let urlString = Constants.baseURL(for: region) + Constants.versionCheckPath + "?version=\(appVersion)"
+        guard let url = URL(string: urlString) else {
+            return VersionCheckResult(status: .ok, latestVersion: nil, downloadUrl: nil, message: nil)
+        }
+
+        do {
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.timeoutInterval = 8
+
+            let (data, _) = try await session.data(for: request)
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let statusStr = json["status"] as? String else {
+                return VersionCheckResult(status: .ok, latestVersion: nil, downloadUrl: nil, message: nil)
+            }
+
+            let latestVersion = json["latestVersion"] as? String
+            let downloadUrl = json["downloadUrl"] as? String
+            let message = json["message"] as? String
+
+            switch statusStr {
+            case "update_available":
+                return VersionCheckResult(status: .updateAvailable, latestVersion: latestVersion, downloadUrl: downloadUrl, message: message)
+            case "blocked":
+                return VersionCheckResult(status: .blocked, latestVersion: nil, downloadUrl: downloadUrl, message: message)
+            default:
+                return VersionCheckResult(status: .ok, latestVersion: nil, downloadUrl: nil, message: nil)
+            }
+        } catch {
+            return VersionCheckResult(status: .ok, latestVersion: nil, downloadUrl: nil, message: nil)
+        }
+    }
+
+    // MARK: - Issue Reporting
+
+    func submitIssue(
+        userId: String,
+        userEmail: String?,
+        category: String,
+        description: String
+    ) async throws {
+        let urlString = "https://firestore.googleapis.com/v1/projects/\(Constants.firebaseProjectID)/databases/(default)/documents/issues"
+        guard let url = URL(string: urlString) else {
+            throw VoxTypeError.serverError(0, "Invalid URL")
+        }
+
+        let token = try await AuthManager.shared.getIDToken()
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+        let now = ISO8601DateFormatter().string(from: Date())
+
+        func str(_ v: String) -> [String: Any] { ["stringValue": v] }
+
+        let body: [String: Any] = [
+            "fields": [
+                "userId":      str(userId),
+                "userEmail":   str(userEmail ?? "unknown"),
+                "category":    str(category),
+                "description": str(description),
+                "osVersion":   str(osVersion),
+                "appVersion":  str(appVersion),
+                "platform":    str("mac"),
+                "createdAt":   ["timestampValue": now],
+                "status":      str("open")
+            ]
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.timeoutInterval = 30
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            throw VoxTypeError.serverError(code, "Failed to submit issue")
+        }
+    }
+
     // MARK: - Warmup
 
     /// Warm up ALL transcription endpoints simultaneously.

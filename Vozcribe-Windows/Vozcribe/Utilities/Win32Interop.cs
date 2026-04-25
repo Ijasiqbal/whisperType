@@ -112,4 +112,15 @@ public static class Win32Interop
 
     public const int SW_SHOW = 5;
     public const int SW_RESTORE = 9;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+
+    public static void EnableDarkTitleBar(IntPtr hwnd)
+    {
+        int useDark = 1;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref useDark, sizeof(int));
+    }
 }

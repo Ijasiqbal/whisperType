@@ -1,7 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using Vozcribe.Models;
+using Vozcribe.Utilities;
 using Vozcribe.ViewModels;
 
 namespace Vozcribe.Views;
@@ -15,6 +17,8 @@ public partial class OnboardingWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        SourceInitialized += (_, _) =>
+            Win32Interop.EnableDarkTitleBar(new WindowInteropHelper(this).Handle);
     }
 
     private void SetActiveStep(int n)

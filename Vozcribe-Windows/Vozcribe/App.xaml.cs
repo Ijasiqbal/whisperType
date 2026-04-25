@@ -29,7 +29,7 @@ public partial class App : Application
     private RecordingOverlay _overlay = null!;
     private TrayPopup _trayPopup = null!;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         _mutex = new Mutex(true, MutexName, out bool isNewInstance);
         if (!isNewInstance)
@@ -44,12 +44,38 @@ public partial class App : Application
         LoadConfig();
         InitializeServices();
 
+        var versionStatus = await _api.CheckVersionAsync();
+        if (versionStatus.IsBlocked)
+        {
+            ShowVersionBlockedDialog(versionStatus);
+            Shutdown();
+            return;
+        }
+
         _auth.TryRestoreSession();
 
         if (!_settings.Settings.HasCompletedOnboarding || !_auth.IsSignedIn)
             ShowOnboarding();
         else
             StartApp();
+    }
+
+    private static void ShowVersionBlockedDialog(VersionStatus status)
+    {
+        var message = status.Message
+            ?? "This version of Vozcribe is no longer supported.";
+        var downloadUrl = status.DownloadUrl ?? Constants.CheckForUpdateUrl;
+
+        var result = MessageBox.Show(
+            $"{message}\n\nClick OK to open the download page.",
+            "Update Required",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning);
+
+        if (result == MessageBoxResult.OK)
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(downloadUrl)
+                { UseShellExecute = true });
     }
 
     private void LoadConfig()
@@ -126,6 +152,8 @@ public partial class App : Application
         var trayVm = new TrayPopupViewModel(_orchestrator, _auth, _api, _pending, _settings);
         _trayPopup = new TrayPopup { DataContext = trayVm };
         _trayPopup.SettingsRequested += ShowSettings;
+        _trayPopup.ReportIssueRequested += ShowReportIssue;
+        _trayPopup.CheckForUpdateRequested += () => _ = CheckForUpdateAsync();
         _trayPopup.QuitRequested += () => Shutdown();
 
         var iconUri = new Uri(
@@ -136,7 +164,7 @@ public partial class App : Application
         _trayIcon = new TaskbarIcon
         {
             ToolTipText = "Vozcribe",
-            Icon = new System.Drawing.Icon(iconStream, 16, 16),
+            Icon = new System.Drawing.Icon(iconStream),
             TrayPopup = _trayPopup
         };
 
@@ -148,6 +176,44 @@ public partial class App : Application
         var vm = new SettingsViewModel(_settings, _hotkey, _auth);
         var window = new SettingsWindow(vm);
         window.ShowDialog();
+    }
+
+    private void ShowReportIssue()
+    {
+        var window = new ReportIssueWindow(_api, _auth);
+        window.ShowDialog();
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        var status = await _api.CheckVersionAsync();
+
+        if (status.IsUpdateAvailable)
+        {
+            var msg = status.Message ?? $"Version {status.LatestVersion} is available.";
+            var downloadUrl = status.DownloadUrl ?? Constants.CheckForUpdateUrl;
+            var result = MessageBox.Show(
+                $"{msg}\n\nClick OK to download.",
+                "Update Available",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Information);
+            if (result == MessageBoxResult.OK)
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(downloadUrl)
+                    { UseShellExecute = true });
+        }
+        else if (status.IsBlocked)
+        {
+            ShowVersionBlockedDialog(status);
+        }
+        else
+        {
+            MessageBox.Show(
+                $"You're up to date! (v{Constants.AppVersion})",
+                "Vozcribe",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

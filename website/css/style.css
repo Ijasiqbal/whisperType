@@ -935,6 +935,16 @@ section { padding: 8rem 0; }
   border-color: rgba(255,255,255,0.18);
   transform: translateY(-2px);
 }
+.dl-btn.windows {
+  background: rgba(75,155,255,0.06);
+  color: var(--text);
+  border: 1px solid rgba(75,155,255,0.18);
+}
+.dl-btn.windows:hover {
+  border-color: rgba(75,155,255,0.35);
+  background: rgba(75,155,255,0.09);
+  transform: translateY(-2px);
+}
 .dl-icon { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; }
 .dl-text { text-align: left; }
 .dl-text small {

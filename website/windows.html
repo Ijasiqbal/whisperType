@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vozcribe for Windows — Download</title>
+  <meta name="description" content="Download Vozcribe for Windows. Voice-to-text that inserts transcribed speech wherever your cursor is.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://vozcribe.com/windows.html">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Vozcribe">
+  <meta property="og:title" content="Vozcribe for Windows — Download">
+  <meta property="og:description" content="Download Vozcribe for Windows. Voice to text, perfected.">
+  <meta property="og:url" content="https://vozcribe.com/windows.html">
+  <meta property="og:image" content="https://vozcribe.com/og-image.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Vozcribe for Windows — Download">
+  <meta name="twitter:description" content="Download Vozcribe for Windows. Voice to text, perfected.">
+  <meta name="twitter:image" content="https://vozcribe.com/og-image.png">
+
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/mac.css">
+  <link rel="stylesheet" href="css/windows.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body class="win-page">
+
+<div class="grain"></div>
+
+<!-- SMARTSCREEN MODAL -->
+<div class="ss-modal-backdrop" id="ssBackdrop" role="dialog" aria-modal="true" aria-labelledby="ssModalTitle">
+  <div class="ss-modal">
+    <button class="ss-modal-close" id="ssClose" aria-label="Close">
+      <i data-lucide="x" aria-hidden="true"></i>
+    </button>
+
+    <div class="ss-modal-kicker">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      One quick thing before you download
+    </div>
+    <h2 id="ssModalTitle">Windows will show a security warning.</h2>
+    <p class="ss-modal-sub">Vozcribe isn't code-signed yet (certificates cost money we haven't earned back yet). Windows flags all unsigned apps. It's safe — here's exactly what you'll see and what to click.</p>
+
+    <div class="ss-modal-steps">
+      <!-- Step 1 -->
+      <div class="ss-modal-step">
+        <div class="ss-modal-step-header">
+          <span class="ss-modal-num">Step 1</span>
+          <span class="ss-modal-step-label">Click <strong>More info</strong></span>
+        </div>
+        <div class="ss-modal-img-wrap">
+          <img
+            src="https://vovsoft.com/blog/windows-protected-your-pc-click1.png"
+            alt="SmartScreen dialog showing 'Windows protected your PC' with the More info link highlighted"
+            loading="lazy"
+            width="480"
+          >
+          <div class="ss-modal-arrow-badge">
+            <i data-lucide="mouse-pointer-click" aria-hidden="true"></i>
+            Click "More info"
+          </div>
+        </div>
+      </div>
+
+      <div class="ss-modal-divider" aria-hidden="true">
+        <svg viewBox="0 0 24 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <line x1="12" y1="0" x2="12" y2="36" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <polyline points="6,34 12,42 18,34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="ss-modal-step">
+        <div class="ss-modal-step-header">
+          <span class="ss-modal-num">Step 2</span>
+          <span class="ss-modal-step-label">Click <strong>Run anyway</strong></span>
+        </div>
+        <div class="ss-modal-img-wrap">
+          <img
+            src="https://vovsoft.com/blog/windows-protected-your-pc-click2.png"
+            alt="SmartScreen dialog expanded with Run anyway button highlighted"
+            loading="lazy"
+            width="480"
+          >
+          <div class="ss-modal-arrow-badge ss-modal-arrow-badge-green">
+            <i data-lucide="check" aria-hidden="true"></i>
+            Click "Run anyway"
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ss-modal-foot">
+      <i data-lucide="lock" aria-hidden="true"></i>
+      <span>Audio is sent over HTTPS and never stored on disk. Uninstall anytime via <strong>Settings → Apps</strong>.</span>
+    </div>
+
+    <a href="#" class="ss-modal-dl-btn" id="ssDownloadBtn" download>
+      <i data-lucide="download" aria-hidden="true"></i>
+      Got it — Download Vozcribe
+      <i data-lucide="arrow-right" aria-hidden="true"></i>
+    </a>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <svg class="nav-logo-mark" width="32" height="32" viewBox="0 0 80 80" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 30 L22 42 L27 30 L32 52 L36 28 L40 60 L44 26 L48 50 L53 30 L58 40 L66 18" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <span class="nav-logo-text"><span class="nav-logo-voz">Voz</span>cribe</span>
+  </a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/#features">Features</a>
+    <a href="/#pricing">Pricing</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="mac-hero win-hero">
+  <div class="mac-hero-glow"></div>
+  <div class="win-tiles" aria-hidden="true">
+    <span></span><span></span><span></span><span></span>
+  </div>
+  <div class="container">
+    <div class="mac-badge reveal">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="#a8a29e" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+      Windows 10 &amp; 11
+    </div>
+    <h1 class="reveal">Vozcribe for <span class="gradient-text">Windows</span></h1>
+    <p class="mac-subtitle reveal">Hold a hotkey. Speak. Transcribed text lands exactly where your cursor is — in any app, any text field.</p>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section class="mac-install">
+  <div class="container">
+
+    <!-- Download Card -->
+    <div class="install-card install-card-primary reveal win-dl-card">
+      <div class="install-card-glow"></div>
+      <div class="win-dl-layout">
+        <div class="win-dl-info">
+          <div class="install-header">
+            <div class="install-icon win-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="#4b9bff" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+            </div>
+            <div>
+              <h2>Vozcribe for Windows</h2>
+              <p class="install-rec win-rec">Version 1.0.0 · VozcribeSetup.exe · 64-bit</p>
+            </div>
+          </div>
+          <p class="win-dl-desc">Free to try. No subscription required to get started. Install takes under a minute.</p>
+        </div>
+        <div class="win-dl-action">
+          <button class="win-download-btn" id="openModalBtn" type="button">
+            <span class="win-download-bg"></span>
+            <span class="win-download-inner">
+              <i data-lucide="download" aria-hidden="true"></i>
+              <span class="win-download-label">
+                <strong>Download</strong>
+                <small>~180 MB · Windows 10 &amp; 11</small>
+              </span>
+            </span>
+          </button>
+          <div class="install-note">
+            <i data-lucide="shield" aria-hidden="true"></i>
+            Windows will show a SmartScreen alert. We'll walk you through it.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Steps after install -->
+    <div class="mac-steps reveal">
+      <h3>After installing</h3>
+      <div class="mac-steps-grid">
+        <div class="mac-step">
+          <div class="mac-step-num">1</div>
+          <div>
+            <h4>Launch Vozcribe</h4>
+            <p>It sits in your system tray. Click the icon to open settings or press your hotkey anywhere.</p>
+          </div>
+        </div>
+        <div class="mac-step">
+          <div class="mac-step-num">2</div>
+          <div>
+            <h4>Sign in &amp; pick a hotkey</h4>
+            <p>Default is <kbd>Ctrl</kbd> + <kbd>`</kbd> (backtick). Change it any time from settings.</p>
+          </div>
+        </div>
+        <div class="mac-step">
+          <div class="mac-step-num">3</div>
+          <div>
+            <h4>Click into any text field and speak</h4>
+            <p>Hold the hotkey, talk, release. Transcribed text appears where your cursor is — Word, Slack, browsers, anywhere.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Requirements -->
+    <div class="mac-req reveal">
+      <h3>Requirements</h3>
+      <div class="mac-req-grid">
+        <div class="mac-req-item">
+          <i data-lucide="monitor" aria-hidden="true"></i>
+          <span>Windows 10 (64-bit) or Windows 11</span>
+        </div>
+        <div class="mac-req-item">
+          <i data-lucide="mic" aria-hidden="true"></i>
+          <span>A working microphone</span>
+        </div>
+        <div class="mac-req-item">
+          <i data-lucide="wifi" aria-hidden="true"></i>
+          <span>Internet connection for transcription</span>
+        </div>
+        <div class="mac-req-item">
+          <i data-lucide="hard-drive" aria-hidden="true"></i>
+          <span>~250 MB disk space (.NET runtime bundled)</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>&copy; 2026 Vozcribe. Built for people who'd rather talk than type.</p>
+</footer>
+
+<script>
+lucide.createIcons();
+
+// Reveal
+const els = document.querySelectorAll('.reveal');
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+els.forEach(el => obs.observe(el));
+
+// Nav scroll
+const nav = document.querySelector('nav');
+window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 20));
+
+// Modal
+const backdrop = document.getElementById('ssBackdrop');
+const openBtn  = document.getElementById('openModalBtn');
+const closeBtn = document.getElementById('ssClose');
+// TODO: replace '#' with the actual hosted URL of VozcribeSetup.exe
+const DL_URL   = '#';
+
+function openModal() {
+  backdrop.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  backdrop.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+openBtn.addEventListener('click', openModal);
+closeBtn.addEventListener('click', closeModal);
+backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+document.getElementById('ssDownloadBtn').addEventListener('click', (e) => {
+  if (DL_URL === '#') { e.preventDefault(); return; }
+  closeModal();
+});
+</script>
+</body>
+</html>

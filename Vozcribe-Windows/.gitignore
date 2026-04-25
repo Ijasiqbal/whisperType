@@ -1,6 +1,8 @@
 ## Build results
 bin/
 obj/
+publish-output/
+installer-output/
 [Dd]ebug/
 [Rr]elease/
 *.user

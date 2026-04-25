@@ -7,6 +7,15 @@ struct MenuBarView: View {
     @EnvironmentObject var usage: UsageManager
     @ObservedObject var pendingManager = PendingTranscriptionManager.shared
     @AppStorage(Constants.selectedModelKey) private var selectedModelRaw = TranscriptionModel.auto.rawValue
+    @State private var showingReportIssue = false
+    @State private var updateAlert: UpdateAlert?
+
+    private struct UpdateAlert: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+        let downloadUrl: String?
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -263,6 +272,30 @@ struct MenuBarView: View {
             Divider()
 
             Button {
+                checkForUpdate()
+            } label: {
+                Label("Check for Update", systemImage: "arrow.down.circle")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .padding(.vertical, 2)
+
+            Button {
+                showingReportIssue = true
+            } label: {
+                Label("Report an Issue", systemImage: "exclamationmark.bubble")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .padding(.vertical, 2)
+            .sheet(isPresented: $showingReportIssue) {
+                ReportIssueView()
+                    .environmentObject(auth)
+            }
+
+            Divider()
+
+            Button {
                 NSApplication.shared.terminate(nil)
             } label: {
                 Label("Quit Vozcribe", systemImage: "xmark.circle")
@@ -272,18 +305,60 @@ struct MenuBarView: View {
             .padding(.vertical, 2)
             .keyboardShortcut("q")
         }
+        .alert(item: $updateAlert) { alert in
+            if let url = alert.downloadUrl {
+                return Alert(
+                    title: Text(alert.title),
+                    message: Text(alert.message),
+                    primaryButton: .default(Text("Download"), action: { openURL(url) }),
+                    secondaryButton: .cancel()
+                )
+            } else {
+                return Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
+            }
+        }
     }
 
     // MARK: - Helpers
 
     private func openSettings() {
-        // First, activate the app to ensure it comes to front
         NSApplication.shared.activate(ignoringOtherApps: true)
-
-        // Small delay to ensure app is activated before opening Settings
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            // Open Settings window using standard macOS action
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        }
+    }
+
+    private func openURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func checkForUpdate() {
+        Task {
+            let result = await VoxTypeAPIClient.shared.checkVersion()
+            let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+            await MainActor.run {
+                switch result.status {
+                case .updateAvailable:
+                    updateAlert = UpdateAlert(
+                        title: "Update Available",
+                        message: result.message ?? "Version \(result.latestVersion ?? "") is available.",
+                        downloadUrl: result.downloadUrl ?? "https://vozcribe.com/mac"
+                    )
+                case .blocked:
+                    updateAlert = UpdateAlert(
+                        title: "Update Required",
+                        message: result.message ?? "This version is no longer supported.",
+                        downloadUrl: result.downloadUrl ?? "https://vozcribe.com/mac"
+                    )
+                case .ok:
+                    updateAlert = UpdateAlert(
+                        title: "You're up to date",
+                        message: "Vozcribe v\(appVersion) is the latest version.",
+                        downloadUrl: nil
+                    )
+                }
+            }
         }
     }
 }

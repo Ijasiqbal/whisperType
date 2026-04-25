@@ -19,6 +19,7 @@ enum Constants {
     static let trialStatusPath = "/getTrialStatus"
     static let subscriptionStatusPath = "/getSubscriptionStatus"
     static let healthPath = "/health"
+    static let versionCheckPath = "/checkMacVersion"
 
     // MARK: - Timeouts (seconds)
 

@@ -37,6 +37,25 @@ public class AuthService : INotifyPropertyChanged
         private set { if (_email != value) { _email = value; OnPropertyChanged(); } }
     }
 
+    public string? Uid
+    {
+        get
+        {
+            if (_idToken == null) return null;
+            try
+            {
+                var parts = _idToken.Split('.');
+                if (parts.Length < 2) return null;
+                var payload = parts[1].Replace('-', '+').Replace('_', '/');
+                payload = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
+                var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+                using var doc = JsonDocument.Parse(json);
+                return doc.RootElement.TryGetProperty("sub", out var sub) ? sub.GetString() : null;
+            }
+            catch { return null; }
+        }
+    }
+
     public static string GenerateCodeVerifier()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);

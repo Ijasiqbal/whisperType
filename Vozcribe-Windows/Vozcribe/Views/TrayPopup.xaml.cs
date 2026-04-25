@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using Vozcribe.Models;
@@ -9,6 +10,8 @@ public partial class TrayPopup : UserControl
 {
     public event Action? SettingsRequested;
     public event Action? QuitRequested;
+    public event Action? ReportIssueRequested;
+    public event Action? CheckForUpdateRequested;
 
     private TrayPopupViewModel ViewModel => (TrayPopupViewModel)DataContext;
 
@@ -31,4 +34,10 @@ public partial class TrayPopup : UserControl
 
     private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke();
     private void Quit_Click(object sender, RoutedEventArgs e) => QuitRequested?.Invoke();
+
+    private void CheckForUpdate_Click(object sender, RoutedEventArgs e)
+        => CheckForUpdateRequested?.Invoke();
+
+    private void ReportIssue_Click(object sender, RoutedEventArgs e)
+        => ReportIssueRequested?.Invoke();
 }

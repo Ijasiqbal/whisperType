@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading;
 using Vozcribe.Models;
 
 namespace Vozcribe.Services;
@@ -87,6 +88,70 @@ public class ApiClient
         var responseJson = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<TrialStatus>(responseJson)
             ?? throw new InvalidOperationException("Invalid trial status response");
+    }
+
+    public async Task<VersionStatus> CheckVersionAsync()
+    {
+        var baseUrl = BuildBaseUrl(Constants.DetectedRegion);
+        var url = $"{baseUrl}{Constants.VersionCheckPath}?version={Constants.AppVersion}";
+
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            var response = await Http.GetAsync(url, cts.Token);
+            if (!response.IsSuccessStatusCode)
+                return new VersionStatus { Status = "ok" };
+
+            var json = await response.Content.ReadAsStringAsync(cts.Token);
+            return JsonSerializer.Deserialize<VersionStatus>(json)
+                ?? new VersionStatus { Status = "ok" };
+        }
+        catch
+        {
+            // Fail open — never block the user if the check can't reach the server.
+            return new VersionStatus { Status = "ok" };
+        }
+    }
+
+    public async Task SubmitIssueAsync(
+        string userId, string? userEmail, string category, string description)
+    {
+        var token = _getToken != null ? await _getToken() : null;
+        if (token == null)
+            throw new InvalidOperationException("Not authenticated");
+
+        var url = $"https://firestore.googleapis.com/v1/projects/{Constants.FirebaseProjectId}/databases/(default)/documents/issues";
+        var now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+        var body = new
+        {
+            fields = new Dictionary<string, object>
+            {
+                ["userId"]      = new { stringValue = userId },
+                ["userEmail"]   = new { stringValue = userEmail ?? "unknown" },
+                ["category"]    = new { stringValue = category },
+                ["description"] = new { stringValue = description },
+                ["osVersion"]   = new { stringValue = Environment.OSVersion.ToString() },
+                ["appVersion"]  = new { stringValue = Constants.AppVersion },
+                ["platform"]    = new { stringValue = "windows" },
+                ["createdAt"]   = new { timestampValue = now },
+                ["status"]      = new { stringValue = "open" }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(body);
+        var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode}: {error}");
+        }
     }
 
     public async Task WarmupEndpointsAsync()

@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
+using Vozcribe.Utilities;
 using Vozcribe.ViewModels;
 
 namespace Vozcribe.Views;
@@ -12,6 +14,8 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        SourceInitialized += (_, _) =>
+            Win32Interop.EnableDarkTitleBar(new WindowInteropHelper(this).Handle);
     }
 
     private void CaptureHotkey_Click(object sender, RoutedEventArgs e) => ViewModel.StartCapturingHotkey();

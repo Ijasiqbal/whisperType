@@ -13,6 +13,12 @@ final class AuthManager: NSObject, ObservableObject {
     @Published var userName: String?
     @Published var isLoading = false
 
+    var userUID: String? {
+        if let uid = Auth.auth().currentUser?.uid { return uid }
+        let uid = UserDefaults.standard.string(forKey: Constants.restUserUID) ?? ""
+        return uid.isEmpty ? nil : uid
+    }
+
     private var authStateHandle: AuthStateDidChangeListenerHandle?
     private var isConfigured = false
     private var pendingCodeVerifier: String?

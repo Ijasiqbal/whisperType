@@ -16,10 +16,18 @@ public static class Constants
         return "europe-west1";
     }
 
+    // App version (major.minor.patch from assembly)
+    public static readonly string AppVersion =
+        System.Reflection.Assembly.GetExecutingAssembly()
+            .GetName().Version is { } v
+            ? $"{v.Major}.{v.Minor}.{v.Build}"
+            : "0.0.0";
+
     // Endpoints
     public const string TrialStatusPath = "/getTrialStatus";
     public const string SubscriptionStatusPath = "/getSubscriptionStatus";
     public const string HealthPath = "/health";
+    public const string VersionCheckPath = "/checkWindowsVersion";
 
     // Timeouts
     public static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(60);
@@ -71,4 +79,7 @@ public static class Constants
     public static string GoogleClientId { get; set; } = "";
     public static string GoogleClientSecret { get; set; } = "";
     public const string CredentialTarget = "Vozcribe_Auth";
+
+    // Support
+    public const string CheckForUpdateUrl = "https://vozcribe.com/windows";
 }

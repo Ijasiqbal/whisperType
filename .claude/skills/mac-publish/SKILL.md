@@ -26,7 +26,7 @@ Build, ad-hoc sign, package, and release Vozcribe macOS app so users can install
 grep '^  version' "$(brew --repository ijasiqbal/vozcribe)/Casks/vozcribe.rb"
 ```
 
-The new version must be **strictly greater** than what's printed. Pick the next increment (e.g. `1.13` → `1.14`) unless there's a reason to jump.
+The new version must be **strictly greater** than what's printed. The versioning scheme is now **three-part** (`major.minor.patch`). Starting from `1.15.1` — increment patch for minor updates, minor for significant changes (e.g. `1.15.1` → `1.15.2` → `1.16.0`).
 
 ### 1. Build the release
 
@@ -111,7 +111,18 @@ git commit -m "bump vozcribe to <VERSION>"
 git push
 ```
 
-### 6. Verify end-to-end
+### 6. Update Firestore latest version
+
+```bash
+cd /Users/ijas/Documents/whisperType
+node scripts/update-firestore-version.js mac <VERSION>
+```
+
+Expected output: `✓ config/macApp.latestVersion = <VERSION>`
+
+> **One-time setup:** Run `gcloud auth application-default login` if you haven't already.
+
+### 7. Verify end-to-end
 
 ```bash
 brew uninstall --cask vozcribe

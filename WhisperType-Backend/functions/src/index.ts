@@ -1617,6 +1617,158 @@ export const health = onRequest((request, response) => {
 });
 
 /**
+ * Compares two semver strings (e.g. "1.2.3").
+ * @param {string} a - First version string.
+ * @param {string} b - Second version string.
+ * @return {number} Negative if a < b, 0 if equal, positive if a > b.
+ */
+function compareVersions(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+/**
+ * Checks whether a Windows app version is allowed to run.
+ * Reads config from Firestore at config/windowsApp. If the document does
+ * not exist, all versions are allowed (fail-open default).
+ * GET /checkWindowsVersion?version=1.2.3
+ * Response: { status: "ok" | "blocked", message?: string, downloadUrl?: string }
+ * @param {functions.https.Request} request - HTTP request.
+ * @param {Response} response - HTTP response.
+ * @return {Promise<void>}
+ */
+export const checkWindowsVersion = onRequest(
+  {region: ["us-central1", "asia-south1", "europe-west1"]},
+  async (request, response) => {
+    const version =
+      (request.query.version as string | undefined) ||
+      (request.body?.version as string | undefined);
+
+    if (!version || !/^\d+(\.\d+)*$/.test(version)) {
+      response.status(400).json({error: "Invalid or missing version"});
+      return;
+    }
+
+    try {
+      const configDoc = await db.doc("config/windowsApp").get();
+
+      if (!configDoc.exists) {
+        response.json({status: "ok"});
+        return;
+      }
+
+      const config = configDoc.data()!;
+      const blockedVersions: string[] = config.blockedVersions ?? [];
+      const minVersion: string = config.minVersion ?? "0.0.0";
+      const downloadUrl: string =
+        config.downloadUrl ?? "https://vozcribe.com/windows";
+      const blockedMessage: string =
+        config.blockedMessage ??
+        "This version of Vozcribe is no longer supported. " +
+        "Please download the latest version to continue.";
+
+      const latestVersion: string = config.latestVersion ?? "";
+      const isBlocked = blockedVersions.includes(version);
+      const isBelowMinimum = compareVersions(version, minVersion) < 0;
+
+      if (isBlocked || isBelowMinimum) {
+        response.json({
+          status: "blocked",
+          message: blockedMessage,
+          downloadUrl,
+        });
+        return;
+      }
+
+      if (latestVersion && compareVersions(version, latestVersion) < 0) {
+        response.json({
+          status: "update_available",
+          latestVersion,
+          downloadUrl,
+          message: `Version ${latestVersion} is available.`,
+        });
+        return;
+      }
+
+      response.json({status: "ok"});
+    } catch (error) {
+      logger.error("[checkWindowsVersion] Error reading config", error);
+      response.json({status: "ok"});
+    }
+  }
+);
+
+/**
+ * Checks whether a Mac app version is up to date.
+ * Reads config from Firestore at config/macApp.
+ * @param {functions.https.Request} request - HTTP request.
+ * @param {Response} response - HTTP response.
+ * @return {Promise<void>}
+ */
+export const checkMacVersion = onRequest(
+  {region: ["us-central1", "asia-south1", "europe-west1"]},
+  async (request, response) => {
+    const version =
+      (request.query.version as string | undefined) ||
+      (request.body?.version as string | undefined);
+
+    if (!version || !/^\d+(\.\d+)*$/.test(version)) {
+      response.status(400).json({error: "Invalid or missing version"});
+      return;
+    }
+
+    try {
+      const configDoc = await db.doc("config/macApp").get();
+
+      if (!configDoc.exists) {
+        response.json({status: "ok"});
+        return;
+      }
+
+      const config = configDoc.data()!;
+      const blockedVersions: string[] = config.blockedVersions ?? [];
+      const minVersion: string = config.minVersion ?? "0.0.0";
+      const latestVersion: string = config.latestVersion ?? "";
+      const downloadUrl: string =
+        config.downloadUrl ?? "https://vozcribe.com/mac";
+      const blockedMessage: string =
+        config.blockedMessage ??
+        "This version of Vozcribe is no longer supported. " +
+        "Please download the latest version to continue.";
+
+      const isBlocked = blockedVersions.includes(version);
+      const isBelowMinimum = compareVersions(version, minVersion) < 0;
+
+      if (isBlocked || isBelowMinimum) {
+        response.json({status: "blocked", message: blockedMessage, downloadUrl});
+        return;
+      }
+
+      if (latestVersion && compareVersions(version, latestVersion) < 0) {
+        response.json({
+          status: "update_available",
+          latestVersion,
+          downloadUrl,
+          message: `Version ${latestVersion} is available.`,
+        });
+        return;
+      }
+
+      response.json({status: "ok"});
+    } catch (error) {
+      logger.error("[checkMacVersion] Error reading config", error);
+      response.json({status: "ok"});
+    }
+  }
+);
+
+/**
  * Transcribe audio using OpenAI Whisper API
  * POST /transcribeAudio
  * Body: {

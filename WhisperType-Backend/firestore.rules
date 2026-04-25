@@ -3,10 +3,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Issues collection: authenticated users can create issues
+    // Issues collection: authenticated users can submit one issue per minute,
+    // description capped at 5 000 chars, userId must match the caller.
     match /issues/{issueId} {
       allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid;
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.description is string
+                    && request.resource.data.description.size() <= 5000
+                    && request.resource.data.category in
+                         ["bug", "feature_request", "transcription_issue", "other"];
       allow read, update, delete: if false;
     }
 
