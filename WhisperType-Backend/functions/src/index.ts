@@ -1638,7 +1638,8 @@ function compareVersions(a: string, b: string): number {
  * Reads config from Firestore at config/windowsApp. If the document does
  * not exist, all versions are allowed (fail-open default).
  * GET /checkWindowsVersion?version=1.2.3
- * Response: { status: "ok" | "blocked", message?: string, downloadUrl?: string }
+ * Response: { status: "ok"|"blocked", message?: string,
+ * downloadUrl?: string }
  * @param {functions.https.Request} request - HTTP request.
  * @param {Response} response - HTTP response.
  * @return {Promise<void>}
@@ -1746,7 +1747,9 @@ export const checkMacVersion = onRequest(
       const isBelowMinimum = compareVersions(version, minVersion) < 0;
 
       if (isBlocked || isBelowMinimum) {
-        response.json({status: "blocked", message: blockedMessage, downloadUrl});
+        response.json({
+          status: "blocked", message: blockedMessage, downloadUrl,
+        });
         return;
       }
 
