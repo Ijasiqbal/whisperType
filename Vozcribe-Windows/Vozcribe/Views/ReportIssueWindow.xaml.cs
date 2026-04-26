@@ -1,7 +1,9 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using Vozcribe.Services;
+using Vozcribe.Utilities;
 
 namespace Vozcribe.Views;
 
@@ -15,6 +17,8 @@ public partial class ReportIssueWindow : Window
         InitializeComponent();
         _api = api;
         _auth = auth;
+        SourceInitialized += (_, _) =>
+            Win32Interop.EnableDarkTitleBar(new WindowInteropHelper(this).Handle);
     }
 
     private async void Submit_Click(object sender, RoutedEventArgs e)

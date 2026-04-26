@@ -89,6 +89,9 @@ public class TextInsertionService
                 if (!valuePattern.Current.IsReadOnly)
                 {
                     string existing = valuePattern.Current.Value ?? "";
+                    string placeholder = element.Current.HelpText ?? "";
+                    if (!string.IsNullOrEmpty(placeholder) && existing == placeholder)
+                        existing = "";
                     string combined = existing + text;
                     valuePattern.SetValue(combined);
                     var inserted = valuePattern.Current.Value;
