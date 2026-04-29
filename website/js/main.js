@@ -247,6 +247,19 @@ function initPricingToggle() {
 }
 
 
+// ===== MOBILE TIER CAROUSEL PAGER =====
+function initTierCarousel() {
+  const scroll = document.getElementById('vc-scroll');
+  const dots = document.querySelectorAll('#vc-pager span');
+  if (!scroll || !dots.length) return;
+
+  scroll.addEventListener('scroll', () => {
+    const cardW = scroll.querySelector('.vc-card').offsetWidth + 14;
+    const idx = Math.min(dots.length - 1, Math.max(0, Math.round(scroll.scrollLeft / cardW)));
+    dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+  }, { passive: true });
+}
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
   initReveal();
@@ -257,4 +270,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initParallax();
   initGradientBorders();
   initPricingToggle();
+  initTierCarousel();
 });

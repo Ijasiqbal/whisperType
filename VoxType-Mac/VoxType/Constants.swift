@@ -18,6 +18,7 @@ enum Constants {
     static let transcribeStandardPath = "/transcribeStandard"
     static let trialStatusPath = "/getTrialStatus"
     static let subscriptionStatusPath = "/getSubscriptionStatus"
+    static let platformPresencePath = "/updatePlatformPresence"
     static let healthPath = "/health"
     static let versionCheckPath = "/checkMacVersion"
 
@@ -82,6 +83,7 @@ enum Constants {
     static let launchAtLoginKey = "launchAtLogin"
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     static let selectedHotkeyKey = "selectedHotkey"
+    static let lastSoftUpdateShownVersionKey = "lastSoftUpdateShownVersion"
 
     // MARK: - REST Auth Token Storage Keys
 

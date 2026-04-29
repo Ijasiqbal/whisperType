@@ -2,6 +2,7 @@ package com.whispertype.app.api
 
 import android.util.Base64
 import android.util.Log
+import android.os.Build
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import com.whispertype.app.Constants
@@ -76,6 +77,9 @@ class WhisperApiClient {
 
         private val TRIAL_STATUS_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/getTrialStatus"
+
+        private val PLATFORM_PRESENCE_URL: String
+            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/updatePlatformPresence"
 
         private val VERIFY_SUBSCRIPTION_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/verifySubscription"
@@ -221,6 +225,15 @@ class WhisperApiClient {
         val model: String? = null,  // Optional model parameter
         @SerializedName("audioDurationMs")
         val audioDurationMs: Long? = null  // Duration in milliseconds for usage tracking
+    )
+
+    private data class PlatformPresenceRequest(
+        @SerializedName("platform")
+        val platform: String = "android",
+        @SerializedName("appVersion")
+        val appVersion: String,
+        @SerializedName("osVersion")
+        val osVersion: String
     )
 
     /**
@@ -1107,6 +1120,46 @@ class WhisperApiClient {
                     else -> "Network error. Please try again."
                 }
                 onError(errorMessage)
+            }
+        })
+    }
+
+    fun updatePlatformPresence(
+        authToken: String,
+        appVersion: String,
+        onSuccess: () -> Unit = {},
+        onError: (error: String) -> Unit = {}
+    ) {
+        val osVersion = "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT}); ${Build.MANUFACTURER} ${Build.MODEL}"
+        val requestBody = PlatformPresenceRequest(
+            appVersion = appVersion,
+            osVersion = osVersion
+        )
+        val jsonBody = gson.toJson(requestBody)
+
+        val request = Request.Builder()
+            .url(PLATFORM_PRESENCE_URL)
+            .addHeader("Authorization", "Bearer $authToken")
+            .post(jsonBody.toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (response.isSuccessful) {
+                        Log.d(TAG, "Platform presence updated")
+                        onSuccess()
+                    } else {
+                        val responseBody = response.body?.string()
+                        Log.w(TAG, "Platform presence update failed: ${response.code} $responseBody")
+                        onError("Failed to update platform presence")
+                    }
+                }
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                Log.w(TAG, "Platform presence request failed", e)
+                onError("Network error updating platform presence")
             }
         })
     }

@@ -17,6 +17,7 @@ import {
 import { Construction, Trash2 } from "lucide-react";
 import { deleteAnonymousUsers } from "@/lib/api/admin-api";
 import { toast } from "sonner";
+import { AppVersionControl } from "@/components/settings/AppVersionControl";
 
 const CONFIRM_TEXT = "DELETE ANONYMOUS USERS";
 
@@ -65,6 +66,8 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      <AppVersionControl />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -73,13 +76,10 @@ export default function SettingsPage() {
             <Badge variant="secondary">Phase 2</Badge>
           </CardTitle>
           <CardDescription>
-            Settings management will be available in a future update
+            More settings coming in a future update
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
-            Planned features include:
-          </p>
           <ul className="mt-2 list-disc list-inside text-sm text-muted-foreground space-y-1">
             <li>Remote Config editor (credit limits, trial duration)</li>
             <li>Admin user management (grant/revoke admin access)</li>

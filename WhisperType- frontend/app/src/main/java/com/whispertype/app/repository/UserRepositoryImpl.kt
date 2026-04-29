@@ -1,8 +1,6 @@
 package com.whispertype.app.repository
 
 import android.util.Log
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.whispertype.app.api.WhisperApiClient
 import com.whispertype.app.data.UsageDataManager
 import kotlinx.coroutines.flow.StateFlow
@@ -111,22 +109,15 @@ class UserRepositoryImpl @Inject constructor(
 
     /**
      * Record that this device is active on Android platform.
-     * Uses Firestore merge so other fields on the user document are untouched.
+     * Uses the backend because direct user document writes are denied by
+     * Firestore rules.
      */
-    override fun updatePlatformPresence(uid: String, appVersion: String) {
-        val data = mapOf(
-            "platforms" to mapOf(
-                "android" to mapOf(
-                    "lastSeen" to com.google.firebase.Timestamp.now(),
-                    "appVersion" to appVersion
-                )
-            )
+    override fun updatePlatformPresence(authToken: String, appVersion: String) {
+        apiClient.updatePlatformPresence(
+            authToken = authToken,
+            appVersion = appVersion,
+            onSuccess = { Log.d(TAG, "Platform presence updated") },
+            onError = { error -> Log.w(TAG, "Failed to update platform presence: $error") }
         )
-        FirebaseFirestore.getInstance()
-            .collection("users")
-            .document(uid)
-            .set(data, SetOptions.merge())
-            .addOnSuccessListener { Log.d(TAG, "Platform presence updated") }
-            .addOnFailureListener { e -> Log.w(TAG, "Failed to update platform presence", e) }
     }
 }

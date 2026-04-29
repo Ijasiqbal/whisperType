@@ -335,6 +335,31 @@ class WhisperTypeAccessibilityService : AccessibilityService() {
     }
 
     /**
+     * Re-check focus and show the floating mic icon if an editable field is
+     * currently focused. Used after the recording overlay closes, since focus
+     * usually returns to the same field without firing TYPE_VIEW_FOCUSED.
+     */
+    fun reevaluateFocusForIcon() {
+        if (!ShortcutPreferences.isAutoShowIconEnabled(this)) return
+        // Delay slightly to let window focus settle after our overlay is removed.
+        mainHandler.postDelayed({
+            try {
+                val focused = findFocusedEditableNode() ?: return@postDelayed
+                try {
+                    val isDictatable = focused.isVisibleToUser &&
+                        !focused.isPassword &&
+                        isDictatableInputType(focused.inputType)
+                    if (isDictatable) dispatchShowIcon()
+                } finally {
+                    focused.recycle()
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "reevaluateFocusForIcon error", t)
+            }
+        }, 250)
+    }
+
+    /**
      * Show the floating mic icon only if it is not already shown.
      */
     private fun dispatchShowIcon() {

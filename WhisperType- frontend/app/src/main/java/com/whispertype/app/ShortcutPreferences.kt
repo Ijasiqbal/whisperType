@@ -15,6 +15,7 @@ object ShortcutPreferences {
     private const val KEY_AUTO_SHOW_ICON_ENABLED = "auto_show_icon_enabled"
     private const val KEY_AUTO_SEND_WARNING_SHOWN = "auto_send_warning_shown"
     private const val KEY_MODEL_TIER = "model_tier"
+    private const val KEY_VOLUME_SHORTCUT_ENABLED = "volume_shortcut_enabled"
     
     /**
      * Available shortcut modes
@@ -149,5 +150,13 @@ object ShortcutPreferences {
      */
     fun setModelTier(context: Context, tier: ModelTier) {
         getPrefs(context).edit().putString(KEY_MODEL_TIER, tier.name).apply()
+    }
+
+    fun isVolumeShortcutEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_VOLUME_SHORTCUT_ENABLED, true)
+    }
+
+    fun setVolumeShortcutEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_VOLUME_SHORTCUT_ENABLED, enabled).apply()
     }
 }

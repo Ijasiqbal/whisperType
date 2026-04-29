@@ -25,16 +25,25 @@ public partial class OnboardingWindow : Window
     {
         var amber = (SolidColorBrush)FindResource("AmberBrush");
         var ink = (SolidColorBrush)FindResource("InkBrush");
+        var muted = (SolidColorBrush)FindResource("InkMutedBrush");
         var dim = (SolidColorBrush)FindResource("InkDimBrush");
 
-        void Apply(StackPanel row, bool active)
+        void Apply(StackPanel row, int rowStep)
         {
-            if (row.Children[0] is TextBlock num) num.Foreground = active ? amber : dim;
-            if (row.Children[1] is TextBlock label) label.Foreground = active ? ink : dim;
+            bool active = rowStep == n;
+            bool done = rowStep < n;
+            if (row.Children[0] is TextBlock num)
+                num.Foreground = active ? amber : (done ? muted : dim);
+            if (row.Children[1] is TextBlock label)
+            {
+                label.Foreground = active ? ink : (done ? muted : dim);
+                label.TextDecorations = done ? TextDecorations.Strikethrough : null;
+            }
         }
-        Apply(StepRow1, n == 1);
-        Apply(StepRow2, n == 2);
-        Apply(StepRow3, n == 3);
+        Apply(StepRow1, 1);
+        Apply(StepRow2, 2);
+        Apply(StepRow3, 3);
+        Apply(StepRow4, 4);
     }
 
     private async void SignIn_Click(object sender, RoutedEventArgs e)
@@ -77,7 +86,21 @@ public partial class OnboardingWindow : Window
             ViewModel.SelectHotkey(hotkey);
     }
 
-    private void Complete_Click(object sender, RoutedEventArgs e)
+    private void HotkeyNext_Click(object sender, RoutedEventArgs e)
+    {
+        Step3.Visibility = Visibility.Collapsed;
+        Step4.Visibility = Visibility.Visible;
+        SetActiveStep(4);
+    }
+
+    private void TrayGotIt_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CompleteOnboarding();
+        Completed = true;
+        Close();
+    }
+
+    private void TraySkip_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.CompleteOnboarding();
         Completed = true;

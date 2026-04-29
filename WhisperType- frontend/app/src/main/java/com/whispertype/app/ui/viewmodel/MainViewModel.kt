@@ -78,13 +78,13 @@ class MainViewModel @Inject constructor(
                     val token = authRepository.getIdToken()
                     if (token != null) {
                         userRepository.refreshStatus(token)
-                    }
-                    if (state.user.uid != lastPresenceUid) {
-                        lastPresenceUid = state.user.uid
-                        userRepository.updatePlatformPresence(
-                            uid = state.user.uid,
-                            appVersion = BuildConfig.VERSION_NAME
-                        )
+                        if (state.user.uid != lastPresenceUid) {
+                            lastPresenceUid = state.user.uid
+                            userRepository.updatePlatformPresence(
+                                authToken = token,
+                                appVersion = BuildConfig.VERSION_NAME
+                            )
+                        }
                     }
                 }
             }

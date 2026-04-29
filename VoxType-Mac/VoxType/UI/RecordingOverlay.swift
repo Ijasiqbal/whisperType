@@ -350,13 +350,22 @@ struct RecordingOverlayView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 28)
-                .fill(.ultraThinMaterial)
-                .environment(\.colorScheme, .dark)
+                .fill(Color.black.opacity(0.32))
+                .background(
+                    RoundedRectangle(cornerRadius: 28)
+                        .fill(.ultraThinMaterial)
+                        .environment(\.colorScheme, .dark)
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 28)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 28)
                 .stroke(overlayBorderColor, lineWidth: 1)
         )
+        .shadow(color: .black.opacity(0.35), radius: 20, y: 8)
         .animation(.easeInOut(duration: 0.2), value: service.state)
     }
 
@@ -445,10 +454,10 @@ struct RecordingOverlayView: View {
 
     private var overlayBorderColor: Color {
         switch service.state {
-        case .inserted: return .green.opacity(0.5)
-        case .success: return .green.opacity(0.5)
-        case .error: return .red.opacity(0.5)
-        default: return currentModel.color.opacity(0.3)
+        case .inserted: return .green.opacity(0.7)
+        case .success: return .green.opacity(0.7)
+        case .error: return .red.opacity(0.7)
+        default: return currentModel.color.opacity(0.6)
         }
     }
 
@@ -581,12 +590,21 @@ struct ModelSwitchToastView: View {
         .padding(.vertical, 8)
         .background(
             Capsule()
-                .fill(.ultraThinMaterial)
-                .environment(\.colorScheme, .dark)
+                .fill(Color.black.opacity(0.32))
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .environment(\.colorScheme, .dark)
+                )
         )
         .overlay(
             Capsule()
-                .stroke(model.color.opacity(0.4), lineWidth: 1)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
         )
+        .overlay(
+            Capsule()
+                .stroke(model.color.opacity(0.7), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.35), radius: 16, y: 6)
     }
 }

@@ -43,7 +43,7 @@ const GROQ_TIER_MAP: Record<string, string> = {
 };
 
 const VENICE_TIER_MAP: Record<string, string> = {
-  "standard": "elevenlabs/scribe-v2",
+  "standard": "nvidia/parakeet-tdt-0.6b-v3",
 };
 
 const VENICE_BASE_URL = "https://api.venice.ai/api/v1";
@@ -267,7 +267,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_FREE_TIER_CREDITS = 500;
 const DEFAULT_PRO_TIER_CREDITS = 10000;
 const DEFAULT_SECONDS_PER_CREDIT = 6;
-const DEFAULT_TRIAL_DURATION_MONTHS = 3;
+const DEFAULT_TRIAL_DURATION_MONTHS = 0;
 const DEFAULT_PRO_PRODUCT_ID = "whispertype_pro_monthly";
 const DEFAULT_STARTER_PRODUCT_ID = "voxtype_starter_monthly";
 const DEFAULT_UNLIMITED_PRODUCT_ID = "voxtype_unlimited_monthly";
@@ -458,6 +458,7 @@ interface UserDocument {
   platforms?: Record<string, {
     lastSeen?: admin.firestore.Timestamp;
     appVersion?: string;
+    osVersion?: string;
   }>;
   // Legacy fields (for migration - will be reset to 0)
   freeMinutesRemaining?: number;
@@ -497,11 +498,13 @@ interface TrialStatusResult {
  * Calculate trial status for a user
  * @param {UserDocument} user - The user document
  * @param {number} freeTierCredits - Credit limit from Remote Config
+ * @param {number} trialDurationMonths - 0 means no time expiry
  * @return {TrialStatusResult} The trial status
  */
 function checkTrialStatus(
   user: UserDocument,
-  freeTierCredits: number
+  freeTierCredits: number,
+  trialDurationMonths = DEFAULT_TRIAL_DURATION_MONTHS
 ): TrialStatusResult {
   const now = admin.firestore.Timestamp.now();
   const freeCreditsUsed = user.freeCreditsUsed || 0;
@@ -511,8 +514,8 @@ function checkTrialStatus(
   const trialExpiryDate = user.trialExpiryDate;
   const trialExpiryDateMs = trialExpiryDate.toMillis();
 
-  // Check if trial expired by time
-  if (now.toMillis() > trialExpiryDateMs) {
+  // Check if trial expired by time (skipped when trialDurationMonths is 0)
+  if (trialDurationMonths > 0 && now.toMillis() > trialExpiryDateMs) {
     return {
       isValid: false,
       status: "expired_time",
@@ -1615,6 +1618,109 @@ setGlobalOptions({maxInstances: 10});
 export const health = onRequest((request, response) => {
   response.send("OK");
 });
+
+type ClientPlatform = "android" | "mac" | "windows";
+
+/**
+ * Converts platform aliases from clients into the stored platform key.
+ * @param {unknown} value - Raw platform value from the request body.
+ * @return {ClientPlatform | null} Normalized platform or null.
+ */
+function normalizePlatform(value: unknown): ClientPlatform | null {
+  if (typeof value !== "string") return null;
+  const platform = value.trim().toLowerCase();
+  if (platform === "android") return "android";
+  if (platform === "mac" || platform === "macos") return "mac";
+  if (platform === "windows" || platform === "win") return "windows";
+  return null;
+}
+
+/**
+ * Sanitizes a required client-provided string for Firestore storage.
+ * @param {unknown} value - Raw value from the request body.
+ * @param {number} maxLength - Maximum number of characters to store.
+ * @return {string} Trimmed value or "unknown".
+ */
+function sanitizePresenceString(value: unknown, maxLength = 120): string {
+  if (typeof value !== "string") return "unknown";
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : "unknown";
+}
+
+/**
+ * Sanitizes an optional client-provided string for Firestore storage.
+ * @param {unknown} value - Raw value from the request body.
+ * @param {number} maxLength - Maximum number of characters to store.
+ * @return {string | undefined} Trimmed value if present.
+ */
+function sanitizeOptionalPresenceString(
+  value: unknown,
+  maxLength = 160
+): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : undefined;
+}
+
+/**
+ * Records the current user's active platform.
+ * POST /updatePlatformPresence
+ * Headers: Authorization: Bearer <firebase_id_token>
+ * Body: { platform: "android"|"mac"|"windows", appVersion?: string,
+ *         osVersion?: string }
+ */
+export const updatePlatformPresence = onRequest(
+  {region: ["us-central1"]},
+  async (request, response) => {
+    if (request.method !== "POST") {
+      response.set("Allow", "POST");
+      response.status(405).json({error: "Method not allowed"});
+      return;
+    }
+
+    try {
+      const decodedToken = await verifyAuthToken(request.headers.authorization);
+      if (!decodedToken) {
+        response.status(401).json({
+          error: "Unauthorized: Invalid or missing authentication token",
+        });
+        return;
+      }
+
+      const platform = normalizePlatform(request.body?.platform);
+      if (!platform) {
+        response.status(400).json({
+          error: "Invalid platform. Expected android, mac, or windows.",
+        });
+        return;
+      }
+
+      const appVersion = sanitizePresenceString(request.body?.appVersion);
+      const osVersion = sanitizeOptionalPresenceString(request.body?.osVersion);
+
+      const platformPresence: Record<string, unknown> = {
+        lastSeen: admin.firestore.FieldValue.serverTimestamp(),
+        appVersion,
+      };
+      if (osVersion) {
+        platformPresence.osVersion = osVersion;
+      }
+
+      await db.collection("users").doc(decodedToken.uid).set(
+        {platforms: {[platform]: platformPresence}},
+        {merge: true}
+      );
+
+      logger.info(
+        `Updated platform presence for ${decodedToken.uid}: ${platform}`
+      );
+      response.status(200).json({success: true});
+    } catch (error) {
+      logger.error("Error updating platform presence", error);
+      response.status(500).json({error: "Internal server error"});
+    }
+  }
+);
 
 /**
  * Compares two semver strings (e.g. "1.2.3").
@@ -3377,17 +3483,22 @@ export const adminGetUserDetails = onRequest(
 
       const rawPlatforms = userData?.platforms as Record<
         string,
-        {lastSeen?: FirebaseFirestore.Timestamp; appVersion?: string}
+        {
+          lastSeen?: FirebaseFirestore.Timestamp;
+          appVersion?: string;
+          osVersion?: string;
+        }
       > | undefined;
       const platforms: Record<
         string,
-        {lastSeen: number; appVersion: string}
+        {lastSeen: number; appVersion: string; osVersion: string}
       > = {};
       if (rawPlatforms) {
         for (const [key, val] of Object.entries(rawPlatforms)) {
           platforms[key] = {
             lastSeen: val.lastSeen?.toMillis() ?? 0,
             appVersion: val.appVersion ?? "",
+            osVersion: val.osVersion ?? "",
           };
         }
       }

@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(tasklist)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(gunzip)",
+      "Bash(tar -x --to-stdout vozcribe/chats/chat2.md)",
+      "Bash(tar -t)",
+      "Bash(codesign --force --deep --sign - /Users/ijas/Documents/whisperType/VoxType-Mac/build/Vozcribe.xcarchive/Products/Applications/Vozcribe.app)",
+      "Bash(codesign -dvv /Users/ijas/Documents/whisperType/VoxType-Mac/build/Vozcribe.xcarchive/Products/Applications/Vozcribe.app)"
     ]
   }
 }

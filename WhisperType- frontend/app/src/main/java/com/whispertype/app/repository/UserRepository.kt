@@ -50,12 +50,12 @@ interface UserRepository {
 
     /**
      * Record that this device is active on Android platform.
-     * Writes lastSeen timestamp and app version to Firestore.
+     * Writes lastSeen timestamp and app version through the backend.
      *
-     * @param uid Firebase user UID
+     * @param authToken Firebase Auth ID token
      * @param appVersion App version string (e.g. "1.0.20")
      */
-    fun updatePlatformPresence(uid: String, appVersion: String)
+    fun updatePlatformPresence(authToken: String, appVersion: String)
 }
 
 /**

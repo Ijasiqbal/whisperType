@@ -113,6 +113,37 @@ public class ApiClient
         }
     }
 
+    public async Task UpdatePlatformPresenceAsync()
+    {
+        var token = _getToken != null ? await _getToken() : null;
+        if (token == null)
+            throw new InvalidOperationException("Not authenticated");
+
+        var baseUrl = BuildBaseUrl(_settings.Settings.Region);
+        var url = baseUrl + Constants.PlatformPresencePath;
+
+        var body = new
+        {
+            platform = "windows",
+            appVersion = Constants.AppVersion,
+            osVersion = Environment.OSVersion.ToString()
+        };
+
+        var json = JsonSerializer.Serialize(body);
+        var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode}: {error}");
+        }
+    }
+
     public async Task SubmitIssueAsync(
         string userId, string? userEmail, string category, string description)
     {

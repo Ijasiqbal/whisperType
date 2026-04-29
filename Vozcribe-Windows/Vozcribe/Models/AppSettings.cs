@@ -33,4 +33,7 @@ public class AppSettings
 
     [JsonPropertyName("hasCompletedOnboarding")]
     public bool HasCompletedOnboarding { get; set; }
+
+    [JsonPropertyName("lastSoftUpdateShownVersion")]
+    public string? LastSoftUpdateShownVersion { get; set; }
 }

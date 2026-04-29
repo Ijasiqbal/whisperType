@@ -58,6 +58,38 @@ public partial class App : Application
             ShowOnboarding();
         else
             StartApp();
+
+        // Soft-update nudge: show once per latestVersion. Skip if onboarding
+        // hasn't completed so we don't stack a modal on top of first-run UI.
+        if (SoftUpdateNudgePolicy.ShouldShow(
+                versionStatus,
+                _settings.Settings.HasCompletedOnboarding,
+                _settings.Settings.LastSoftUpdateShownVersion))
+        {
+            ShowSoftUpdateNudge(versionStatus);
+        }
+    }
+
+    private void ShowSoftUpdateNudge(VersionStatus status)
+    {
+        // Mark as shown immediately so a dismiss/quit before responding still counts.
+        _settings.Settings.LastSoftUpdateShownVersion = status.LatestVersion;
+        _settings.Save();
+
+        var msg = status.Message
+            ?? $"Version {status.LatestVersion} of Vozcribe is available.";
+        var downloadUrl = status.DownloadUrl ?? Constants.CheckForUpdateUrl;
+
+        var result = MessageBox.Show(
+            $"{msg}\n\nClick OK to download.",
+            "Update Available",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Information);
+
+        if (result == MessageBoxResult.OK)
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(downloadUrl)
+                { UseShellExecute = true });
     }
 
     private static void ShowVersionBlockedDialog(VersionStatus status)
@@ -135,6 +167,12 @@ public partial class App : Application
 
     private void StartApp()
     {
+        _ = Task.Run(async () =>
+        {
+            try { await _api.UpdatePlatformPresenceAsync(); }
+            catch { }
+        });
+
         _hotkey.HotkeyTriggered += () =>
             Dispatcher.Invoke(() => _orchestrator.ToggleRecording());
         _hotkey.ModelNextTriggered += () =>

@@ -23,6 +23,7 @@ export interface ProSubscription {
 export interface PlatformPresence {
   lastSeen: number;
   appVersion: string;
+  osVersion: string;
 }
 
 export interface UserDetail {

@@ -53,7 +53,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import com.whispertype.app.ui.theme.*
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -72,6 +71,7 @@ import com.whispertype.app.ui.ProfileScreen
 import com.whispertype.app.ui.PlanScreen
 import com.whispertype.app.ui.SuspendedScreen
 import com.whispertype.app.ui.ReportIssueBottomSheet
+import com.whispertype.app.ui.ActivationShortcutCard
 import com.whispertype.app.data.UsageDataManager
 import com.whispertype.app.config.RemoteConfigManager
 import com.whispertype.app.billing.BillingManagerFactory
@@ -869,146 +869,9 @@ fun MainScreen(
         }
         
         Spacer(modifier = Modifier.height(16.dp))
-        
-        // Shortcut setup
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = WarmWhite),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                Text(
-                    text = "Activation Shortcut",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Slate800
-                )
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Choose how to activate Vozcribe:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Slate500
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Shortcut mode selector
-                var selectedMode by remember { 
-                    mutableStateOf(ShortcutPreferences.getShortcutMode(context)) 
-                }
-                var expanded by remember { mutableStateOf(false) }
-                
-                Box {
-                    OutlinedButton(
-                        onClick = { expanded = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Slate800
-                        )
-                    ) {
-                        Text(
-                            text = selectedMode.displayName,
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Start
-                        )
-                        Text("▼")
-                    }
-                    
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                        modifier = Modifier.fillMaxWidth(0.9f)
-                    ) {
-                        ShortcutPreferences.ShortcutMode.values().forEach { mode ->
-                            DropdownMenuItem(
-                                text = { Text(mode.displayName) },
-                                onClick = {
-                                    selectedMode = mode
-                                    ShortcutPreferences.setShortcutMode(context, mode)
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = when (selectedMode) {
-                        ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_UP ->
-                            "Press volume up twice quickly"
-                        ShortcutPreferences.ShortcutMode.DOUBLE_VOLUME_DOWN ->
-                            "Press volume down twice quickly"
-                        ShortcutPreferences.ShortcutMode.BOTH_VOLUME_BUTTONS ->
-                            "Press both volume buttons together"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Slate400
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Divider(color = Slate200)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Auto-show mic icon toggle
-                var autoShowIconEnabled by remember {
-                    mutableStateOf(ShortcutPreferences.isAutoShowIconEnabled(context))
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Show mic on text field focus",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = Slate800
-                        )
-                        Text(
-                            text = "A small mic icon appears when you tap a text field. Tap it to start dictation.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Slate500
-                        )
-                    }
-                    Switch(
-                        checked = autoShowIconEnabled,
-                        onCheckedChange = { newValue ->
-                            autoShowIconEnabled = newValue
-                            ShortcutPreferences.setAutoShowIconEnabled(context, newValue)
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Rust,
-                            checkedTrackColor = IndigoLight
-                        )
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Test overlay button
-        Button(
-            onClick = onTestOverlay,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Emerald
-            )
-        ) {
-            Text("Test Overlay", style = MaterialTheme.typography.labelLarge)
-        }
+        // Activation Shortcut — redesigned card with hero diagram
+        ActivationShortcutCard(onTestOverlay = onTestOverlay)
         
         // Accessibility Disclosure Dialog (Google Play compliance)
         if (showAccessibilityDisclosureDialog) {

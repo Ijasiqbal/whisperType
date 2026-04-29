@@ -581,6 +581,16 @@ class OverlayService : Service() {
             ShortcutPreferences.setAutoSendEnabled(this, false)
         }
 
+        // After the overlay closes, focus typically returns to the previously
+        // focused text field without firing a new TYPE_VIEW_FOCUSED event.
+        // Ask the accessibility service to re-check focus and re-show the
+        // floating mic icon if an editable field is still focused.
+        try {
+            WhisperTypeAccessibilityService.instance?.reevaluateFocusForIcon()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error re-evaluating focus for mic icon", e)
+        }
+
         // Stop the service when overlay is hidden
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)

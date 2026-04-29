@@ -18,6 +18,8 @@ final class HotkeyManager: ObservableObject {
     var onModelCycleForward: (() -> Void)?
     /// Called when Shift+Down is pressed to cycle model backward
     var onModelCycleBackward: (() -> Void)?
+    /// Called when Escape is pressed (to dismiss overlay or cancel recording)
+    var onEscapePressed: (() -> Void)?
 
     fileprivate var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -174,6 +176,15 @@ final class HotkeyManager: ObservableObject {
     }
 
     fileprivate func handleKeyDown(_ keyCode: UInt16, flags: CGEventFlags) {
+        // Escape (keycode 0x35) — dismiss overlay / cancel recording
+        if keyCode == 0x35 {
+            let bareModifiers = flags.intersection(allMonitoredFlags)
+            if bareModifiers.isEmpty {
+                onEscapePressed?()
+                return
+            }
+        }
+
         // Shift+Up/Down for model cycling
         let isShiftOnly = flags.contains(.maskShift)
             && !flags.contains(.maskCommand)

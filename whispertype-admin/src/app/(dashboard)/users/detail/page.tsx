@@ -374,6 +374,11 @@ function UserDetailContent({ uid }: { uid: string | null }) {
                     <p className="text-sm text-muted-foreground">
                       v{info.appVersion}
                     </p>
+                    {info.osVersion && (
+                      <p className="text-xs text-muted-foreground">
+                        {info.osVersion}
+                      </p>
+                    )}
                     {info.lastSeen > 0 && (
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Last seen{" "}

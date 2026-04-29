@@ -146,6 +146,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Firebase is configured in VozcribeApp.init()
 
+        // Check version status before any other setup. If this build is
+        // blocked, show a dialog and quit. Mirrors the Windows flow.
+        Task { @MainActor in
+            let result = await VoxTypeAPIClient.shared.checkVersion()
+            if case .blocked = result.status {
+                showVersionBlockedDialog(result)
+                NSApp.terminate(nil)
+                return
+            }
+            continueLaunch()
+
+            let hasCompletedOnboarding = UserDefaults.standard
+                .bool(forKey: Constants.hasCompletedOnboardingKey)
+            let lastShown = UserDefaults.standard
+                .string(forKey: Constants.lastSoftUpdateShownVersionKey)
+
+            if SoftUpdateNudgePolicy.shouldShow(
+                result: result,
+                hasCompletedOnboarding: hasCompletedOnboarding,
+                lastShownVersion: lastShown
+            ) {
+                showSoftUpdateNudge(result)
+            }
+        }
+    }
+
+    @MainActor
+    private func showSoftUpdateNudge(_ result: VoxTypeAPIClient.VersionCheckResult) {
+        guard let latestVersion = result.latestVersion else { return }
+
+        // Mark as shown immediately so a dismiss/quit before responding still counts.
+        UserDefaults.standard.set(latestVersion, forKey: Constants.lastSoftUpdateShownVersionKey)
+
+        let alert = NSAlert()
+        alert.messageText = "Update Available"
+        alert.informativeText = result.message
+            ?? "Version \(latestVersion) of Vozcribe is available."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Update Now")
+        alert.addButton(withTitle: "Later")
+
+        NSApp.activate(ignoringOtherApps: true)
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let urlString = result.downloadUrl ?? "https://vozcribe.com/mac"
+            if let url = URL(string: urlString) {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    }
+
+    private func continueLaunch() {
         // Check if onboarding is needed
         let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: Constants.hasCompletedOnboardingKey)
         debugLog("[Vozcribe] App launched - hasCompletedOnboarding: \(hasCompletedOnboarding)")
@@ -175,6 +228,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         debugLog("[Vozcribe] App launched")
+    }
+
+    @MainActor
+    private func showVersionBlockedDialog(_ result: VoxTypeAPIClient.VersionCheckResult) {
+        let alert = NSAlert()
+        alert.messageText = "Update Required"
+        alert.informativeText = result.message
+            ?? "This version of Vozcribe is no longer supported. Please download the latest version to continue."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Download Update")
+        alert.addButton(withTitle: "Quit")
+
+        // Bring the app forward so the alert isn't hidden behind other windows.
+        NSApp.activate(ignoringOtherApps: true)
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let urlString = result.downloadUrl ?? "https://vozcribe.com/mac"
+            if let url = URL(string: urlString) {
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
 
     private func showOnboardingWindow() {
@@ -294,6 +369,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 next.saveAsSelected()
                 ModelSwitchOverlayController.shared.show(model: next)
                 debugLog("[Vozcribe] Model switched to \(next.shortName)")
+            }
+        }
+
+        hotkeyManager.onEscapePressed = { [weak self] in
+            DispatchQueue.main.async {
+                let state = TranscriptionService.shared.state
+                debugLog("[VOXDEBUG] onEscapePressed: state=\(state)")
+                switch state {
+                case .recording:
+                    TranscriptionService.shared.cancelRecording()
+                    self?.hotkeyManager.isRecording = false
+                case .idle:
+                    break
+                default:
+                    TranscriptionService.shared.dismiss()
+                    self?.hotkeyManager.isRecording = false
+                }
             }
         }
 

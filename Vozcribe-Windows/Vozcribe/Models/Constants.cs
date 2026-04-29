@@ -26,6 +26,7 @@ public static class Constants
     // Endpoints
     public const string TrialStatusPath = "/getTrialStatus";
     public const string SubscriptionStatusPath = "/getSubscriptionStatus";
+    public const string PlatformPresencePath = "/updatePlatformPresence";
     public const string HealthPath = "/health";
     public const string VersionCheckPath = "/checkWindowsVersion";
 

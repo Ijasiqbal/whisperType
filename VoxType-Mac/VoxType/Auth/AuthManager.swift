@@ -52,7 +52,7 @@ final class AuthManager: NSObject, ObservableObject {
             debugLog("[Auth] configure() — SDK user: \(user.email ?? "none")")
             // Update lastSeen on every app launch for existing SDK sessions
             user.getIDToken { [weak self] token, _ in
-                if let token { self?.updatePlatformPresence(uid: user.uid, token: token) }
+                if let token { self?.updatePlatformPresence(token: token) }
             }
         } else {
             let defaults = UserDefaults.standard
@@ -65,7 +65,7 @@ final class AuthManager: NSObject, ObservableObject {
                 // Update lastSeen on every app launch for existing REST sessions
                 Task { [weak self] in
                     if let token = try? await self?.getIDToken() {
-                        self?.updatePlatformPresence(uid: uid, token: token)
+                        self?.updatePlatformPresence(token: token)
                     }
                 }
             } else {
@@ -289,7 +289,7 @@ final class AuthManager: NSObject, ObservableObject {
                 if let user = result?.user {
                     user.getIDToken { token, _ in
                         if let token {
-                            self?.updatePlatformPresence(uid: user.uid, token: token)
+                            self?.updatePlatformPresence(token: token)
                         }
                     }
                 }
@@ -352,7 +352,7 @@ final class AuthManager: NSObject, ObservableObject {
             defaults.set(uid, forKey: Constants.restUserUID)
 
             debugLog("[Auth] REST sign-in succeeded: \(email ?? "no email"), uid=\(uid)")
-            self?.updatePlatformPresence(uid: uid, token: firebaseIDToken)
+            self?.updatePlatformPresence(token: firebaseIDToken)
 
             DispatchQueue.main.async {
                 self?.isSignedIn = true
@@ -431,45 +431,32 @@ final class AuthManager: NSObject, ObservableObject {
 
     // MARK: - Platform Presence
 
-    /// Records that this user is active on macOS in Firestore.
-    /// Uses the REST API (no Firestore SDK dependency required).
-    private static let isoFormatter = ISO8601DateFormatter()
-
-    private func updatePlatformPresence(uid: String, token: String) {
+    /// Records that this user is active on macOS through the backend.
+    private func updatePlatformPresence(token: String) {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
-        let projectID = Constants.firebaseProjectID
-        let urlString = "https://firestore.googleapis.com/v1/projects/\(projectID)/databases/(default)/documents/users/\(uid)?updateMask.fieldPaths=platforms.mac"
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        let region = RegionSelector.bestRegion()
+        let urlString = Constants.baseURL(for: region) + Constants.platformPresencePath
         guard let url = URL(string: urlString) else { return }
 
         var request = URLRequest(url: url)
-        request.httpMethod = "PATCH"
+        request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let now = Self.isoFormatter.string(from: Date())
         let body: [String: Any] = [
-            "fields": [
-                "platforms": [
-                    "mapValue": [
-                        "fields": [
-                            "mac": [
-                                "mapValue": [
-                                    "fields": [
-                                        "lastSeen": ["timestampValue": now],
-                                        "appVersion": ["stringValue": appVersion]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            ]
+            "platform": "mac",
+            "appVersion": appVersion,
+            "osVersion": osVersion
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { _, _, error in
+        URLSession.shared.dataTask(with: request) { _, response, error in
             if let error {
                 debugLog("[Auth] Platform presence update failed: \(error.localizedDescription)")
+            } else if let httpResponse = response as? HTTPURLResponse,
+                      !(200...299).contains(httpResponse.statusCode) {
+                debugLog("[Auth] Platform presence update failed: HTTP \(httpResponse.statusCode)")
             } else {
                 debugLog("[Auth] Platform presence updated (mac \(appVersion))")
             }

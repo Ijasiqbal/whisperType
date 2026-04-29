@@ -53,4 +53,20 @@ public class SettingsServiceTests : IDisposable
         var filePath = Path.Combine(_tempDir, Constants.SettingsFileName);
         Assert.True(File.Exists(filePath));
     }
+
+    [Fact]
+    public void LastSoftUpdateShownVersion_DefaultsToNull()
+    {
+        Assert.Null(_service.Settings.LastSoftUpdateShownVersion);
+    }
+
+    [Fact]
+    public void LastSoftUpdateShownVersion_RoundTrips()
+    {
+        _service.Settings.LastSoftUpdateShownVersion = "1.3.0";
+        _service.Save();
+
+        var service2 = new SettingsService(_tempDir);
+        Assert.Equal("1.3.0", service2.Settings.LastSoftUpdateShownVersion);
+    }
 }
