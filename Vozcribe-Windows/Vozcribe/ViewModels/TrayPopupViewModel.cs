@@ -84,8 +84,18 @@ public class TrayPopupViewModel : ViewModelBase
         try
         {
             var status = await _api.GetTrialStatusAsync();
-            CreditsRemaining = status.FreeCreditsRemaining;
-            CreditsLimit = status.FreeTierCredits > 0 ? status.FreeTierCredits : Constants.DefaultFreeCredits;
+            if (status.UserPlan == UserPlan.Pro)
+            {
+                CreditsRemaining = status.ProCreditsRemaining;
+                CreditsLimit = status.ProCreditsLimit > 0 ? status.ProCreditsLimit : Constants.DefaultFreeCredits;
+                PlanDisplay = "Pro";
+            }
+            else
+            {
+                CreditsRemaining = status.FreeCreditsRemaining;
+                CreditsLimit = status.FreeTierCredits > 0 ? status.FreeTierCredits : Constants.DefaultFreeCredits;
+                PlanDisplay = "Free Trial";
+            }
             OnPropertyChanged(nameof(CreditsDisplay));
             OnPropertyChanged(nameof(CreditsProgress));
         }

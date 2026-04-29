@@ -98,7 +98,7 @@ public partial class App : Application
             ?? "This version of Vozcribe is no longer supported.";
         var downloadUrl = status.DownloadUrl ?? Constants.CheckForUpdateUrl;
 
-        var result = MessageBox.Show(
+        var result = ShowOwnedMessageBox(
             $"{message}\n\nClick OK to open the download page.",
             "Update Required",
             MessageBoxButton.OKCancel,
@@ -173,6 +173,11 @@ public partial class App : Application
             catch { }
         });
 
+        _hotkey.ChangeHotkey(HotkeyOption.FromSettings(
+            _settings.Settings.HotkeyId,
+            _settings.Settings.CustomHotkeyModifiers,
+            _settings.Settings.CustomHotkeyKey));
+
         _hotkey.HotkeyTriggered += () =>
             Dispatcher.Invoke(() => _orchestrator.ToggleRecording());
         _hotkey.ModelNextTriggered += () =>
@@ -191,7 +196,7 @@ public partial class App : Application
         _trayPopup = new TrayPopup { DataContext = trayVm };
         _trayPopup.SettingsRequested += ShowSettings;
         _trayPopup.ReportIssueRequested += ShowReportIssue;
-        _trayPopup.CheckForUpdateRequested += () => _ = CheckForUpdateAsync();
+        _trayPopup.CheckForUpdateRequested += () => _ = SafeCheckForUpdateAsync();
         _trayPopup.QuitRequested += () => Shutdown();
 
         var iconUri = new Uri(
@@ -222,35 +227,106 @@ public partial class App : Application
         window.ShowDialog();
     }
 
+    private async Task SafeCheckForUpdateAsync()
+    {
+        try
+        {
+            await CheckForUpdateAsync();
+        }
+        catch (Exception ex)
+        {
+            await Dispatcher.InvokeAsync(() => ShowOwnedMessageBox(
+                $"Update check failed:\n{ex.Message}",
+                "Vozcribe",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning));
+        }
+    }
+
     private async Task CheckForUpdateAsync()
     {
         var status = await _api.CheckVersionAsync();
+        await Dispatcher.InvokeAsync(() =>
+        {
+            if (status.IsUpdateAvailable)
+            {
+                var msg = status.Message
+                    ?? $"Version {status.LatestVersion} is available.";
+                var downloadUrl = status.DownloadUrl
+                    ?? Constants.CheckForUpdateUrl;
+                var result = ShowOwnedMessageBox(
+                    $"{msg}\n\nClick OK to download.",
+                    "Update Available",
+                    MessageBoxButton.OKCancel,
+                    MessageBoxImage.Information);
+                if (result == MessageBoxResult.OK)
+                {
+                    try
+                    {
+                        System.Diagnostics.Process.Start(
+                            new System.Diagnostics.ProcessStartInfo(downloadUrl)
+                            { UseShellExecute = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        ShowOwnedMessageBox(
+                            $"Couldn't open the download page:\n{ex.Message}",
+                            "Vozcribe",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                    }
+                }
+            }
+            else if (status.IsBlocked)
+            {
+                ShowVersionBlockedDialog(status);
+            }
+            else
+            {
+                ShowOwnedMessageBox(
+                    $"You're up to date! (v{Constants.AppVersion})",
+                    "Vozcribe",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        });
+    }
 
-        if (status.IsUpdateAvailable)
+    /// <summary>
+    /// Shows a MessageBox with a transient invisible owner window so the
+    /// dialog has a stable top-level parent. Without this, dialogs invoked
+    /// from the tray popup can be torn down (or hidden behind other
+    /// windows) the moment the popup loses focus and closes — making the
+    /// dialog flash on screen and disappear before the user can read it.
+    /// </summary>
+    private static MessageBoxResult ShowOwnedMessageBox(
+        string message,
+        string title,
+        MessageBoxButton buttons,
+        MessageBoxImage image)
+    {
+        var owner = new Window
         {
-            var msg = status.Message ?? $"Version {status.LatestVersion} is available.";
-            var downloadUrl = status.DownloadUrl ?? Constants.CheckForUpdateUrl;
-            var result = MessageBox.Show(
-                $"{msg}\n\nClick OK to download.",
-                "Update Available",
-                MessageBoxButton.OKCancel,
-                MessageBoxImage.Information);
-            if (result == MessageBoxResult.OK)
-                System.Diagnostics.Process.Start(
-                    new System.Diagnostics.ProcessStartInfo(downloadUrl)
-                    { UseShellExecute = true });
+            Width = 1,
+            Height = 1,
+            WindowStyle = WindowStyle.None,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Opacity = 0,
+            Topmost = true,
+            Left = -32000,
+            Top = -32000,
+            AllowsTransparency = true,
+            Background = System.Windows.Media.Brushes.Transparent
+        };
+        try
+        {
+            owner.Show();
+            return MessageBox.Show(owner, message, title, buttons, image);
         }
-        else if (status.IsBlocked)
+        finally
         {
-            ShowVersionBlockedDialog(status);
-        }
-        else
-        {
-            MessageBox.Show(
-                $"You're up to date! (v{Constants.AppVersion})",
-                "Vozcribe",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            owner.Close();
         }
     }
 

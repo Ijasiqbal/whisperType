@@ -92,7 +92,7 @@
       <span>Audio is sent over HTTPS and never stored on disk. Uninstall anytime via <strong>Settings → Apps</strong>.</span>
     </div>
 
-    <a href="#" class="ss-modal-dl-btn" id="ssDownloadBtn" download>
+    <a href="#" class="ss-modal-dl-btn" id="ssDownloadBtn" target="_blank" rel="noopener">
       <i data-lucide="download" aria-hidden="true"></i>
       Got it — Download Vozcribe
       <i data-lucide="arrow-right" aria-hidden="true"></i>
@@ -185,7 +185,7 @@
           <div class="mac-step-num">2</div>
           <div>
             <h4>Sign in &amp; pick a hotkey</h4>
-            <p>Default is <kbd>Ctrl</kbd> + <kbd>`</kbd> (backtick). Change it any time from settings.</p>
+            <p>Default is <kbd>Ctrl</kbd> + <kbd>Shift</kbd>. Change it any time from settings.</p>
           </div>
         </div>
         <div class="mac-step">
@@ -247,8 +247,44 @@ window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.
 const backdrop = document.getElementById('ssBackdrop');
 const openBtn  = document.getElementById('openModalBtn');
 const closeBtn = document.getElementById('ssClose');
-// TODO: replace '#' with the actual hosted URL of VozcribeSetup.exe
-const DL_URL   = '#';
+
+// Fallback used until/if the backend fetch completes. Bumped only if the
+// backend becomes unreachable for an extended period.
+let LATEST_VERSION = '1.0.0';
+const ssBtn = document.getElementById('ssDownloadBtn');
+const winLabel = document.querySelector('.win-rec');
+
+const buildDlUrl = v =>
+  `https://github.com/Ijasiqbal/Vozcribe-release/releases/download/v${v}-windows/VozcribeSetup.exe`;
+
+let DL_URL = buildDlUrl(LATEST_VERSION);
+
+// Pull the latest Windows version from the same Cloud Function the desktop
+// app uses for its update check. Calling with version=0.0.0 forces the
+// "update_available" branch so the response always contains latestVersion.
+// (Assumes Firestore config/windowsApp.minVersion stays at 0.0.0 — if that
+// ever changes, the backend would need to always echo latestVersion.)
+async function refreshLatestVersion() {
+  const regions = ['us-central1', 'asia-south1', 'europe-west1'];
+  try {
+    const data = await Promise.any(
+      regions.map(region => {
+        const url = `https://${region}-whispertype-1de9f.cloudfunctions.net/checkWindowsVersion?version=0.0.0`;
+        return fetch(url, { cache: 'no-store' })
+          .then(res => { if (!res.ok) throw new Error(); return res.json(); })
+          .then(d => {
+            if (!d || typeof d.latestVersion !== 'string' || !d.latestVersion) throw new Error();
+            return d;
+          });
+      })
+    );
+    LATEST_VERSION = data.latestVersion;
+    DL_URL = buildDlUrl(LATEST_VERSION);
+    if (winLabel) winLabel.textContent = `Version ${LATEST_VERSION} · VozcribeSetup.exe · 64-bit`;
+    if (ssBtn) ssBtn.setAttribute('href', DL_URL);
+  } catch { /* all regions failed — keep fallback */ }
+}
+refreshLatestVersion();
 
 function openModal() {
   backdrop.classList.add('active');
@@ -265,10 +301,8 @@ closeBtn.addEventListener('click', closeModal);
 backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
-document.getElementById('ssDownloadBtn').addEventListener('click', (e) => {
-  if (DL_URL === '#') { e.preventDefault(); return; }
-  closeModal();
-});
+ssBtn.setAttribute('href', DL_URL);
+ssBtn.addEventListener('click', closeModal);
 </script>
 </body>
 </html>
