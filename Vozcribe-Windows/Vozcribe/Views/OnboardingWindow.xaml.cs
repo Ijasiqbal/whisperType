@@ -93,6 +93,14 @@ public partial class OnboardingWindow : Window
         SetActiveStep(4);
     }
 
+    private void Step4Scroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        var sv = (ScrollViewer)sender;
+        Step4ScrollFade.Visibility = sv.VerticalOffset >= sv.ScrollableHeight - 1
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
     private void TrayGotIt_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.CompleteOnboarding();

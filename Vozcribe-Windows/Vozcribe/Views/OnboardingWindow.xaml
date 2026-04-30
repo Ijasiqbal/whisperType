@@ -147,13 +147,20 @@
                         HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}"/>
             </StackPanel>
             <!-- Step 4: Find in tray -->
-            <ScrollViewer x:Name="Step4" VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed">
-                <StackPanel Margin="0,36,0,28">
+            <Grid x:Name="Step4" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+            <Grid Grid.Row="0">
+            <ScrollViewer x:Name="Step4Scroll" VerticalScrollBarVisibility="Hidden"
+                          HorizontalScrollBarVisibility="Disabled"
+                          ScrollChanged="Step4Scroll_ScrollChanged">
+                <StackPanel Margin="0,20,0,8">
 
-                    <TextBlock Style="{StaticResource EyebrowLabel}" Text="STEP FOUR" Margin="0,0,0,16"/>
+                    <TextBlock Style="{StaticResource EyebrowLabel}" Text="STEP FOUR" Margin="0,0,0,12"/>
 
-                    <TextBlock Style="{StaticResource DisplayHeading}" FontSize="34" LineHeight="38" Margin="0,0,0,6">
+                    <TextBlock Style="{StaticResource DisplayHeading}" FontSize="28" LineHeight="32" Margin="0,0,0,6">
                         <Run Text="One last thing —"/>
                         <LineBreak/>
                         <Run Text="I live down here in your " Foreground="{StaticResource InkMutedBrush}"/>
@@ -162,7 +169,7 @@
 
                     <TextBlock FontFamily="{StaticResource BodyFont}" FontSize="13"
                                Foreground="{StaticResource InkMutedBrush}"
-                               LineHeight="20" Margin="0,0,0,20" TextWrapping="Wrap">
+                               LineHeight="20" Margin="0,0,0,14" TextWrapping="Wrap">
                         <Run Text="When this window closes, Vozcribe runs quietly in the background. Find "/>
                         <Run Text="status, model, credits, and your hotkey"
                              Foreground="{StaticResource InkBrush}" FontWeight="SemiBold"/>
@@ -172,9 +179,9 @@
                     <TextBlock Style="{StaticResource EyebrowLabel}" Text="YOUR TASKBAR" Margin="0,0,0,8"/>
 
                     <!-- Stage: outer Grid holds clipped desktop + callout overlay -->
-                    <Grid Margin="0,0,0,14">
+                    <Grid Margin="0,0,0,10">
                         <!-- Clipped desktop mockup -->
-                        <Border Height="158" CornerRadius="8" ClipToBounds="True">
+                        <Border Height="128" CornerRadius="8" ClipToBounds="True">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0.1,0" EndPoint="0.9,1">
                                     <GradientStop Color="#FF1a2030" Offset="0"/>
@@ -409,20 +416,37 @@
                         </Border>
                     </Grid>
 
-                    <!-- Footer -->
-                    <DockPanel Margin="0,16,0,0" LastChildFill="False">
-                        <TextBlock DockPanel.Dock="Right" Text="04 / 04"
-                                   FontFamily="{StaticResource MonoFont}" FontSize="10"
-                                   Foreground="{StaticResource InkDimBrush}" VerticalAlignment="Center"/>
-                        <Button DockPanel.Dock="Left" Content="Got it — Start Using Vozcribe"
-                                Click="TrayGotIt_Click" Style="{StaticResource PrimaryButton}"/>
-                        <Button DockPanel.Dock="Left" Content="I'll find it myself"
-                                Click="TraySkip_Click" Style="{StaticResource GhostButton}"
-                                Foreground="{StaticResource InkMutedBrush}" Margin="12,0,0,0"/>
-                    </DockPanel>
-
                 </StackPanel>
             </ScrollViewer>
+
+            <!-- Scroll affordance: fades out when user reaches bottom -->
+            <Border x:Name="Step4ScrollFade" VerticalAlignment="Bottom" Height="52"
+                    IsHitTestVisible="False" CornerRadius="0,0,4,4">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#000B0B0F" Offset="0"/>
+                        <GradientStop Color="#F00B0B0F" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <TextBlock Text="&#8964;" FontSize="14" HorizontalAlignment="Center"
+                           VerticalAlignment="Bottom" Margin="0,0,0,6"
+                           Foreground="{StaticResource InkDimBrush}"
+                           FontFamily="{StaticResource MonoFont}"/>
+            </Border>
+            </Grid>
+
+                <!-- Footer — always visible, pinned to bottom -->
+                <DockPanel Grid.Row="1" Margin="0,10,0,20" LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Right" Text="04 / 04"
+                               FontFamily="{StaticResource MonoFont}" FontSize="10"
+                               Foreground="{StaticResource InkDimBrush}" VerticalAlignment="Center"/>
+                    <Button DockPanel.Dock="Left" Content="Got it — Start Using Vozcribe"
+                            Click="TrayGotIt_Click" Style="{StaticResource PrimaryButton}"/>
+                    <Button DockPanel.Dock="Left" Content="I'll find it myself"
+                            Click="TraySkip_Click" Style="{StaticResource GhostButton}"
+                            Foreground="{StaticResource InkMutedBrush}" Margin="12,0,0,0"/>
+                </DockPanel>
+            </Grid>
 
         </Grid>
     </Grid>
