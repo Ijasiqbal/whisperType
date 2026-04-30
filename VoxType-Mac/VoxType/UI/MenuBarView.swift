@@ -305,17 +305,14 @@ struct MenuBarView: View {
             .padding(.vertical, 2)
             .keyboardShortcut("q")
         }
-        .alert(item: $updateAlert) { alert in
-            if let url = alert.downloadUrl {
-                return Alert(
-                    title: Text(alert.title),
-                    message: Text(alert.message),
-                    primaryButton: .default(Text("Download"), action: { openURL(url) }),
-                    secondaryButton: .cancel()
-                )
-            } else {
-                return Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
-            }
+        .sheet(item: $updateAlert) { alert in
+            UpdateAvailableSheet(
+                title: alert.title,
+                message: alert.message,
+                downloadUrl: alert.downloadUrl,
+                onDismiss: { updateAlert = nil },
+                onOpenSite: { url in openURL(url) }
+            )
         }
     }
 
@@ -584,5 +581,221 @@ struct PendingEntryRow: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color.primary.opacity(0.04))
         )
+    }
+}
+
+// MARK: - Update Available Sheet
+
+struct UpdateAvailableSheet: View {
+
+    let title: String
+    let message: String
+    let downloadUrl: String?
+    let onDismiss: () -> Void
+    let onOpenSite: (String) -> Void
+
+    @State private var copied = false
+    @State private var pulse = false
+
+    private let command = "brew upgrade --cask vozcribe"
+
+    // Palette
+    private let bg = Color(red: 0.058, green: 0.058, blue: 0.066)
+    private let card = Color(red: 0.086, green: 0.086, blue: 0.094)
+    private let hairline = Color.white.opacity(0.08)
+    private let textPrimary = Color.white.opacity(0.94)
+    private let textMuted = Color.white.opacity(0.55)
+    private let textDim = Color.white.opacity(0.38)
+    private let accent = Color(red: 0.486, green: 0.890, blue: 0.545) // soft terminal green
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider().background(hairline)
+            content
+            Divider().background(hairline)
+            footer
+        }
+        .frame(width: 380)
+        .background(bg)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(hairline, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.5), radius: 30, y: 12)
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(accent)
+                .frame(width: 6, height: 6)
+                .shadow(color: accent.opacity(0.7), radius: 4)
+            Text("VOZCRIBE / UPDATE")
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .tracking(2)
+                .foregroundColor(textDim)
+            Spacer()
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(textDim)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: Content
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.system(.title2, design: .serif).weight(.medium))
+                    .foregroundColor(textPrimary)
+                Text(message)
+                    .font(.system(size: 12.5))
+                    .foregroundColor(textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(2)
+            }
+
+            terminalCard
+
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 10))
+                Text("Paste in Terminal to install the latest build.")
+                    .font(.system(size: 11))
+            }
+            .foregroundColor(textDim)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 22)
+    }
+
+    private var terminalCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Faux title bar
+            HStack(spacing: 6) {
+                Circle().fill(Color.white.opacity(0.18)).frame(width: 6, height: 6)
+                Circle().fill(Color.white.opacity(0.12)).frame(width: 6, height: 6)
+                Circle().fill(Color.white.opacity(0.08)).frame(width: 6, height: 6)
+                Spacer()
+                Text("zsh")
+                    .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                    .tracking(1)
+                    .foregroundColor(textDim)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.03))
+
+            // Command row
+            HStack(spacing: 10) {
+                Text("$")
+                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                    .foregroundColor(accent.opacity(0.85))
+                Text(command)
+                    .font(.system(size: 12.5, design: .monospaced))
+                    .foregroundColor(textPrimary)
+                Spacer(minLength: 8)
+                copyButton
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+        }
+        .background(card)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(pulse ? accent.opacity(0.45) : hairline, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var copyButton: some View {
+        Button(action: copyCommand) {
+            HStack(spacing: 5) {
+                Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 10, weight: .semibold))
+                Text(copied ? "Copied" : "Copy")
+                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                    .tracking(0.5)
+            }
+            .foregroundColor(copied ? accent : textPrimary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(copied ? accent.opacity(0.12) : Color.white.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .strokeBorder(copied ? accent.opacity(0.4) : Color.white.opacity(0.1), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: copied)
+    }
+
+    // MARK: Footer
+
+    private var footer: some View {
+        HStack(spacing: 12) {
+            if let url = downloadUrl {
+                Button(action: { onOpenSite(url) }) {
+                    HStack(spacing: 4) {
+                        Text("Open install page")
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .font(.system(size: 11.5))
+                    .foregroundColor(textMuted)
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+            Button(action: onDismiss) {
+                Text(copied ? "Done" : "Close")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 7)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(copied ? accent : Color.white.opacity(0.92))
+                    )
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.defaultAction)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: Actions
+
+    private func copyCommand() {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(command, forType: .string)
+
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            copied = true
+            pulse = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation(.easeOut(duration: 0.6)) { pulse = false }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.easeOut(duration: 0.3)) { copied = false }
+        }
     }
 }

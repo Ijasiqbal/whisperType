@@ -179,23 +179,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Mark as shown immediately so a dismiss/quit before responding still counts.
         UserDefaults.standard.set(latestVersion, forKey: Constants.lastSoftUpdateShownVersionKey)
 
+        let baseMessage = result.message
+            ?? "Version \(latestVersion) of Vozcribe is available."
+        let urlString = result.downloadUrl ?? "https://vozcribe.com/mac"
+
         let alert = NSAlert()
         alert.messageText = "Update Available"
-        alert.informativeText = result.message
-            ?? "Version \(latestVersion) of Vozcribe is available."
+        alert.informativeText = """
+        \(baseMessage)
+
+        Run this in Terminal to update:
+            brew upgrade --cask vozcribe
+        """
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "Update Now")
+        alert.addButton(withTitle: "Copy Command")
+        alert.addButton(withTitle: "Open Site")
         alert.addButton(withTitle: "Later")
 
         NSApp.activate(ignoringOtherApps: true)
 
         let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            let urlString = result.downloadUrl ?? "https://vozcribe.com/mac"
-            if let url = URL(string: urlString) {
-                NSWorkspace.shared.open(url)
-            }
+        switch response {
+        case .alertFirstButtonReturn:
+            copyUpdateCommand()
+        case .alertSecondButtonReturn:
+            if let url = URL(string: urlString) { NSWorkspace.shared.open(url) }
+        default:
+            break
         }
+    }
+
+    private func copyUpdateCommand() {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString("brew upgrade --cask vozcribe", forType: .string)
     }
 
     private func continueLaunch() {
@@ -232,24 +249,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func showVersionBlockedDialog(_ result: VoxTypeAPIClient.VersionCheckResult) {
+        let baseMessage = result.message
+            ?? "This version of Vozcribe is no longer supported. Please update to continue."
+        let urlString = result.downloadUrl ?? "https://vozcribe.com/mac"
+
         let alert = NSAlert()
         alert.messageText = "Update Required"
-        alert.informativeText = result.message
-            ?? "This version of Vozcribe is no longer supported. Please download the latest version to continue."
+        alert.informativeText = """
+        \(baseMessage)
+
+        Run this in Terminal to update:
+            brew upgrade --cask vozcribe
+        """
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Download Update")
+        alert.addButton(withTitle: "Copy Command")
+        alert.addButton(withTitle: "Open Site")
         alert.addButton(withTitle: "Quit")
 
         // Bring the app forward so the alert isn't hidden behind other windows.
         NSApp.activate(ignoringOtherApps: true)
 
         let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            let urlString = result.downloadUrl ?? "https://vozcribe.com/mac"
-            if let url = URL(string: urlString) {
-                NSWorkspace.shared.open(url)
-            }
+        switch response {
+        case .alertFirstButtonReturn:
+            copyUpdateCommand()
+        case .alertSecondButtonReturn:
+            if let url = URL(string: urlString) { NSWorkspace.shared.open(url) }
+        default:
+            break
         }
+        // Blocked versions cannot continue past this point.
+        NSApp.terminate(nil)
     }
 
     private func showOnboardingWindow() {
