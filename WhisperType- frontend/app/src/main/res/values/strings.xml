@@ -19,7 +19,7 @@
     <string name="step_microphone">3. Grant Microphone Permission</string>
     <string name="step_microphone_desc">Allow voice recording for speech-to-text</string>
     <string name="step_shortcut">4. Set Up Accessibility Shortcut</string>
-    <string name="step_shortcut_desc">Long press volume buttons or use the accessibility button</string>
+    <string name="step_shortcut_desc">Double-press volume buttons or use the accessibility button</string>
     
     <string name="btn_enable_accessibility">Enable Accessibility Service</string>
     <string name="btn_grant_overlay">Grant Overlay Permission</string>

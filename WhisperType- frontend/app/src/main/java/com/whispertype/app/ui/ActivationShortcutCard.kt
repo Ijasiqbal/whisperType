@@ -896,8 +896,8 @@ private fun VolGlyph(kind: String, color: Color, size: Dp) {
 private fun StatusBanner(activeCount: Int) {
     val (icon, message) = when (activeCount) {
         0 -> Pair("⚠", "No method active — enable at least one to use Vozcribe.")
-        1 -> Pair("✓", "1 of 2 methods active. Enable both for the most flexibility.")
-        else -> Pair("✓", "Both methods active. Use whichever feels natural.")
+        1 -> Pair("✓", "1 of 2 methods active. Enabling both is recommended — if one doesn't work in an app, the other will.")
+        else -> Pair("✓", "Both methods active — recommended. If one doesn't work in an app, the other will.")
     }
 
     Row(
