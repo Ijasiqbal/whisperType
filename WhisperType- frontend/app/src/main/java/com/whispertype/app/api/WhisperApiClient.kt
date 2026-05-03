@@ -79,7 +79,7 @@ class WhisperApiClient {
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/getTrialStatus"
 
         private val PLATFORM_PRESENCE_URL: String
-            get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/updatePlatformPresence"
+            get() = "${String.format(BASE_URL_PATTERN, REGION_US)}/updatePlatformPresence"
 
         private val VERIFY_SUBSCRIPTION_URL: String
             get() = "${String.format(BASE_URL_PATTERN, getBestRegion())}/verifySubscription"

@@ -118,6 +118,7 @@ xcodebuild archive \
     -archivePath "$ARCHIVE_PATH" \
     $VERSION_ARGS \
     $SIGN_ARGS \
+    -allowProvisioningUpdates \
     -quiet
 
 if [ ! -d "$ARCHIVE_PATH" ]; then

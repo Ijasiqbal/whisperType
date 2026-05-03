@@ -435,8 +435,7 @@ final class AuthManager: NSObject, ObservableObject {
     private func updatePlatformPresence(token: String) {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
         let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
-        let region = RegionSelector.bestRegion()
-        let urlString = Constants.baseURL(for: region) + Constants.platformPresencePath
+        let urlString = Constants.baseURL(for: "us-central1") + Constants.platformPresencePath
         guard let url = URL(string: urlString) else { return }
 
         var request = URLRequest(url: url)

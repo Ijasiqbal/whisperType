@@ -119,7 +119,7 @@ public class ApiClient
         if (token == null)
             throw new InvalidOperationException("Not authenticated");
 
-        var baseUrl = BuildBaseUrl(_settings.Settings.Region);
+        var baseUrl = BuildBaseUrl("us-central1");
         var url = baseUrl + Constants.PlatformPresencePath;
 
         var body = new
