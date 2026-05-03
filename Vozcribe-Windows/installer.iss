@@ -1,6 +1,6 @@
 [Setup]
 AppName=Vozcribe
-AppVersion=1.0.2
+AppVersion=1.0.3
 AppPublisher=Vozcribe
 DefaultDirName={autopf}\Vozcribe
 DefaultGroupName=Vozcribe
